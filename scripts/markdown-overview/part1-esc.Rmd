@@ -1,9 +1,9 @@
 
 
-```{r, include=FALSE}
-#knitr::opts_chunk$set(echo=F, warning=F, message=F)
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=F, warning=F, message=F)
 
-#library(here)
+library(here)
 library(tidyverse)
 library(readxl)
 library(kableExtra)
@@ -17,8 +17,8 @@ source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/func
 
 
 # ====================== ENUMERATION data ====================== 
-nuseds_yrs <- getNuSEDS("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/json/nuseds_esc_query_SJ.json", password=NULL)%>%
-                  filter(!grepl("SOUTH THOMPSON", `Conservation Unit Name`), `Waterbody Name`=="SAN JUAN RIVER", Species=="Chinook") %>%
+nuseds_cn_yrs <- getNuSEDS(here("scripts", "json", "nuseds_esc_query_A20.json"), password=NULL)%>%
+                  filter(`Waterbody Name`=="SAN JUAN RIVER", Species=="Chinook") %>%
                   arrange(`Analysis Year`) %>%
                   pull(`Analysis Year`)
 
@@ -26,14 +26,20 @@ nuseds_yrs <- getNuSEDS("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_jua
 # Long-term time series (merge NuSEDS and Esc Index for complete time series) ----------------------- 
 sj.esc <- full_join(
   #here() won't work unfortunately --\/
-  getNuSEDS("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/json/nuseds_esc_query_SJ.json", password=NULL) %>%   
-    filter(!grepl("SOUTH THOMPSON", `Conservation Unit Name`), `Waterbody Name`=="SAN JUAN RIVER", Species=="Chinook") %>%   # Remove the Harris Creek from S Thompson/Bessette 
-    mutate(across(c(`Analysis Year`, `Max Estimate`:`Natural Adult Spawners`, `Other Adults Removals`:`Total Jack Return River`), as.numeric)) %>%
+  getNuSEDS(here("scripts", "json", "nuseds_esc_query_A20.json"), password=NULL) %>% 
+    # ---- Initial filter if want WCVI Area 20 systems only, but not needed if just pulling out San Juan: 
+    #filter(!grepl("GEORGIA STRAIT", `Conservation Unit Name`), 
+    #       `Waterbody Name` %notin% c("DE MAMIEL CREEK", "CHARTERS CREEK", "ROCKY CREEK", "AYUM CREEK", "SOOKE RIVER", "MAIDENHAIR CREEK", 
+    #                                  "MUIR CREEK", "FALLS CREEK", "UGLOW CREEK")) %>% 
+    filter(`Waterbody Name`=="SAN JUAN RIVER", Species=="Chinook") %>%   
+    mutate(across(c(`Analysis Year`, `Max Estimate`:`Natural Adult Spawners`, 
+                    `Other Adults Removals`:`Total Jack Return River`), as.numeric)) %>%
     mutate(`Total Adult Return River` = case_when(is.na(`Total Adult Return River`) ~ `Max Estimate`,
                                                   TRUE ~ `Total Adult Return River`),
            `Adult Broodstock Removals` = case_when(is.na(`Adult Broodstock Removals`) ~ `Total Broodstock Removals`,
                                                    TRUE ~ `Adult Broodstock Removals`)) %>% 
-    pivot_longer(cols=c("Max Estimate":"Unspecified Return", "Other Removals":"Natural Adult Spawners", "Other Adults Removals":"Total Jack Return River"), 
+    pivot_longer(cols=c("Max Estimate":"Unspecified Return", "Other Removals":"Natural Adult Spawners", 
+                        "Other Adults Removals":"Total Jack Return River"), 
                  names_to = "est_type", values_to = "estimate") %>% 
     rename(waterbody_name=`Waterbody Name`,
            analysis_year=`Analysis Year`) %>% 
@@ -41,7 +47,7 @@ sj.esc <- full_join(
   
   read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/NEW ESCAPEMENT INDEX.xls", sheet="EscData", skip=4) %>%
     select(-c(`...17`)) %>% 
-    filter(Year %notin% nuseds_yrs) %>%
+    filter(Year %notin% nuseds_cn_yrs) %>%
     mutate(across(c("Ck Escape":"Brd Rem Cm"), ~ifelse(. %in% c("AP", "NO", "t"), NA, as.numeric(.)))) %>%
     select(c(Area:`Brd Rem Ck`)) %>%
     pivot_longer(cols=c("Ck Escape","Brd Rem Ck"), names_to = "est_type", values_to="estimate") %>%
@@ -59,6 +65,10 @@ sj.esc <- full_join(
   print()
 
 
+# Habitat model benchmarks ----------------------- 
+RPs <- read.csv("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/data/escapement/wcviCK-BootstrappedRPs.csv") %>%
+  filter(Stock=="San Juan")
+
 
 # Timing -----------------------
 sj.cn.timing <- read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/run timing tables (updated).xlsx", sheet="San Juan", range="A4:W65") %>% 
@@ -72,10 +82,8 @@ sj.cn.timing$stat_week <- factor(sj.cn.timing$stat_week, levels=c("81","82","83"
                                                                   "111","112","113","114","115","121","122","123","124", ordered=T))
 
 
-
-
 # Hatchery releases for comparison -----------------------
-sj.releases.sep <- read_excel("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/data/escapement/SEP RELEASES_all-years-spp_2022-10-31.xlsx", sheet="Actual Release") %>%
+sj.releases.sep <- read_excel("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/data/enhancement-PNI/SEP RELEASES_all-years-spp_2022-10-31.xlsx", sheet="Actual Release") %>%
   filter(FACILITY_NAME=="San Juan River H", SPECIES_NAME=="Chinook") 
 
 
@@ -83,8 +91,13 @@ sj.releases.sep <- read_excel("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/d
 # ====================== AGE data ====================== 
 sj.FULL.age <- full_join(
   #sj.NuSEDS.age <- 
-    getNuSEDS("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/json/nuseds_padsCU_query_SJ.json", 
+    getNuSEDS("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/json/nuseds_padsCU_query_A20.json", 
                              password=NULL) %>%
+      # ---- Initial filter if want WCVI Area 20 systems only, but not needed if just pulling out San Juan: 
+      #filter(!grepl("GEORGIA STRAIT", `Conservation Unit Name`), 
+      #       `Waterbody Name` %notin% c("DE MAMIEL CREEK", "CHARTERS CREEK", "ROCKY CREEK", "AYUM CREEK", "SOOKE RIVER", "MAIDENHAIR CREEK", 
+      #                                  "MUIR CREEK", "FALLS CREEK", "UGLOW CREEK")) %>% 
+      filter(`Species Qualified`=="CK", `Waterbody Name`=="SAN JUAN RIVER") %>% 
       mutate(data_source = "NuSEDS") %>%
       rename(ScaleCondition = `Part Age Code`,
              FishEdge = `Edge Code`,
@@ -123,6 +136,13 @@ sj.FULL.age <- full_join(
                                         GrAge %in% c(60,61,62,63,64,65,66) ~ 6)) %>%
   filter(grepl("Chinook", Species)) %>%
   print()
+
+
+
+# ============================== BIODATA ==============================
+sj.biodata <- read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/SC_BioData_Management/2-Escapement/2015-2023_WCVI_Escapement-FSC_BioData.xlsx", sheet="Biodata 2015-2022", guess_max=20000)
+sj.fecund <- read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/SC_BioData_Management/2-Escapement/2015-2023_WCVI_Escapement-FSC_BioData.xlsx", sheet="SJFecundity", skip=1)
+sj.SR <- read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/SC_BioData_Management/2-Escapement/2015-2023_WCVI_Escapement-FSC_BioData.xlsx", sheet="SJsexRatio", skip=1)
 
 
 
@@ -171,50 +191,53 @@ sj_RY_avgs <- sj_age_summary %>%
 ## ---- add method field to sj.cn.timing file (get from nuseds - extract and join? ?)
 ```
 
-
 # **San Juan Chinook escapement: abundance and biodata** {#esc}
 
-Status snapshot: 
+Status snapshot:
 
-* Chinook enhancement began ~1975 
+-   Chinook enhancement began \~1975
 
-* Recent 10-yr average adult escapement (incl broodstock): `r sj.esc %>% filter(est_type=="Total Adult Return River") %>% arrange(desc(analysis_year)) %>% slice(1:10) %>% summarize(mean=round(mean(estimate,na.rm=T),0)) %>% pull(mean)`
+-   Recent 10-yr average adult escapement (incl broodstock): `r sj.esc %>% filter(est_type=="Total Adult Return River") %>% arrange(desc(analysis_year)) %>% slice(1:10) %>% summarize(mean=round(mean(estimate,na.rm=T),0)) %>% pull(mean)`
 
-  + Range: `r sj.esc %>% filter(est_type=="Total Adult Return River") %>% arrange(desc(analysis_year)) %>% slice(1:10) %>% summarize(min=min(estimate)) %>% pull(min)` - `r sj.esc %>% filter(est_type=="Total Adult Return River") %>% arrange(desc(analysis_year)) %>% slice(1:10) %>% summarize(max=max(estimate)) %>% pull(max)`
+    -   Range: `r sj.esc %>% filter(est_type=="Total Adult Return River") %>% arrange(desc(analysis_year)) %>% slice(1:10) %>% summarize(min=min(estimate)) %>% pull(min)` - `r sj.esc %>% filter(est_type=="Total Adult Return River") %>% arrange(desc(analysis_year)) %>% slice(1:10) %>% summarize(max=max(estimate)) %>% pull(max)`
 
-* Recent 4-yr avg adult escapement (incl broodstock): `r sj.esc %>% filter(est_type=="Total Adult Return River") %>% arrange(desc(analysis_year)) %>% slice(1:4) %>% summarize(mean=round(mean(estimate,na.rm=T),0)) %>% pull(mean)`
+-   Recent 4-yr avg adult escapement (incl broodstock): `r sj.esc %>% filter(est_type=="Total Adult Return River") %>% arrange(desc(analysis_year)) %>% slice(1:4) %>% summarize(mean=round(mean(estimate,na.rm=T),0)) %>% pull(mean)`
 
-  + Range: `r sj.esc %>% filter(est_type=="Total Adult Return River") %>% arrange(desc(analysis_year)) %>% slice(1:4) %>% summarize(min=min(estimate)) %>% pull(min)` - `r sj.esc %>% filter(est_type=="Total Adult Return River") %>% arrange(desc(analysis_year)) %>% slice(1:4) %>% summarize(max=max(estimate)) %>% pull(max)`
+    -   Range: `r sj.esc %>% filter(est_type=="Total Adult Return River") %>% arrange(desc(analysis_year)) %>% slice(1:4) %>% summarize(min=min(estimate)) %>% pull(min)` - `r sj.esc %>% filter(est_type=="Total Adult Return River") %>% arrange(desc(analysis_year)) %>% slice(1:4) %>% summarize(max=max(estimate)) %>% pull(max)`
 
-* Long-term dominant age structure (1990-present): `r as.list(sj_LT_avgs[1,1])` (~`r as.list(sj_LT_avgs[1,2])`%),  `r as.list(sj_LT_avgs[2,1])` (~`r as.list(sj_LT_avgs[2,2])`%) year olds
+-   Long-term dominant age structure (1990-present): `r as.list(sj_LT_avgs[1,1])` (\~`r as.list(sj_LT_avgs[1,2])`%), `r as.list(sj_LT_avgs[2,1])` (\~`r as.list(sj_LT_avgs[2,2])`%) year olds
 
-* Recent (10yr) dominant age structure: `r as.list(sj_RY_avgs[1,1])` (~`r as.list(sj_RY_avgs[1,2])`%),  `r as.list(sj_RY_avgs[2,1])` (~`r as.list(sj_RY_avgs[2,2])`%) year olds
+-   Recent (10yr) dominant age structure: `r as.list(sj_RY_avgs[1,1])` (\~`r as.list(sj_RY_avgs[1,2])`%), `r as.list(sj_RY_avgs[2,1])` (\~`r as.list(sj_RY_avgs[2,2])`%) year olds
 
-* Hatchery vs wild: uncertain due to historical marking/tagging process. Mostly unclipped with no thermal mark (but historical TM process highly unreliable)
-
+-   Hatchery vs wild: uncertain due to historical marking/tagging process. Mostly unclipped with no thermal mark (but historical TM process highly unreliable)
 
 <br>
 
-## **Escapement and run timing** {#abundance}
+## **Escapement**
 
-San Juan Chinook escapement has varied over time. From its peak at 7500 in 1970 it declined to less than 500 fish between 1975-1978, but has since returned to escapements that tend to oscillate around 2000-4000 fish (see Figure \@ref(fig:sj-esc-fig)). While broodstock collections are only documented in NuSEDS from 1995 onward, releases began in the 70's; see Enhancement Activity information (section \@ref(enhancement)) below. 
+San Juan Chinook escapement has varied over time. From its peak at 7500 in 1970 it declined to less than 500 fish between 1975-1978, but has since returned to escapements that tend to oscillate around 2000-4000 fish (see Figure \@ref(fig:sj-esc-fig)). While broodstock collections are only documented in NuSEDS from 1995 onward, releases began in the 70's.
 
-```{r sj-esc-fig, fig.cap='Spawners and broodstock removals for San Juan Chinook, specific adults only where known. Vertical dashed lines indicate periods of enhancement. Long-term averages (solid gray line) are calculated across the whole time series since enhancement began. Recent averages (black line) are calculated from the most recent 4 years of complete data. Data from NuSEDS, excluding tributaries. Red outlined bars (if any) indicate escapement estimates not in NuSEDS.'}
-# FIGURE: All species ----------------------- 
+```{r sj-esc-fig, fig.cap='Spawners and broodstock removals for San Juan Chinook, specific adults only where known. Vertical dashed gray line(s) indicate periods of enhancement. Horizontal dashed black line indicates habitat-model based Smsy estimate. Data from NuSEDS, excluding tributaries. Red outlined bars (if any) indicate escapement estimates not in NuSEDS.'}
+
+# CHINOOK ESCAPEMENT FIGURE ----------------------- 
+
 ggplot() +
   # Enhancement start vertical line:
   geom_vline(data=sj.releases.sep%>%group_by(SPECIES_NAME)%>%summarize(start=min(BROOD_YEAR))%>%rename(Species=SPECIES_NAME)%>%
                mutate(n=7000),
              aes(xintercept=start), colour="gray60", linetype="dashed", size=0.5) +
+  
   # Escapement goal and average escapements: 
-  geom_hline(data=data.frame(Species="Chinook", Smsy=2200, Sgen=990, Srep=5200), aes(yintercept=Smsy), size=1, linetype="dashed") +
+  geom_hline(data=RPs%>%filter(RP=="SMSY"), aes(yintercept=Value), size=1, linetype="dashed") +
   geom_hline(data=sj.esc %>% filter(analysis_year>=(max(analysis_year-10)), est_type=="Natural Adult Spawners") %>% 
                summarize(mean=round(mean(n,na.rm=T),0)),
              aes(yintercept=mean), size=1, linetype="solid", colour="black") +
+  
   # Plot NuSEDS escapement data:
   geom_bar(data=sj.esc %>% filter(source=="NuSEDS", est_type %in% c("Unspecified Return", "Natural Adult Spawners", "Adult Broodstock Removals"),
                                   !is.na(estimate)),
            aes(x=analysis_year, y=as.numeric(estimate), fill=est_type, colour=est_type), stat="identity", alpha=0.8, width=0.9, size=0.3) +
+  
   # Add in any prelim estimates from NEW ESCAPEMENT INDEX (depends on time of year):
   geom_bar(data=sj.esc%>%filter(est_type%in%c("Natural Adult Spawners", "Adult Broodstock Removals"), source=="New Esc Index"), 
            aes(x=analysis_year, y=estimate, fill=est_type, colour=est_type), stat="identity", alpha=0.7, width=0.9, size=0.5) +
@@ -247,6 +270,157 @@ ggplot() +
   guides(colour = guide_legend(override.aes=list(colour=NA))) 
 ```
 
+<br>
 
+### **Escapement goals** {#esc-goals}
 
+The current escapement goals developed by Holt et al. based on a habitat model (Parken et al 2008) are:
 
+-   Smsy: `r RPs %>% filter(RP=="SMSY") %>% pull(Value)` (`r RPs %>% filter(RP=="SMSY") %>% pull(lwr)`-`r RPs %>% filter(RP=="SMSY") %>% pull(upr)`) - The escapement required to produce maximum sustainable yield
+
+-   Sgen: `r RPs %>% filter(RP=="SGEN") %>% pull(Value)` (`r RPs %>% filter(RP=="SGEN") %>% pull(lwr)`-`r RPs %>% filter(RP=="SGEN") %>% pull(upr)`) - The escapement required to recover to Smsy in 1 generation
+
+-   Srep: `r RPs %>% filter(RP=="SREP") %>% pull(Value)` (`r RPs %>% filter(RP=="SREP") %>% pull(lwr)`-`r RPs %>% filter(RP=="SREP") %>% pull(upr)`) - System capacity
+
+-   Fish Stock Provisions Rebuilding goal = `r RPs %>% filter(RP=="SGEN") %>% pull(Value)*1.5`
+
+-   Pacheedaht Rebuilding Goal: 5,000
+
+<br>
+
+<br>
+
+## **Run timing** {#timing}
+
+Most chinook are observed in the San Juan between the third week of September (statweek 93) and the second week of October (statweek 102) (Figure \@ref(fig:sj-timing)). Most counts come from a combination of the fence (which is usually in until first or second week of October) and swim surveys (often later, but not always). The years that are swim survey only are .
+
+```{r sj-timing, fig.cap='Chinook counts through the fence and/or swim surveys in the San Juan River from 1995-2021 inclusive. Counts are more representative of arrival rather than peak spawning (no documentation of behaviour accompanies counts). Stock Assessment data.'}
+ggplot(sj.cn.timing %>% mutate(year_group=case_when(year<2000~"pre 2000",
+                                                    year%in%c(2000:2010) ~ "2000-2010",
+                                                    year>2010~"post-2010"),
+                               year_group = factor(year_group, levels=c("pre 2000", "2000-2010", "post-2010",ordered=T))), 
+       aes(x=stat_week, y=count, group=year, fill=year_group, colour=year_group)) +
+  geom_bar(stat="identity", alpha=0.7) +
+  labs(x="Stat week", y="Count") +
+  theme_bw() +
+  theme(axis.text = element_text(colour="black"),
+        axis.title = element_text(face="bold"),
+        legend.title = element_blank())
+```
+
+<br>
+
+## **Upcoming return** {#forecast}
+
+The `r lubridate::year(Sys.Date())` return will be composed of offspring from the following brood years:
+
+```{r by-table}
+sj.esc %>% 
+  filter(analysis_year %in% c(lubridate::year(Sys.Date())-3, lubridate::year(Sys.Date())-4, lubridate::year(Sys.Date())-5), est_type%in%c("Natural Adult Spawners", "Adult Broodstock Removals")) %>%
+  group_by(analysis_year)%>%
+  summarize(`Escapement (spawners+broodstock)`=sum(estimate,na.rm=T)) %>%
+  mutate(across(c(`Escapement (spawners+broodstock)`), ~ format(.x, big.mark = ","))) %>% 
+  rename(`Return year` = analysis_year) %>%
+  kbl(align="c", caption="BY escapements (spawners+broodstock) contributing to the 2023 return. Data from NuSEDS.") %>%
+  kable_paper("hover", full_width=T, position = "center") 
+```
+
+The 2023 Nitinat Chinook forecast is for 26,000 (18,000-34,000; 67% age-4). 
+
+<br>
+
+<br>
+
+## **Age structure** {#escAge}
+
+The adult age structure is primarily 4 and 5 year olds. Jacks and 6 year olds contribute almost nothing to the population, especially in recent years (see Table \@ref(tab:age-tab) and Figure \@ref(fig:age-fig)). Biosample data are only obtained from hatchery broodstock; no deadpitch currently occurs on the naturally-spawning population 
+
+<br>
+
+```{r age-tab, echo=F, warning=F, message=F}
+# TABLE: Overall age structure -----------------------
+sj.FULL.age %>% 
+  filter(!is.na(`(R) RESOLVED AGE`)) %>%
+  group_by(RecoveryYear, `(R) RESOLVED AGE`) %>% 
+  summarize(n=n()) %>% 
+  group_by(RecoveryYear) %>% 
+  mutate(propn=n/sum(n)) %>%
+  group_by(`(R) RESOLVED AGE`) %>% 
+  summarize(avg_propn = mean(propn), sd_propn=sd(propn)) %>% 
+  mutate(avg_propn=round(avg_propn,3)*100, sd_propn=round(sd_propn,3)*100) %>%
+  unite(col="Average proportion (± SD)", c(avg_propn, sd_propn), sep=" ± ") %>%
+  rename(Age=`(R) RESOLVED AGE`) %>%
+  kbl(align="c", caption="Age structure of San Juan Chinook (excludes tributaries). Data from PADS (NuSEDS and MRPIS).") %>%
+  kable_paper("hover", full_width=T, position = "center") 
+```
+
+<br>
+
+```{r age-fig, echo=F, warning=F, message=F, fig.cap='Annual age structure of San Juan Chinook (excludes tributaries). Numbers indicate the number of samples contributing age data each year. Data from PADS (NuSEDS and MRPIS).'}
+# FIGURE: AGE ~ TIME ----------------------- 
+ggplot() +
+  geom_bar(data=sj.FULL.age %>% 
+         filter(!is.na(`(R) RESOLVED AGE`)) %>%
+         group_by(RecoveryYear, `(R) RESOLVED AGE`) %>% 
+         summarize(n=n()) %>% 
+         group_by(RecoveryYear) %>% 
+         mutate(sample_size = sum(n),
+                propn=n/sum(n)),
+       aes(x=RecoveryYear, y=propn, group=as.factor(`(R) RESOLVED AGE`), fill=as.factor(`(R) RESOLVED AGE`), colour=as.factor(`(R) RESOLVED AGE`)), 
+       stat="identity", position="stack", width=0.5, alpha=0.8, size=1) +
+  geom_text(data=sj.FULL.age %>% filter(!is.na(`(R) RESOLVED AGE`)) %>% group_by(RecoveryYear) %>% summarize(sample_size = n()), 
+            aes(x=RecoveryYear, y=1, label=sample_size), hjust=0, vjust=0, angle=45) +
+  labs(y="Proportion", fill="Age:", colour="Age:") +
+  scale_x_continuous(breaks=seq(1990,2050,by=2)) +
+  scale_y_continuous(breaks=seq(0,1.1,by=0.25), limits=c(0,1.1)) +
+  theme_bw() +
+  theme(axis.text = element_text(colour="black", size=11),
+        axis.text.x = element_text(angle=45, hjust=1),
+        axis.title = element_text(face="bold", size=13),
+        axis.title.x = element_blank(),
+        legend.position = "bottom",
+        legend.direction = "horizontal",
+        legend.title = element_text(face="bold"),
+        plot.caption = element_text(face="italic", hjust=0))
+```
+
+<br>
+
+<br>
+
+## **Sex ratio and fecundity**
+
+Very little sex ratio is available. We have some fence counts that may shed light, although are highly uncertain.
+
+```{r}
+sj.SR %>% 
+  filter(Species=="Chinook", Sex%in%c("M","F")) %>%
+  group_by(Year, Sex) %>%
+  summarize(n=sum(Count)) %>%
+  group_by(Year) %>% 
+  mutate(propn=round(n/sum(n)*100,1)) %>%
+  rename(`Number counted by fence`=n, `Proportion of total (%)`=propn) %>% 
+  kbl(align="c", caption="Sex ratio of chinook passing by the San Juan fence. Data from Four Mile Hatchery.") %>%
+  #collapse_rows(columns=c(1,2), valign="middle", target=1) %>%
+  kable_paper("hover", full_width=T, position = "center")
+```
+
+<br>
+
+There is also very little fecundity data available, and all is bulk/annual averages from the hatchery.
+
+```{r}
+sj.fecund %>% 
+  group_by(Year) %>%
+  summarize(mean_fec = round(mean(Fecundity),0), sd=round(sd(Fecundity),0),
+            n_females = sum(Number_females)) %>%
+  mutate(across(c(mean_fec:n_females), ~ format(.x, big.mark = ","))) %>% 
+  rename(`Mean fecundity`=mean_fec, `# females in sample`=n_females) %>%
+  kbl(align="c", caption="Fecundity of San Juan Chinook with variance and sample size where known. Data from Four Mile Hatchery.") %>%
+  #collapse_rows(columns=c(1,2), valign="middle", target=1) %>%
+  kable_paper("hover", full_width=T, position = "center")
+```
+
+<br>
+
+There is currently no estimate of natural female spawner success.

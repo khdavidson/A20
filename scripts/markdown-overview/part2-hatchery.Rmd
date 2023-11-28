@@ -1,19 +1,160 @@
 
 
-
-hatchery test
-
-
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=F, warning=F, message=F)
 
 
-```{r}
-# ====================== SEP releases data ====================== 
-sj.releases.sep <- read_excel("San Juan Release Report_SEP.xlsx", sheet="Sheet1")
+# Load packages ------------------------
+library(here)
+library(tidyverse)
+library(readxl)
+library(kableExtra)
+library(bookdown)
+
+
+# Helpers ------------------------
+"%notin%" <- Negate("%in%")
+
+#source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/functions/getExtractorData.R", local = knitr::knit_global())
+#source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/functions/getMrpPadsData.R", local = knitr::knit_global())
+#source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/functions/getNusedsData.R", local = knitr::knit_global())
+
+
+# ============================== SEP RELEASES ==============================
+SJRelSEP <- lapply(list.files(path=here("data", "enhancement-PNI"),
+                                   pattern = "^SEP RELEASES_all-years-spp.*\\.xlsx$",
+                                   full.names = TRUE), 
+                        readxl::read_excel, sheet="Actual Release") %>% 
+  do.call("cbind",.) %>%
+  filter(STOCK_NAME=="San Juan R") %>%
+  print()
+
+
+# ============================== MARK HISTORIES ==============================
+SJPBT <- read_excel("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/data/enhancement-PNI/4Mile_mark_history.xlsx", sheet="Sheet1") %>%
+  select(-c(`% CWT`,`AD-clip %`, oto_mark_quality, comments, `% Otolith`)) %>% 
+  mutate(RELEASE_STAGE_NAME = "All") %>% 
+  filter(!is.na(PBT)) %>%
+  print()
+
+
+# Load otolith reference specimens output ------------------------
+
+# Note, if new ref specimens have been added, run these lines first:
+# source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/WCVI_Chinook_Term_Run_Recon/WCVI_CN_TermRunRecon/scripts/misc-helpers/OtoCompile.R")
+# remove(wcviOtos)
+# remove(OtosRef)
+
+SJotoRef <- lapply(
+  sort(
+    list.files(
+      path=
+        "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/OtoCompile_base-files/ReferenceSpecimens/Export/",
+      pattern = "^R_OUT - OtoManager_CN_REFERENCEspecimens.*\\.xlsx$",
+      full.names = TRUE), 
+    decreasing=T)[1], 
+  readxl::read_excel, sheet="Sheet1") %>% 
+  do.call("cbind",.) %>%
+  filter(grepl("SAN JUAN", FACILITY)) %>%
+  print()
+```
+
+<br>
+
+## **Overview** 
+
+The Four Mile Hatchery operates out of Port Renfrew, BC and currently only enhances Chinook. Their target(s) are: 
+
+* BroodstocK: 150M, 150F
+
+* Releases: 400,000 smolts
+
+  + Seapen: 40,000
+  
+  + Lakepen (Fairy Lake): 360,000
+
+<br>
+
+<br>
+
+## **Hatchery marking**
+
+Marking of hatchery releases (and sampling of adults) has been spotty over time. Below is a brief summary of the marking/tagging rates and methods used over time at 4 Mile.
+
+```{r include=F}
+SJ_mark_history <- full_join(
+  
+  # CWT/AD summary
+  SJRelSEP %>% 
+    filter(SPECIES_NAME=="Chinook") %>% 
+    group_by(BROOD_YEAR, RELEASE_STAGE_NAME) %>%
+    summarize(n_CWTAD = sum(TaggedNum),
+              n_ADonly = sum(NoTagNum),
+              n_UMUT = sum(UnmarkedNum),
+              total_ad = TaggedNum+NoTagNum,
+              total = sum(TotalRelease)) %>% 
+    mutate(`% CWT` = round(n_CWTAD/total,3)*100,
+           `% AD` = round(total_ad/total,3)*100,
+           `% UMUT` = round(n_UMUT/total,3)*100),
+  
+  # Otolith summary
+  SJotoRef %>% 
+    filter(!is.na(`RF READ STATUS`) & !is.na(QUALITY)) %>%
+    group_by(`BROOD YEAR`, `RF READ STATUS`, QUALITY) %>% 
+    summarize(n_oto_quality=n()) %>% 
+    group_by(`BROOD YEAR`) %>% 
+    mutate(total_oto_refs = sum(n_oto_quality),
+           oto_propn_by_quality = round(n_oto_quality/total_oto_refs,2)*100,
+           RELEASE_STAGE_NAME = "All") %>% 
+    rename(BROOD_YEAR = `BROOD YEAR`,
+           OTO_READ_STATUS = `RF READ STATUS`,
+           OTO_MARK_QUALITY = QUALITY)
+) %>% 
+  full_join(.,
+            # PBT summary
+            SJPBT) %>% 
+  arrange(BROOD_YEAR) %>%
+  print()
+
+
+
+# EXPORT
+#writexl::write_xlsx(SJ_mark_history, here("outputs", "R_OUT - San Juan mark history.xlsx"))
+
+
+# Just ad-clip rate 
+SJ_adclip <- SJRelSEP %>% 
+  filter(SPECIES_NAME=="Chinook") %>% 
+  group_by(BROOD_YEAR, RELEASE_STAGE_NAME) %>%
+  filter(RELEASE_STAGE_NAME!="All") %>% 
+  summarize(n_CWTAD = sum(TaggedNum, na.rm=T),
+            n_ADonly = sum(NoTagNum, na.rm=T),
+            n_ADonly_CWTshed = sum(ShedTagNum, na.rm=T),
+            n_UMUT = sum(UnmarkedNum, na.rm=T),
+            total = sum(TotalRelease, na.rm=T)) %>% 
+  ungroup() %>%
+  mutate(n_marked = n_CWTAD+n_ADonly+n_ADonly_CWTshed) %>%
+  group_by(BROOD_YEAR) %>% 
+  mutate(annual_T_CWT = sum(n_CWTAD),
+         annual_T_AD = sum(n_marked),
+         annual_T_UMUT = sum(n_UMUT),
+         annual_T_released = sum(total),
+         annual_perc_CWT = round(annual_T_CWT/annual_T_released,3)*100,
+         annual_perc_AD = round(annual_T_AD/annual_T_released,3)*100,
+         annual_perc_UMUT = round(annual_T_UMUT/annual_T_released,3)*100) %>% 
+  print()
+
+
+
+# EXPORT
+writexl::write_xlsx(SJ_adclip, here("outputs", "R_OUT - San Juan mark history summarized.xlsx"))
+
 ```
 
 
-
-
-
-
-
+```{r}
+SJ_mark_history %>%
+  kbl(align="c", caption="San Juan CWT tagging and adipose marking over time.") %>%
+  #collapse_rows(columns=c(1,2), valign="middle", target=1) %>%
+  kable_paper("hover", full_width=T, position = "center")
+```
