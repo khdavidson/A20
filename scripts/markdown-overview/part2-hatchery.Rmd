@@ -1,0 +1,19 @@
+
+
+
+hatchery test
+
+
+
+
+```{r}
+# ====================== SEP releases data ====================== 
+sj.releases.sep <- read_excel("San Juan Release Report_SEP.xlsx", sheet="Sheet1")
+```
+
+
+
+
+
+
+

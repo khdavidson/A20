@@ -1,0 +1,44 @@
+---
+title: "San Juan Chinook data compilation"
+author: "South Coast StA"
+date: 'Last update: `r format(Sys.time(), sep="_", "%Y-%m-%d %H:%M")`'
+output: html_document
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=F, warning=F, message=F)
+
+library(here)
+library(tidyverse)
+```
+
+<br>
+
+<br>
+
+```{r child=here::here("scripts","markdown", "part1-esc.Rmd")}
+
+```
+
+<br>
+
+```{r child=here::here("scripts","markdown", "part2-hatchery.Rmd")}
+
+```
+
+<br>
+
+```{r child=here::here("scripts","markdown", "part3-fisheries.Rmd")}
+
+```
+
+
+
+
+
+
+
+
+
+

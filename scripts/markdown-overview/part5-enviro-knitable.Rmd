@@ -1,0 +1,120 @@
+---
+title: "part1-esc-knitable"
+author: "South Coast StA"
+date: 'Last update: `r format(Sys.time(), sep="_", "%Y-%m-%d %H:%M")`'
+output: html_document
+params:
+    password:
+      label: "Enter computer password"
+      value: ""
+      input: password
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=F, warning=F, message=F)
+
+#library(here)
+library(tidyverse)
+library(readxl)
+library(kableExtra)
+library(bookdown)
+library(here)
+
+"%notin%" <- Negate("%in%")
+
+
+# Load data ---------------------
+# Environment Canada historical water data (1959-2022): 
+ec.hist <- read.csv(file.path(here() %>% dirname(), 'data', 'enviro', '08HA010_daily_20230817T1738_1959-2022.csv'), skip=1) %>% 
+  mutate(discharge_cms = case_when(PARAM==1 ~ Value),
+         level_m = case_when(PARAM==2 ~ Value),
+         year = lubridate::year(Date),
+         Date = as.Date(Date),
+         DOY = lubridate::yday(Date),
+         PARAM = case_when(PARAM==1 ~ "discharge",
+                           PARAM==2 ~ "level",
+                           TRUE~"FLAG")) %>% 
+  print()
+
+
+# Environment Canada real-time water data (2023):
+ec.rt <- read.csv(url("https://dd.weather.gc.ca/hydrometric/csv/BC/daily/BC_08HA010_daily_hydrometric.csv")) %>% 
+  rename(level_m=`Water.Level...Niveau.d.eau..m.`,
+         discharge_cms = `Discharge...Débit..cms.`) %>% 
+  mutate(Date = as.Date(Date)) %>%
+  print()
+
+
+# Fence install dates: 
+sj.fence.dates <- read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/run timing tables (updated).xlsx", sheet="San Juan", range="A4:AD65") %>% 
+  rename(year=`...1`,
+         system=`81`) %>%
+  fill(year) %>%
+  filter(year!=max(year) | !is.na(system), !is.na(`Fence in`)) %>%
+  select(year, `Fence in`, `Fence out`) %>%
+  mutate(across(c(`Fence in`, `Fence out`), as.Date),
+         In = lubridate::yday(`Fence in`),
+         Out = lubridate::yday(`Fence out`)) %>% 
+  #pivot_longer(cols=c(In, Out), names_to = "install", values_to = "date") %>%
+  print()
+```
+
+
+```{r}
+# Fence dates ~ discharge
+
+ggplot() +
+  geom_line(data=ec.hist%>%filter(year %in% sj.fence.dates$year, year%notin%c(1995,1996), !is.na(discharge_cms)), 
+            aes(x=as.Date(DOY, origin="1995-12-31"), y=discharge_cms, group=interaction(year)),
+            size=1, colour="navy blue") +
+    geom_line(data=ec.hist%>%filter(year %in% sj.fence.dates$year, year%notin%c(1995,1996), !is.na(level_m)), 
+            aes(x=as.Date(DOY, origin="1995-12-31"), y=level_m*100, group=interaction(year)),
+            size=1, colour="dodger blue") +
+  geom_segment(data=sj.fence.dates%>%filter(year%notin%c(1995,1996)), 
+               aes(x=as.Date(In, origin="1995-12-31"), y=100, xend=as.Date(Out, origin="1995-12-31"), yend=100), colour="red", size=2)  +
+  scale_colour_manual(breaks=c(1,2), values = c("navy blue", "dodger blue")) +
+  scale_x_date(date_labels="%b %d", limits = c(as.Date(230, origin="1995-12-31"), as.Date(350, "1995-12-31"))) +
+  scale_y_continuous(sec.axis = sec_axis(~ . /100, name = "Level (m)")) +
+  labs(x="", y="Discharge (cms)") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1)) +
+  facet_wrap(~year)
+
+
+```
+
+
+```{r}
+# Fence removal date vs. water ------------------------
+ec.hist %>% 
+  filter(Date %in% sj.fence.dates$`Fence out`, !is.na(Value)) %>%
+  group_by(PARAM) %>% 
+  summarize(min = min(Value), median = median(Value), max = max(Value))
+
+ggplot() +
+  geom_point(data=ec.hist %>% filter(Date %in% sj.fence.dates$`Fence out`),
+             aes(x=year, y=discharge_cms), colour="navy blue", fill="navy blue", size=3, shape=21) +
+  geom_point(data=ec.hist %>% filter(Date %in% sj.fence.dates$`Fence out`),
+             aes(x=year, y=level_m*5), colour="dodger blue", fill="dodger blue", size=3, shape=21) +
+  scale_x_continuous(breaks=seq(1997, lubridate::year(Sys.Date()), by=2)) +
+  scale_y_continuous(sec.axis = sec_axis(~ . /5, name = "Level (m)")) +
+  labs(y="Discharge (cms)", x="") +
+  theme_bw()
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
