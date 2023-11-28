@@ -18,8 +18,8 @@ knitr::opts_chunk$set(echo=F, warning=F, message=F)
 library(here)
 library(tidyverse)
 library(readxl)
-#library(kableExtra)
-#library(bookdown)
+library(kableExtra)
+library(bookdown)
 
 
 # Helpers ------------------------
@@ -31,7 +31,7 @@ library(readxl)
 
 
 # ============================== SEP RELEASES ==============================
-SJRelSEP <- lapply(list.files(path ="C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/data/enhancement-PNI/",
+SJRelSEP <- lapply(list.files(path=here("data", "enhancement-PNI"),
                                    pattern = "^SEP RELEASES_all-years-spp.*\\.xlsx$",
                                    full.names = TRUE), 
                         readxl::read_excel, sheet="Actual Release") %>% 
@@ -129,7 +129,7 @@ SJ_mark_history <- full_join(
 
 
 # EXPORT
-writexl::write_xlsx(SJ_mark_history, here("outputs", "R_OUT - San Juan mark history.xlsx"))
+#writexl::write_xlsx(SJ_mark_history, here("outputs", "R_OUT - San Juan mark history.xlsx"))
 
 
 # Just ad-clip rate 
@@ -164,11 +164,9 @@ writexl::write_xlsx(SJ_adclip, here("outputs", "R_OUT - San Juan mark history su
 
 ```{r}
 SJ_mark_history %>%
-  kbl(align="c", caption="Age structure of San Juan Chinook (excludes tributaries). Data from NuSEDS.", format.args=list(big.mark=",")) %>%
+  kbl(align="c", caption="San Juan CWT tagging and adipose marking over time.") %>%
   #collapse_rows(columns=c(1,2), valign="middle", target=1) %>%
   kable_paper("hover", full_width=T, position = "center")
-
-
 ```
 
 
