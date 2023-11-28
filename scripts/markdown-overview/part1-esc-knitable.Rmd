@@ -42,7 +42,7 @@ nuseds_cn_yrs <- getNuSEDS("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_
 # Long-term time series (merge NuSEDS and Esc Index for complete time series) ----------------------- 
 sj.esc <- full_join(
   #here() won't work unfortunately --\/
-  getNuSEDS("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/json/nuseds_esc_query_A20.json", password=NULL) %>% 
+  getNuSEDS(here("scripts", "json", "nuseds_esc_query_A20.json"), password=NULL) %>% 
     # ---- Initial filter if want WCVI Area 20 systems only, but not needed if just pulling out San Juan: 
     #filter(!grepl("GEORGIA STRAIT", `Conservation Unit Name`), 
     #       `Waterbody Name` %notin% c("DE MAMIEL CREEK", "CHARTERS CREEK", "ROCKY CREEK", "AYUM CREEK", "SOOKE RIVER", "MAIDENHAIR CREEK", 
