@@ -1,15 +1,15 @@
 
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo=F, warning=F, message=F)
-
-
-# Load packages ------------------------
-library(here)
-library(tidyverse)
-library(readxl)
-library(kableExtra)
-library(bookdown)
+```{r hatcherysetup, include=FALSE}
+# knitr::opts_chunk$set(echo=F, warning=F, message=F)
+# 
+# 
+# # Load packages ------------------------
+# library(here)
+# library(tidyverse)
+# library(readxl)
+# library(kableExtra)
+# library(bookdown)
 
 
 # Helpers ------------------------

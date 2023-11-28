@@ -1,13 +1,13 @@
 
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo=F, warning=F, message=F)
-
-library(here)
-library(tidyverse)
-library(readxl)
-library(kableExtra)
-library(bookdown)
+```{r escsetup, include=FALSE}
+# knitr::opts_chunk$set(echo=F, warning=F, message=F)
+# 
+# library(here)
+# library(tidyverse)
+# library(readxl)
+# library(kableExtra)
+# library(bookdown)
 
 "%notin%" <- Negate("%in%")
 
