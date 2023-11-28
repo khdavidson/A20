@@ -33,7 +33,7 @@ source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/func
 
 
 # ====================== ENUMERATION data ====================== 
-nuseds_cn_yrs <- getNuSEDS("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/json/nuseds_esc_query_A20.json", password=NULL)%>%
+nuseds_cn_yrs <- getNuSEDS(here("scripts", "json", "nuseds_esc_query_A20.json"), password=NULL)%>%
                   filter(`Waterbody Name`=="SAN JUAN RIVER", Species=="Chinook") %>%
                   arrange(`Analysis Year`) %>%
                   pull(`Analysis Year`)
