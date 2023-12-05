@@ -2,7 +2,13 @@
 title: "San Juan escapement 2023 (PRELIM)"
 author: "South Coast StA"
 date: "Last update: `r Sys.Date()`"
-output: html_document
+output: 
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+    toc_collapsed: false 
+    toc_depth: 5
+    number_sections: true
 knit: (function(inputFile, encoding) { 
   rmarkdown::render(inputFile, encoding=encoding, output_file=paste0(substr(inputFile,1,nchar(inputFile)-4), "_PRELIMINARY_", format(Sys.Date(), sep="_", "%Y-%m-%d"), '.html')) 
   }
@@ -49,7 +55,7 @@ mile4.fence <- readxl::read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/E
 
 
 # Enviro ----------------------------
-sj.water <- list.files(here::here("data"), pattern = "08HA010", full.names = T) %>% 
+sj.water <- list.files(here::here("data", "enviro"), pattern = "08HA010", full.names = T) %>% 
   map(~read.csv(file=.x, skip=9)) %>%
   purrr::list_rbind() %>%
   mutate(date = as.Date(Date..PST.),
@@ -65,13 +71,13 @@ sj.water <- list.files(here::here("data"), pattern = "08HA010", full.names = T) 
 <br>
 
 
-## **Chinook** ##
+# **Chinook** 
 
 Six snorkel surveys and one helicopter survey were conducted for Chinook in 2023. 
 
 <br>
 
-### Counts & environmentals ###
+## Counts & environmentals
 
 ```{r }
 ggplot() +
@@ -106,7 +112,7 @@ Figure: Chinook counts (expanded live adults) and water levels (blue line).
 
 <br>
 
-### Behaviour & carcasses 
+## Behaviour & carcasses 
 
 ```{r}
 ggarrange(
@@ -159,7 +165,7 @@ Figure: Top: Expanded live Chinook (bars) and carcasses (black line). Bottom: Sp
 
 <br>
 
-### Swim & fence counts
+## Swim & fence counts
 
 ```{r}
 ggplot() +
@@ -184,7 +190,7 @@ Figure: Chinook swim counts (expanded adults) relative to cumulative fence count
 
 <br>
 
-### Oct 3/4 surveys 
+## Oct 3/4 surveys 
 
 <br>
 
@@ -243,6 +249,10 @@ Figure: October 3rd (lower) and 4th (upper) San Juan chinook counts (expanded ad
 
 <br>
 
+## Preliminary escapement estimate (PL+D)
+
+<br>
+
 Table: San Juan swim counts (expanded live and dead) and preliminary escapement estimates for three San Juan surveys in 2023. 
 
 ```{r}
@@ -264,7 +274,7 @@ sj.sil %>%
 
 <br>
 
-### Tributaries ### 
+### Tributaries 
 
 Table: Chinook counts (expanded live and dead) for San Juan tributaries (Renfrew, Lens, Harris) and Gordon River in 2023.
 ```{r}
