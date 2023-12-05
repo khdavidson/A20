@@ -1,13 +1,19 @@
 ---
-  title: "part2-hatchery-knitable"
+title: "part2-hatchery-knitable"
 author: "South Coast StA"
 date: 'Last update: `r format(Sys.time(), sep="_", "%Y-%m-%d %H:%M")`'
-output: html_document
+output: 
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+    toc_collapsed: false 
+    toc_depth: 5
+    number_sections: true
 params:
-  password:
-  label: "Enter computer password"
-value: ""
-input: password
+    password:
+      label: "Enter computer password"
+      value: ""
+      input: password
 ---
 
 ```{r setup, include=FALSE}
