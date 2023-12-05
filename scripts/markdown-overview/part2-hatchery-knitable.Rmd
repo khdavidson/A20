@@ -20,6 +20,7 @@ library(tidyverse)
 library(readxl)
 library(kableExtra)
 library(bookdown)
+library(scales)
 
 
 # Helpers ------------------------
@@ -41,19 +42,17 @@ SJRelSEP <- lapply(list.files(path=here("data", "enhancement-PNI"),
 
 
 # ============================== MARK HISTORIES ==============================
-SJPBT <- read_excel("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/data/enhancement-PNI/4Mile_mark_history.xlsx", sheet="Sheet1") %>%
-  select(-c(`% CWT`,`AD-clip %`, oto_mark_quality, comments, `% Otolith`)) %>% 
-  mutate(RELEASE_STAGE_NAME = "All") %>% 
-  filter(!is.na(PBT)) %>%
+
+# PBT record ------------------------
+SJPBT <- read_excel(paste0(here("data", "enhancement-PNI"), "/4Mile_mark_history.xlsx"), sheet="PBT") %>%
   print()
 
 
 # Load otolith reference specimens output ------------------------
-
-# Note, if new ref specimens have been added, run these lines first:
-# source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/WCVI_Chinook_Term_Run_Recon/WCVI_CN_TermRunRecon/scripts/misc-helpers/OtoCompile.R")
-# remove(wcviOtos)
-# remove(OtosRef)
+    # Note, if new ref specimens have been added, run these lines first:
+    # source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/WCVI_Chinook_Term_Run_Recon/WCVI_CN_TermRunRecon/scripts/misc-helpers/OtoCompile.R")
+    # remove(wcviOtos)
+    # remove(OtosRef)
 
 SJotoRef <- lapply(
   sort(
@@ -67,17 +66,33 @@ SJotoRef <- lapply(
   do.call("cbind",.) %>%
   filter(grepl("SAN JUAN", FACILITY)) %>%
   print()
+
+
+# ============================== BIODATA ==============================
+# Full biodata ------------------------
+sj.cn.biodat <- readxl::read_excel(
+  path=here("data", "biosamples", "R_OUT - Escapement biodata interim join DEC 2023.xlsx"), 
+  sheet="Sheet 1", guess_max=10000) %>%
+  filter(`Fishery / River`=="San Juan River") %>%
+  print()
+
+
+# PNI (otos only) ------------------------
+sj.pni <- readxl::read_excel(here("data", "enhancement-PNI", "SanJuan_PNI_JW.xlsx"), sheet="Sheet1")
+
+
+
 ```
 
 <br>
 
-## **Overview** 
+# **Overview** 
 
-The Four Mile Hatchery operates out of Port Renfrew, BC and currently only enhances Chinook. Their target(s) are: 
+The 4 Mile Hatchery operates out of Port Renfrew, BC and currently only enhances Chinook. Historically they have also enhanced chum and coho, but have not in recent years (no adult returns are from hatchery parents). Their chinook target(s) are: 
 
-* BroodstocK: 150M, 150F
+* BroodstocK: ~150M, ~150F
 
-* Releases: 400,000 smolts
+* Releases: 400,000-460,000 smolts
 
   + Seapen: 40,000
   
@@ -85,9 +100,13 @@ The Four Mile Hatchery operates out of Port Renfrew, BC and currently only enhan
 
 <br>
 
+All juveniles are incubated and reared in the hatchery until water supply becomes an issue (4 Mile Hatchery runs on a combination of creek surface water and well water). Once flows decline, the majority of juveniles (~400k) are transferred to the Fairy Lake pen for the remainder of their growing time until release. They are fed while in the lake pen. Historically this lake group has not been marked or tagged consistently. A small group (~40k) is held back at the hatchery where the remaining water supply can be diverted to the few rearing tanks for this group. This small group will be raised a while longer on the remaining hatchery water supply, and then transferred to the Port Renfrew seapen at East Point, where they rear until they reach target release size. This seapen group is 100% CWT and ad-clipped, and is meant to imprint on the nearshore marine environment; the holding/staging of returning adults for a longer period in the marine environment is meant to facilitate a mark-selective fishery for both Pacheedaht and sport fishermen. 
+
 <br>
 
-## **Hatchery marking**
+<br>
+
+# **Hatchery marking**
 
 Marking of hatchery releases (and sampling of adults) has been spotty over time. Below is a brief summary of the marking/tagging rates and methods used over time at 4 Mile.
 
@@ -100,9 +119,9 @@ SJ_mark_history <- full_join(
     group_by(BROOD_YEAR, RELEASE_STAGE_NAME) %>%
     summarize(n_CWTAD = sum(TaggedNum),
               n_ADonly = sum(NoTagNum),
-              n_UMUT = sum(UnmarkedNum),
+              n_UMUT = sum(UnmarkedNum)),
               total_ad = TaggedNum+NoTagNum,
-              total = sum(TotalRelease)) %>% 
+              total = sum(TotalRelease) %>% 
     mutate(`% CWT` = round(n_CWTAD/total,3)*100,
            `% AD` = round(total_ad/total,3)*100,
            `% UMUT` = round(n_UMUT/total,3)*100),
@@ -129,7 +148,7 @@ SJ_mark_history <- full_join(
 
 
 # EXPORT
-#writexl::write_xlsx(SJ_mark_history, here("outputs", "R_OUT - San Juan mark history.xlsx"))
+writexl::write_xlsx(SJ_mark_history, here("outputs", "R_OUT - San Juan mark history.xlsx"))
 
 
 # Just ad-clip rate 
@@ -158,7 +177,6 @@ SJ_adclip <- SJRelSEP %>%
 
 # EXPORT
 writexl::write_xlsx(SJ_adclip, here("outputs", "R_OUT - San Juan mark history summarized.xlsx"))
-
 ```
 
 
@@ -169,15 +187,108 @@ SJ_mark_history %>%
   kable_paper("hover", full_width=T, position = "center")
 ```
 
+<br>
+
+## Parent-based tagging (PBT)
+
+PBT is relatively new for San Juan Chinook, beginning in 2017 but only reliable since 2019. From Eric Rondeau, MGL: 
+
+> We’ve received what I believe to be nearly-complete brood in 2018-2021. I would say it is reliable from 2019-2021, as 2018 was missing sex ID information which complicates the process. We received ~1/3 of the brood in 2017, so I would anticipate a limited ability to PBT there as well, but not enough to reliably utilize... **I would suggest thought that 2019 is the first brood year I would recommend starting from, so for 2022 age 3.** We could probably go back to 2018 (age 4 for 2022) too if we can identify the records on sex of the samples submitted, or we can possibly run genetic sex ID marker (but hatchery records are always preferred).
+
+Note that he says it is possible to have GSI=100% certainty, and can't definitively be prescribed to PBT-alone. Regarding assumed PBT-origin chinook from 2015-2017 recreational catch: 
+
+> **I think it is very unlikely that those are genuinely PBT assignments.** I would suspect in this case the age was made by some other method, and that the GSI result was ~100% - it is possible the algorithm is interpreting any 100% assignment as a PBT, but this isn’t always the case (**you can have a 100% GSI**). If it wasn’t specifically marked PBT, but the GSI was 100%, I could see it being interpreted as a PBT but not actually a PBT. Do you have a few fish/Whatman/DNA IDs you could send as an example that I could verify though? We do have individuals in our baseline from San Juan from 2014 and 2015, but these are specifically marked “not brood” and no sexID was provided – these shouldn’t yield PBT IDs. 
+
+After showing example data from a few fish exported from the CREST Biodata query:
+
+> **I would suspect in this case that all the “100s” you are looking at are from GSI. This seems slightly more common in the San Juan assignments than I’ve seen elsewhere**, but they do pop up. Usually but not always tied to related individuals in the baseline (eg. a brother or uncle, etc.) where the genetic profile is very similar to something we have, thus making the assignment probability quite high. There are a few other reasons, but they start to get more technical, I would suspect relatedness to individuals from the 2014/2015 non-brood reference collections is most likely. **I unfortunately don’t think you’ll be able to do the hatchery/natural in San Juan until roughly this year based on PBT alone, it will likely require an additional mark to complement the GSI.** Moving ahead, we’ll be able to do so confidently (with ages), but with brood only going back to ~19, there will be limited resolution based solely on PBT until now. 
+
+<br>
+
+<br>
+
+# **PNI**
+
+The recently-accepted WCVI Chinook Straying paper (CSAS) used only otolith thermal marks to assess PNI and straying across WCVI Chinook. The following summary of results was provided for San Juan. 
+
+```{r}
+# TABLE: pHOS, pNOB and PNI ~ year ------------------
+sj.pni %>%
+  mutate(across(where(is.numeric), ~round(.,2))) %>%
+  kbl(align="c", caption="Proportion of hatchery-origin chinook in spawners (pHOS) and resulting Proportion of Natural Influence (PNI) for San Juan Chinook. Data from Jacob Weil, DFO.") %>%
+  kable_paper("hover", full_width=T, position = "center") %>%
+  collapse_rows(columns=c(1), valign="middle") 
+```
+
+Using recent-year data since 2012 and considering otolith thermal marks, CWTs and adipose clips, the % hatchery-origin in broodstock samples is has varied considerably from >80% to <5%. 
+
+```{r}
+ggarrange(
+ggplot() +
+  geom_bar(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%
+             group_by(`(R) SAMPLE YEAR`, `(R) ORIGIN`) %>% summarize(n=n()) %>% group_by(`(R) SAMPLE YEAR`) %>% mutate(total=sum(n), perc = n/sum(n)), 
+           aes(x=`(R) SAMPLE YEAR`, y=perc, fill=`(R) ORIGIN`, colour=`(R) ORIGIN`), 
+           stat="identity", position="stack",alpha=0.8) +
+  geom_text(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%group_by(`(R) SAMPLE YEAR`) %>% summarize(total=n()), 
+           aes(x=`(R) SAMPLE YEAR`, y=1.02, label=total), size=3) +
+  scale_y_continuous(labels = scales::label_percent()) +
+  scale_colour_manual(breaks=waiver(), values=c("#EE7733", "#33BBEE", "gray80"), labels=c("Hatchery (pHOB)", "Natural (pNOB)", "Unknown")) +
+  scale_fill_manual(breaks=waiver(), values=c("#EE7733", "#33BBEE", "gray80"), labels=c("Hatchery (pHOB)", "Natural (pNOB)", "Unknown")) +
+  labs(x="Return year", y="Origin of broodstock biosamples (total)", fill="Origin", colour="Origin") +
+  theme_bw(),
+
+
+ggplot() +
+  geom_bar(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%
+             group_by(`(R) SAMPLE YEAR`, `(R) ORIGIN`, `(R) RESOLVED STOCK-ORIGIN`) %>% 
+             summarize(n=n()) %>% group_by(`(R) SAMPLE YEAR`) %>% 
+             mutate(total=sum(n), perc = n/sum(n)), 
+           aes(x=`(R) SAMPLE YEAR`, y=perc, fill=`(R) RESOLVED STOCK-ORIGIN`, colour=`(R) RESOLVED STOCK-ORIGIN`), 
+           stat="identity", position="stack",alpha=0.8) +
+  geom_text(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%group_by(`(R) SAMPLE YEAR`) %>% summarize(total=n()), 
+           aes(x=`(R) SAMPLE YEAR`, y=1.02, label=total), size=3) +
+  scale_y_continuous(labels = scales::label_percent()) +
+  scale_colour_manual(breaks=waiver(), values=c("#EE7733", "#33BBEE", "gray80"), labels=c("Hatchery (pHOB)", "Natural (pNOB)", "Unknown")) +
+  scale_fill_manual(breaks=waiver(), values=c("#EE7733", "#33BBEE", "gray80"), labels=c("Hatchery (pHOB)", "Natural (pNOB)", "Unknown")) +
+  labs(x="Return year", y="Origin of broodstock biosamples (total)", fill="Origin", colour="Origin") +
+  theme_bw()
+```
+
+```{r include=F}
+perc_origin <- sj.cn.biodat %>% 
+  group_by(`(R) SAMPLE YEAR`, `Sample Type`, `(R) ORIGIN`, `(R) RESOLVED STOCK ID METHOD`)  %>%
+  summarize(n=n()) %>%
+  mutate(`(R) RESOLVED STOCK ID METHOD` = case_when(is.na(`(R) RESOLVED STOCK ID METHOD`) & `(R) ORIGIN`=="Natural" ~ "Otolith",
+                                                    TRUE ~ `(R) RESOLVED STOCK ID METHOD`)) %>%
+  group_by(`(R) SAMPLE YEAR`, `Sample Type`) %>%
+  mutate(total = sum(n)) %>%
+  group_by(`(R) SAMPLE YEAR`) %>%
+  mutate(perc=round(n/total,2)) %>%
+  print()
+```
+
+
+```{r}
+perc_origin %>% 
+  kbl(align="c", caption="% hatchery origin in biosamples, 2012-present.") %>%
+  kable_paper("hover", full_width=T, position = "center") %>%
+  collapse_rows(columns=c(1:2), valign="middle") %>% 
+  print()
+```
 
 
 
+```{r}
+tt <- 
 
-
-
-
-
-
+tt2 <- SJ_mark_history %>% 
+       filter(BROOD_YEAR>=2012) %>% 
+       select(`BROOD_YEAR`, `RELEASE_STAGE_NAME`, `% CWT`, `% AD`, OTO_READ_STATUS, OTO_MARK_QUALITY, oto_propn_by_quality, PBT) %>% 
+       #ungroup() %>% 
+       pivot_wider(names_from = OTO_MARK_QUALITY, values_from = oto_propn_by_quality)  
+       
+       
+```
 
 
 
