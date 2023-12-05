@@ -25,8 +25,9 @@ library(here)
 library(tidyverse)
 library(readxl)
 library(kableExtra)
-library(bookdown)
-library(scales)
+library(bookdown)  
+library(scales)       # for label_percent()
+library(ggpubr)       # for ggarrange()
 
 
 # Helpers ------------------------
@@ -238,8 +239,8 @@ ggarrange(
     geom_text(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%group_by(`(R) SAMPLE YEAR`) %>% summarize(total=n()), 
               aes(x=`(R) SAMPLE YEAR`, y=1.02, label=total), size=3) +
     scale_y_continuous(labels = scales::label_percent()) +
-    scale_colour_manual(breaks=waiver(), values=c("#EE7733", "#33BBEE", "gray80"), labels=c("Hatchery (pHOB)", "Natural (pNOB)", "Unknown")) +
-    scale_fill_manual(breaks=waiver(), values=c("#EE7733", "#33BBEE", "gray80"), labels=c("Hatchery (pHOB)", "Natural (pNOB)", "Unknown")) +
+    scale_colour_manual(breaks=waiver(), values=c("#33BBEE", "#EE7733", "gray80"), labels=c("Hatchery (pHOB)", "Natural (pNOB)", "Unknown")) +
+    scale_fill_manual(breaks=waiver(), values=c("#33BBEE", "#EE7733", "gray80"), labels=c("Hatchery (pHOB)", "Natural (pNOB)", "Unknown")) +
     labs(x="Return year", y="Origin of broodstock biosamples (total)", fill="Origin", colour="Origin") +
     theme_bw(),
   
@@ -249,15 +250,17 @@ ggarrange(
                group_by(`(R) SAMPLE YEAR`, `(R) ORIGIN`, `(R) RESOLVED STOCK-ORIGIN`) %>% 
                summarize(n=n()) %>% group_by(`(R) SAMPLE YEAR`) %>% 
                mutate(total=sum(n), perc = n/sum(n)), 
-             aes(x=`(R) SAMPLE YEAR`, y=perc, fill=`(R) RESOLVED STOCK-ORIGIN`, colour=`(R) ORIGIN`), 
+             aes(x=`(R) SAMPLE YEAR`, y=perc, fill=`(R) RESOLVED STOCK-ORIGIN`, colour=`(R) RESOLVED STOCK-ORIGIN`), 
              stat="identity", position="stack",alpha=0.8) +
     geom_text(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%group_by(`(R) SAMPLE YEAR`) %>% summarize(total=n()), 
               aes(x=`(R) SAMPLE YEAR`, y=1.02, label=total), size=3) +
     scale_y_continuous(labels = scales::label_percent()) +
-    scale_colour_manual(breaks=waiver(), values=c("#EE7733", "#33BBEE", "gray80"), labels=c("Hatchery (pHOB)", "Natural (pNOB)", "Unknown")) +
-    scale_fill_manual(breaks=waiver(), values=c("#EE7733", "#33BBEE", "gray80"), labels=c("Hatchery (pHOB)", "Natural (pNOB)", "Unknown")) +
+    scale_colour_manual(breaks=waiver(), values=c("navy blue", "blue", "dodger blue", "aquamarine", "cyan", "#a2eeff", "#EE7733", "gray80")) +
+    scale_fill_manual(breaks=waiver(), values=c("navy blue", "blue",  "dodger blue", "aquamarine", "cyan", "#a2eeff", "#EE7733", "gray80")) +
     labs(x="Return year", y="Origin of broodstock biosamples (total)", fill="Origin", colour="Origin") +
-    theme_bw()
+    theme_bw(),
+  
+  nrow=2
 )
 ```
   
