@@ -19,12 +19,14 @@ params:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo=F, warning=F, message=F)
 
+# Load libraries ------------------------
 library(here)
 library(tidyverse)
 library(readxl)
 library(kableExtra)
 library(bookdown)
 
+# Helpers/functions ------------------------
 "%notin%" <- Negate("%in%")
 
 #source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/functions/getExtractorData.R", local = knitr::knit_global())
