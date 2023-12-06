@@ -61,18 +61,56 @@ SJPBT <- read_excel(paste0(here("data", "enhancement-PNI"), "/4Mile_mark_history
 # remove(wcviOtos)
 # remove(OtosRef)
 
-SJotoRef <- lapply(
-  sort(
-    list.files(
-      path=
-        "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/OtoCompile_base-files/ReferenceSpecimens/Export/",
-      pattern = "^R_OUT - OtoManager_CN_REFERENCEspecimens.*\\.xlsx$",
-      full.names = TRUE), 
-    decreasing=T)[1], 
-  readxl::read_excel, sheet="Sheet1") %>% 
-  do.call("cbind",.) %>%
-  filter(grepl("SAN JUAN", FACILITY)) %>%
+SJotoRef <- full_join(
+  SJomRef <-
+    lapply(
+      sort(
+        list.files(
+          path=
+            "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/OtoCompile_base-files/ReferenceSpecimens/Export/",
+          pattern = "^R_OUT - OtoManager_CN_REFERENCEspecimens.*\\.xlsx$",
+          full.names = TRUE), 
+        decreasing=T)[1], 
+      readxl::read_excel, sheet="Sheet1") %>% 
+    do.call("cbind",.) %>%
+    filter(grepl("SAN JUAN", FACILITY)) %>% 
+    mutate(data_source = "reference specimen (Oto Manager)"),
+  
+  
+  readxl::read_excel(
+    "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/Spec_Projects/Thermal_Mark_Project/Marks/All CN Marks from NPAFC Otolith Database to May 1, 2023.xlsx", 
+    sheet="AllNPAFC CNReleasestoJun8,2022") %>% 
+    filter(grepl("SAN JUAN", STOCK), BROOD_YEAR %notin% unique(SJomRef$`BROOD YEAR`)) %>% 
+    mutate(data_source = "NPAFC mark records") %>% 
+    rename(`BROOD YEAR` = BROOD_YEAR,
+           `RELEASE YEAR` = RELEASE_YEAR,
+           `INTEND HATCH CODE` = HATCH_CODE,
+           `USER COMMENT` = MARK_COMMENT) %>% 
+    group_by(`BROOD YEAR`, FACILITY, SPECIES, `RELEASE YEAR`, `INTEND HATCH CODE`, data_source, STAGE) %>% 
+    summarize(`USER COMMENT` = paste(`USER COMMENT`, collapse=" / ")) %>% 
+    mutate(`RF READ STATUS` = case_when(grepl("not thermally marked", `USER COMMENT`, ignore.case=T) ~ "Not Marked",
+                                        TRUE ~ "Marked"),
+           QUALITY = case_when(`RF READ STATUS`=="Not Marked" ~ NA,
+                               TRUE ~ "Unknown"))
+  ) %>% 
+  arrange(`BROOD YEAR`) %>%
+  mutate(TM_application_flag = case_when(`INTEND HATCH CODE`!=`ACT ASSIGN HATCH CODE` ~ "mark application issue: actual mark applied was not the intended mark applied",
+                                     is.na(`INTEND HATCH CODE`) | is.na(`ACT ASSIGN HATCH CODE`) ~ "unknown",
+                                     TRUE ~ "ok")) %>%
+  # left_join(.,
+  #           readxl::read_excel(
+  #             "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/Spec_Projects/Thermal_Mark_Project/Marks/All CN Marks from NPAFC Otolith Database to May 1, 2023.xlsx", 
+  #             sheet="AllNPAFC CNReleasestoJun8,2022") %>% 
+  #             filter(grepl("SAN JUAN", STOCK)) %>% 
+  #             rename(`BROOD YEAR` = BROOD_YEAR) %>% 
+  #             group_by(`BROOD YEAR`, STAGE) %>% 
+  #             summarize(released_NPAFC_marked = sum(NUMBER_RELEASED))
+  # )  %>% 
+  # mutate(STAGE = case_when(STAGE=="SMOLT" ~ "Smolt 0+",
+  #                          STAGE=="FED FRY" ~ "Fed Fry")) %>% 
   print()
+
+
 
 
 # ============================== BIODATA ==============================
@@ -86,9 +124,6 @@ sj.cn.biodat <- readxl::read_excel(
 
 # PNI (otos only) ------------------------
 sj.pni <- readxl::read_excel(here("data", "enhancement-PNI", "SanJuan_PNI_JW.xlsx"), sheet="Sheet1")
-
-
-
 ```
 
 <br>
@@ -97,13 +132,15 @@ sj.pni <- readxl::read_excel(here("data", "enhancement-PNI", "SanJuan_PNI_JW.xls
 
 The 4 Mile Hatchery operates out of Port Renfrew, BC and currently only enhances Chinook. Historically they have also enhanced chum and coho, but have not in recent years (no adult returns are from hatchery parents). Their chinook target(s) are: 
 
-* BroodstocK: ~150M, ~150F
+* Broodstock: ~500
 
-* Releases: 400,000-460,000 smolts
+* Egg target: 515,000
 
-+ Seapen: 40,000
+* Releases: 500,000 smolts
 
-+ Lakepen (Fairy Lake): 360,000
+  + Sea pen: 40,000
+
+  + Lake pen (Fairy Lake): remainder
 
 <br>
 
@@ -117,7 +154,103 @@ All juveniles are incubated and reared in the hatchery until water supply become
 
 Marking of hatchery releases (and sampling of adults) has been spotty over time. Below is a brief summary of the marking/tagging rates and methods used over time at 4 Mile.
 
+## Otolith, CWT, and adipose clip
+
+### Marking/tagging by brood year
+
 ```{r include=F}
+# MARK HISTORY/QUALITY ~ BROOD YEAR ----------------------
+SJ_mark_history_BYrollup <- full_join(
+  full_join(
+    # --- Otolith release #
+    readxl::read_excel(
+      "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/Spec_Projects/Thermal_Mark_Project/Marks/All CN Marks from NPAFC Otolith Database to May 1, 2023.xlsx", 
+      sheet="AllNPAFC CNReleasestoJun8,2022") %>% 
+      filter(grepl("SAN JUAN", STOCK)) %>% 
+      group_by(BROOD_YEAR) %>% 
+      summarize(total_oto_release = sum(NUMBER_RELEASED)) %>%
+      rename(`BROOD YEAR`=BROOD_YEAR),
+    # --- Otolith mark quality
+    SJotoRef %>% 
+      filter(!is.na(`RF READ STATUS`) & !is.na(QUALITY)) %>%
+      group_by(`BROOD YEAR`, `RF READ STATUS`, QUALITY, TM_application_flag) %>% 
+      summarize(n_oto_quality=n()) %>% 
+      group_by(`BROOD YEAR`) %>% 
+      mutate(n_oto_quality = case_when(`BROOD YEAR` %notin% SJomRef$`BROOD YEAR` ~ 0,
+                                       TRUE ~ n_oto_quality),
+             total_oto_refs = sum(n_oto_quality),
+             oto_propn_by_quality = case_when(`BROOD YEAR` %notin% SJomRef$`BROOD YEAR` ~ 1.00,
+                                              TRUE ~ round(n_oto_quality/total_oto_refs,2))) %>% 
+      select(-c(n_oto_quality)) %>%
+      pivot_wider(names_from = QUALITY, values_from = oto_propn_by_quality)
+  ),
+  # --- CWT/AD release #s
+  SJRelSEP %>% 
+    filter(SPECIES_NAME=="Chinook") %>% 
+    group_by(BROOD_YEAR) %>%
+    summarize(`BY total released` = sum(TotalRelease,na.rm=T),
+              `CWT` = round(sum(TaggedNum,na.rm=T)/`BY total released`,3),
+              `AD-only` = round((sum(NoTagNum,na.rm=T)+sum(ShedTagNum,na.rm=T))/`BY total released`,3),
+              `mark rate` = round((sum(NoTagNum,na.rm=T)+sum(ShedTagNum,na.rm=T)+sum(TaggedNum,na.rm=T))/`BY total released`,3),
+              `unmark/untag` = round(sum(UnmarkedNum,na.rm=T)/`BY total released`,3)) %>% 
+    rename(`BROOD YEAR`=BROOD_YEAR) 
+) %>% 
+  mutate(total_rel_check = total_oto_release==`BY total released`) %>%
+  print()
+
+
+#### HERE NEXT DAY: ADD PBT COLUMNS!!!!! 
+
+
+
+# EXPORT ----------------------
+writexl::write_xlsx(SJ_mark_history_BYrollup, here("outputs", "R_OUT - San Juan mark history by BROOD YEAR.xlsx"))
+```
+
+```{r}
+SJ_mark_history_BYrollup %>%
+  
+  #**** NEXT DAY: CLEAN UP COLUMN NAME HEADERS 
+  arrange(`BROOD YEAR`) %>%
+  kbl(align="c", caption="San Juan chinook otolith marking, CWTing, and adipose clipping over time.") %>%
+  #collapse_rows(columns=c(1,2), valign="middle", target=1) %>%
+  kable_paper("hover", full_width=T, position = "center")
+```
+
+<br>
+
+### Marking/tagging by brood year and release stage 
+
+```{r include=F, eval=F}
+
+
+#*****HERE NEXT DAY: DO LIKE TABLE ABOVE BUT FOR MARKS ~ BY+RELEASE STRATEGIES -- last 10 yrs maybe only>???? **********
+
+    readxl::read_excel(
+      "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/Spec_Projects/Thermal_Mark_Project/Marks/All CN Marks from NPAFC Otolith Database to May 1, 2023.xlsx", 
+      sheet="AllNPAFC CNReleasestoJun8,2022") %>% 
+      filter(grepl("SAN JUAN", STOCK)) %>% 
+      group_by(BROOD_YEAR, STAGE) %>% 
+      summarize(total_oto_release = sum(NUMBER_RELEASED))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 SJ_mark_history <- full_join(
   
   # CWT/AD summary
@@ -126,22 +259,29 @@ SJ_mark_history <- full_join(
     group_by(BROOD_YEAR, RELEASE_STAGE_NAME) %>%
     summarize(n_CWTAD = sum(TaggedNum),
               n_ADonly = sum(NoTagNum),
-              n_UMUT = sum(UnmarkedNum)),
-  total_ad = TaggedNum+NoTagNum,
-  total = sum(TotalRelease) %>% 
+              n_UMUT = sum(UnmarkedNum),
+              total_ad = TaggedNum+NoTagNum,
+              total = sum(TotalRelease)) %>% 
     mutate(`% CWT` = round(n_CWTAD/total,3)*100,
            `% AD` = round(total_ad/total,3)*100,
            `% UMUT` = round(n_UMUT/total,3)*100),
   
   # Otolith summary
-  SJotoRef %>% 
-    filter(!is.na(`RF READ STATUS`) & !is.na(QUALITY)) %>%
-    group_by(`BROOD YEAR`, `RF READ STATUS`, QUALITY) %>% 
-    summarize(n_oto_quality=n()) %>% 
-    group_by(`BROOD YEAR`) %>% 
-    mutate(total_oto_refs = sum(n_oto_quality),
-           oto_propn_by_quality = round(n_oto_quality/total_oto_refs,2)*100,
-           RELEASE_STAGE_NAME = "All") %>% 
+      # SJotoRef %>% 
+      #   filter(!is.na(`RF READ STATUS`) & !is.na(QUALITY)) %>%
+      #   group_by(`BROOD YEAR`, `RF READ STATUS`, QUALITY, TM_application_flag) %>% 
+      #   summarize(n_oto_quality=n()) %>% 
+      #   group_by(`BROOD YEAR`) %>% 
+      #   mutate(n_oto_quality = case_when(`BROOD YEAR` %notin% SJomRef$`BROOD YEAR` ~ 0,
+      #                                    TRUE ~ n_oto_quality),
+      #          total_oto_refs = sum(n_oto_quality),
+      #          oto_propn_by_quality = case_when(`BROOD YEAR` %notin% SJomRef$`BROOD YEAR` ~ 1.00,
+      #                                           TRUE ~ round(n_oto_quality/total_oto_refs,2))
+      #          #RELEASE_STAGE_NAME = "All",
+      #          ) %>% 
+      #   select(-c(n_oto_quality)) %>%
+      #   pivot_wider(names_from = QUALITY, values_from = oto_propn_by_quality) %>% 
+      #   rename()
     rename(BROOD_YEAR = `BROOD YEAR`,
            OTO_READ_STATUS = `RF READ STATUS`,
            OTO_MARK_QUALITY = QUALITY)
@@ -155,7 +295,6 @@ SJ_mark_history <- full_join(
 
 
 # EXPORT
-writexl::write_xlsx(SJ_mark_history, here("outputs", "R_OUT - San Juan mark history.xlsx"))
 
 
 # Just ad-clip rate 
@@ -187,7 +326,7 @@ writexl::write_xlsx(SJ_adclip, here("outputs", "R_OUT - San Juan mark history su
 ```
 
 
-```{r}
+```{r include=F, eval=F}
 SJ_mark_history %>%
   kbl(align="c", caption="San Juan CWT tagging and adipose marking over time.") %>%
   #collapse_rows(columns=c(1,2), valign="middle", target=1) %>%
@@ -227,21 +366,23 @@ sj.pni %>%
   collapse_rows(columns=c(1), valign="middle") 
 ```
 
-Using recent-year data since 2012 and considering otolith thermal marks, CWTs and adipose clips, the % hatchery-origin in broodstock samples is has varied considerably from >80% to <5%. 
+<br>
 
-```{r}
+Using recent-year data since 2012 and considering otolith thermal marks, CWTs and adipose clips, the % hatchery-origin in broodstock (pHOB) biosamples has varied considerably from >80% to <5%. 
+
+```{r fig.height=10, fig.width=10}
 ggarrange(
   ggplot() +
     geom_bar(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%
                group_by(`(R) SAMPLE YEAR`, `(R) ORIGIN`) %>% summarize(n=n()) %>% group_by(`(R) SAMPLE YEAR`) %>% mutate(total=sum(n), perc = n/sum(n)), 
              aes(x=`(R) SAMPLE YEAR`, y=perc, fill=`(R) ORIGIN`, colour=`(R) ORIGIN`), 
-             stat="identity", position="stack",alpha=0.8) +
+             stat="identity", position="stack", alpha=0.8, size=1) +
     geom_text(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%group_by(`(R) SAMPLE YEAR`) %>% summarize(total=n()), 
               aes(x=`(R) SAMPLE YEAR`, y=1.02, label=total), size=3) +
     scale_y_continuous(labels = scales::label_percent()) +
-    scale_colour_manual(breaks=waiver(), values=c("#33BBEE", "#EE7733", "gray80"), labels=c("Hatchery (pHOB)", "Natural (pNOB)", "Unknown")) +
-    scale_fill_manual(breaks=waiver(), values=c("#33BBEE", "#EE7733", "gray80"), labels=c("Hatchery (pHOB)", "Natural (pNOB)", "Unknown")) +
-    labs(x="Return year", y="Origin of broodstock biosamples (total)", fill="Origin", colour="Origin") +
+    scale_colour_manual(values=c("Hatchery" = "black", "Natural" = "transparent", "Unknown" = "transparent"), guide=F) +
+    scale_fill_manual(breaks=waiver(), values=c("#33BBEE", "#EE7733", "gray50"), labels=c("Hatchery (pHOB)", "Natural (pNOB)", "Unknown")) +
+    labs(x="Return year", y="Origin of broodstock biosamples (total)", fill="Origin") +
     theme_bw(),
   
   
@@ -250,21 +391,27 @@ ggarrange(
                group_by(`(R) SAMPLE YEAR`, `(R) ORIGIN`, `(R) RESOLVED STOCK-ORIGIN`) %>% 
                summarize(n=n()) %>% group_by(`(R) SAMPLE YEAR`) %>% 
                mutate(total=sum(n), perc = n/sum(n)), 
-             aes(x=`(R) SAMPLE YEAR`, y=perc, fill=`(R) RESOLVED STOCK-ORIGIN`, colour=`(R) RESOLVED STOCK-ORIGIN`), 
-             stat="identity", position="stack",alpha=0.8) +
+             aes(x=`(R) SAMPLE YEAR`, y=perc, fill=`(R) RESOLVED STOCK-ORIGIN`), 
+             stat="identity", position="stack", alpha=0.8, size=1, colour="transparent") +    
+    
+    geom_bar(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%
+               group_by(`(R) SAMPLE YEAR`, `(R) ORIGIN`) %>% summarize(n=n()) %>% group_by(`(R) SAMPLE YEAR`) %>% mutate(total=sum(n), perc = n/sum(n)), 
+             aes(x=`(R) SAMPLE YEAR`, y=perc, colour=`(R) ORIGIN`), 
+             stat="identity", position="stack", alpha=0, size=1, fill="transparent") + 
+    
+    
     geom_text(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%group_by(`(R) SAMPLE YEAR`) %>% summarize(total=n()), 
               aes(x=`(R) SAMPLE YEAR`, y=1.02, label=total), size=3) +
     scale_y_continuous(labels = scales::label_percent()) +
-    scale_colour_manual(breaks=waiver(), values=c("navy blue", "blue", "dodger blue", "aquamarine", "cyan", "#a2eeff", "#EE7733", "gray80")) +
-    scale_fill_manual(breaks=waiver(), values=c("navy blue", "blue",  "dodger blue", "aquamarine", "cyan", "#a2eeff", "#EE7733", "gray80")) +
-    labs(x="Return year", y="Origin of broodstock biosamples (total)", fill="Origin", colour="Origin") +
+    scale_colour_manual(values=c("Hatchery" = "black", "Natural" = "transparent", "Unknown" = "transparent"), guide=F) +
+    scale_fill_manual(breaks=waiver(), values=c("purple", "dodger blue4", "dodger blue",  "deep sky blue", "sky blue1", "slate gray2", "#EE7733", "gray50")) +
+    labs(x="Return year", y="Origin of broodstock biosamples (total)", fill="Origin") +
     theme_bw(),
-  
-  nrow=2
+  nrow=2 
 )
 ```
-  
-```{r include=F}
+
+```{r include=F, eval=F}
   perc_origin <- sj.cn.biodat %>% 
     group_by(`(R) SAMPLE YEAR`, `Sample Type`, `(R) ORIGIN`, `(R) RESOLVED STOCK ID METHOD`)  %>%
     summarize(n=n()) %>%
@@ -276,9 +423,9 @@ ggarrange(
     mutate(perc=round(n/total,2)) %>%
     print()
 ```
-  
-  
-```{r}
+
+
+```{r include=F, eval=F}
   perc_origin %>% 
     kbl(align="c", caption="% hatchery origin in biosamples, 2012-present.") %>%
     kable_paper("hover", full_width=T, position = "center") %>%
@@ -288,7 +435,7 @@ ggarrange(
   
   
   
-```{r}
+```{r include=F, eval=F}
   tt <- 
     
     tt2 <- SJ_mark_history %>% 
