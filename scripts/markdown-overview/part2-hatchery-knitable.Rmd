@@ -17,6 +17,9 @@ params:
 ---
 
 ```{r setup, include=FALSE}
+
+# *** STILL TO DO: CHANGE ALL DIRECTORIES TO USE here() to github repo files instead of network files
+
 knitr::opts_chunk$set(echo=F, warning=F, message=F)
 
 
