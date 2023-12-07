@@ -80,9 +80,8 @@ SJotoRef <- full_join(
     mutate(data_source = "reference specimen (Oto Manager)"),
   
   
-  readxl::read_excel(
-    "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/Spec_Projects/Thermal_Mark_Project/Marks/All CN Marks from NPAFC Otolith Database to May 1, 2023.xlsx", 
-    sheet="AllNPAFC CNReleasestoJun8,2022") %>% 
+  SJnpafcRef <- readxl::read_excel(here("data", "biosamples", "All CN Marks from NPAFC Otolith Database to December 6, 2023.xlsx"), 
+    sheet="AC087805 (1)") %>% 
     filter(grepl("SAN JUAN", STOCK), BROOD_YEAR %notin% unique(SJomRef$`BROOD YEAR`)) %>% 
     mutate(data_source = "NPAFC mark records") %>% 
     rename(`BROOD YEAR` = BROOD_YEAR,
@@ -98,7 +97,7 @@ SJotoRef <- full_join(
   ) %>% 
   arrange(`BROOD YEAR`) %>%
   mutate(TM_application_flag = case_when(`INTEND HATCH CODE`!=`ACT ASSIGN HATCH CODE` ~ "mark application issue: actual mark applied was not the intended mark applied",
-                                     is.na(`INTEND HATCH CODE`) | is.na(`ACT ASSIGN HATCH CODE`) ~ "unknown",
+                                     is.na(`INTEND HATCH CODE`) | is.na(`ACT ASSIGN HATCH CODE`) ~ NA,
                                      TRUE ~ "ok")) %>%
   # left_join(.,
   #           readxl::read_excel(
@@ -165,45 +164,65 @@ Marking of hatchery releases (and sampling of adults) has been spotty over time.
 # MARK HISTORY/QUALITY ~ BROOD YEAR ----------------------
 SJ_mark_history_BYrollup <- full_join(
   full_join(
-    # --- Otolith release #
-    readxl::read_excel(
-      "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/Spec_Projects/Thermal_Mark_Project/Marks/All CN Marks from NPAFC Otolith Database to May 1, 2023.xlsx", 
-      sheet="AllNPAFC CNReleasestoJun8,2022") %>% 
+    # --- Otolith release # from NPAFC file
+    readxl::read_excel(here("data", "biosamples", "All CN Marks from NPAFC Otolith Database to December 6, 2023.xlsx"),
+      sheet="AC087805 (1)") %>% 
       filter(grepl("SAN JUAN", STOCK)) %>% 
       group_by(BROOD_YEAR) %>% 
-      summarize(total_oto_release = sum(NUMBER_RELEASED)) %>%
+      summarize(TM_release = sum(NUMBER_RELEASED)) %>%
       rename(`BROOD YEAR`=BROOD_YEAR),
-    # --- Otolith mark quality
+    # --- Otolith mark quality from OtoCompile.R
     SJotoRef %>% 
-      filter(!is.na(`RF READ STATUS`) & !is.na(QUALITY)) %>%
-      group_by(`BROOD YEAR`, `RF READ STATUS`, QUALITY, TM_application_flag) %>% 
-      summarize(n_oto_quality=n()) %>% 
+      filter(`RF READ STATUS`%notin%c("Destroyed")) %>%
+      group_by(`BROOD YEAR`, `RF READ STATUS`, QUALITY) %>% 
+      summarize(TM_application_flag = unique(TM_application_flag), 
+                n_submitted_refSpec_by_quality = n(),
+                comments = case_when(`BROOD YEAR` %notin% SJomRef$`BROOD YEAR` ~ paste(`USER COMMENT`, collapse = ", "))) %>%
+      group_by(`BROOD YEAR`, `RF READ STATUS`, QUALITY) %>% 
+      summarize(TM_application_flag = unique(TM_application_flag), 
+                n_submitted_refSpec_by_quality = unique(n_submitted_refSpec_by_quality),
+                comments = unique(comments)) %>%
+      mutate(n_submitted_refSpec_by_quality = case_when(`BROOD YEAR`==2001 ~ 16,
+                                                        `BROOD YEAR` %notin% SJomRef$`BROOD YEAR` ~ 0,
+                                                        TRUE ~ n_submitted_refSpec_by_quality))  %>% 
+      
       group_by(`BROOD YEAR`) %>% 
-      mutate(n_oto_quality = case_when(`BROOD YEAR` %notin% SJomRef$`BROOD YEAR` ~ 0,
-                                       TRUE ~ n_oto_quality),
-             total_oto_refs = sum(n_oto_quality),
-             oto_propn_by_quality = case_when(`BROOD YEAR` %notin% SJomRef$`BROOD YEAR` ~ 1.00,
-                                              TRUE ~ round(n_oto_quality/total_oto_refs,2))) %>% 
-      select(-c(n_oto_quality)) %>%
-      pivot_wider(names_from = QUALITY, values_from = oto_propn_by_quality)
+      mutate(n_submitted_refSpec_by_BY = sum(n_submitted_refSpec_by_quality),
+             oto_propn_by_rfStatQuality = case_when(`BROOD YEAR` %notin% SJomRef$`BROOD YEAR` ~ 1.00,
+                                                    TRUE ~ round(n_submitted_refSpec_by_quality/n_submitted_refSpec_by_BY,2))
+      ) %>%
+      select(-c(n_submitted_refSpec_by_quality)) %>%
+      
+      
+      
+      
+      pivot_wider(names_from = QUALITY, values_from = oto_propn_by_rfStatQuality, names_prefix = "TM Quality (%): ") %>%
+      group_by(`BROOD YEAR`) %>% 
+      summarise(across(`RF READ STATUS`, ~ max(., na.rm=T)),
+                across(TM_application_flag:n_submitted_refSpec_by_BY, ~ unique(., na.rm = T)),
+                across(`TM Quality (%): Unknown`:`TM Quality (%): Poor`, ~ sum(., na.rm = T))) %>% 
+      relocate(`TM Quality (%): NA`, .before = `TM Quality (%): Unknown`)
   ),
   # --- CWT/AD release #s
   SJRelSEP %>% 
     filter(SPECIES_NAME=="Chinook") %>% 
     group_by(BROOD_YEAR) %>%
-    summarize(`BY total released` = sum(TotalRelease,na.rm=T),
-              `CWT` = round(sum(TaggedNum,na.rm=T)/`BY total released`,3),
-              `AD-only` = round((sum(NoTagNum,na.rm=T)+sum(ShedTagNum,na.rm=T))/`BY total released`,3),
-              `mark rate` = round((sum(NoTagNum,na.rm=T)+sum(ShedTagNum,na.rm=T)+sum(TaggedNum,na.rm=T))/`BY total released`,3),
-              `unmark/untag` = round(sum(UnmarkedNum,na.rm=T)/`BY total released`,3)) %>% 
+    summarize(SEP_released = sum(TotalRelease,na.rm=T),
+              `CWT` = round(sum(TaggedNum,na.rm=T)/SEP_released,3),
+              `AD-only` = round((sum(NoTagNum,na.rm=T)+sum(ShedTagNum,na.rm=T))/SEP_released,3),
+              `mark rate` = round((sum(NoTagNum,na.rm=T)+sum(ShedTagNum,na.rm=T)+sum(TaggedNum,na.rm=T))/SEP_released,3),
+              `unmark/untag` = round(sum(UnmarkedNum,na.rm=T)/SEP_released,3)) %>% 
     rename(`BROOD YEAR`=BROOD_YEAR) 
 ) %>% 
-  mutate(total_rel_check = total_oto_release==`BY total released`) %>%
+  mutate(total_rel_check = TM_release==SEP_released) %>%
+  left_join(.,
+            SJPBT %>%
+              rename(`BROOD YEAR`=BROOD_YEAR)) %>%
+  arrange(`BROOD YEAR`) %>%
+  rename(TM_read_status = `RF READ STATUS`) %>%
+  mutate(TM_comments = coalesce(TM_application_flag, comments)) %>% 
+  select(-c(TM_application_flag, comments)) %>%
   print()
-
-
-#### HERE NEXT DAY: ADD PBT COLUMNS!!!!! 
-
 
 
 # EXPORT ----------------------
@@ -212,10 +231,18 @@ writexl::write_xlsx(SJ_mark_history_BYrollup, here("outputs", "R_OUT - San Juan 
 
 ```{r}
 SJ_mark_history_BYrollup %>%
-  
-  #**** NEXT DAY: CLEAN UP COLUMN NAME HEADERS 
+  select(-c(total_rel_check)) %>% 
+  rename(`TM release #` = TM_release,
+         `TM Reference specimen mark status`=TM_read_status,
+         `# TM reference specimens` = n_submitted_refSpec_by_BY,
+         `SEP release` = SEP_released,
+         `% CWT`=CWT,
+         `%AD-only`=`AD-only`,
+         `BY mark rate`=`mark rate`,
+         `% unmarked/untagged`=`unmark/untag`,
+         `TM issues/comments` = TM_comments) %>% 
   arrange(`BROOD YEAR`) %>%
-  kbl(align="c", caption="San Juan chinook otolith marking, CWTing, and adipose clipping over time.") %>%
+  kbl(align="c", caption="San Juan chinook otolith thermal marking ('TM'), CWTing, and adipose clipping over time.") %>%
   #collapse_rows(columns=c(1,2), valign="middle", target=1) %>%
   kable_paper("hover", full_width=T, position = "center")
 ```
@@ -371,7 +398,7 @@ sj.pni %>%
 
 <br>
 
-Using recent-year data since 2012 and considering otolith thermal marks, CWTs and adipose clips, the % hatchery-origin in broodstock (pHOB) biosamples has varied considerably from >80% to <5%. 
+Using recent-year data since 2012 and considering otolith thermal marks, CWTs and adipose clips, the % hatchery-origin in broodstock (pHOB) biosamples has varied considerably from >80% to <5%. NOTE that **"natural" is only inferred by the lack of a thermal mark**, but in reality there are likely a small number of natural strays; DNA results are not available to confirm this. 
 
 ```{r fig.height=10, fig.width=10}
 ggarrange(
