@@ -2,8 +2,13 @@
 title: "San Juan Chinook data compilation"
 author: "South Coast StA"
 date: 'Last update: `r format(Sys.time(), sep="_", "%Y-%m-%d %H:%M")`'
-output: html_document
-
+output: 
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+    toc_collapsed: false 
+    toc_depth: 5
+    number_sections: true
 ---
 
 ```{r setup, include=FALSE}
@@ -13,7 +18,9 @@ library(here)
 library(tidyverse)
 library(readxl)
 library(kableExtra)
-library(bookdown)
+library(bookdown)  
+library(scales)       # for label_percent()
+library(ggpubr)       # for ggarrange()
 ```
 
 <br>
@@ -23,6 +30,10 @@ library(bookdown)
 ```{r child=here::here("scripts","markdown-overview", "part1-esc.Rmd")}
 
 ```
+
+<br>
+
+-----------------------------
 
 <br>
 
