@@ -130,7 +130,7 @@ sj.pni <- readxl::read_excel(here("data", "enhancement-PNI", "SanJuan_PNI_JW.xls
 
 <br>
 
-# **Overview** 
+# **Hatchery background** 
 
 The 4 Mile Hatchery operates out of Port Renfrew, BC and currently only enhances Chinook. Historically they have also enhanced chum and coho, but have not in recent years (no adult returns are from hatchery parents). Their chinook target(s) are: 
 
@@ -152,13 +152,19 @@ All juveniles are incubated and reared in the hatchery until water supply become
 
 <br>
 
-# **Hatchery marking**
+## Releases
+
+
+
+
+
+## Hatchery marking
 
 Marking of hatchery releases (and sampling of adults) has been spotty over time. Below is a brief summary of the marking/tagging rates and methods used over time at 4 Mile.
 
-## Otolith, CWT, and adipose clip
+### Otolith, CWT, and adipose clip
 
-### Marking/tagging by brood year
+#### Marking/tagging by brood year
 
 ```{r include=F}
 # MARK HISTORY/QUALITY ~ BROOD YEAR ----------------------
@@ -249,7 +255,7 @@ SJ_mark_history_BYrollup %>%
 
 <br>
 
-### Marking/tagging by brood year and release stage 
+#### Marking/tagging by brood year and release stage 
 
 ```{r include=F, eval=F}
 
@@ -365,7 +371,7 @@ SJ_mark_history %>%
 
 <br>
 
-## Parent-based tagging (PBT)
+### Parent-based tagging (PBT)
 
 PBT is relatively new for San Juan Chinook, beginning in 2017 but only reliable since 2019. From Eric Rondeau, MGL: 
 
@@ -383,7 +389,7 @@ After showing example data from a few fish exported from the CREST Biodata query
 
 <br>
 
-# **PNI**
+# PNI
 
 The recently-accepted WCVI Chinook Straying paper (CSAS) used only otolith thermal marks to assess PNI and straying across WCVI Chinook. The following summary of results was provided for San Juan. 
 
