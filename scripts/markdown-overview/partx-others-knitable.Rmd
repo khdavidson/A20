@@ -1,0 +1,30 @@
+---
+title: "partx-others-knitable"
+author: "South Coast StA"
+date: '2023-12-08'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **Non-Chinook content**
+
+## Coho
+
+### Escapement
+
+### Enhancement
+
+## Chum
+
+### Escapement
+
+### Enhancement
+
+## Pink and sockeye 
+
+
+
+
