@@ -1,0 +1,24 @@
+
+```{r othersetup, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **Non-Chinook content**
+
+## Coho
+
+### Escapement
+
+### Enhancement
+
+## Chum
+
+### Escapement
+
+### Enhancement
+
+## Pink and sockeye 
+
+
+
+
