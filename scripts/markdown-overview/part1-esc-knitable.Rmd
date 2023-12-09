@@ -260,7 +260,7 @@ sj_12Y_avgs <- sj_age_summary %>%
 #   print()
 ```
 
-# **San Juan Chinook escapement: abundance and biodata** {#esc}
+# **Abundance and biodata** {#esc}
 
 Status snapshot:
 
@@ -286,7 +286,7 @@ Status snapshot:
 
 San Juan Chinook escapement has varied over time. From its peak at 7500 in 1970 it declined to less than 250 fish between 1975-1978, but has since returned to escapements that tend to oscillate around 2000-4000 fish (see Figure \@ref(fig:sj-esc-fig)). While broodstock collections are only documented in NuSEDS from 1995 onward, the first document hatchery release group was 1979.
 
-```{r sj-esc-fig, fig.cap='Spawners and broodstock removals for San Juan Chinook, specific adults only where known. Vertical dashed gray line(s) indicate periods of enhancement. Horizontal dashed black line indicates habitat-model based Smsy estimate. Data from NuSEDS, excluding tributaries. Red outlined bars (if any) indicate escapement estimates not in NuSEDS.'}
+```{r sj-esc-fig, fig.cap='Spawners and broodstock removals for San Juan Chinook, specific adults only where known. Vertical dashed gray line(s) indicate periods of enhancement. Horizontal dashed black line indicates habitat-model based Smsy estimate. Data from NuSEDS; red outlined bars (if any) indicate escapement estimates not in NuSEDS.'}
 
 # CHINOOK ESCAPEMENT FIGURE ----------------------- 
 
@@ -455,7 +455,7 @@ sj.FULL.age %>%
 
 <br>
 
-```{r age-fig, echo=F, warning=F, message=F, fig.cap='Annual age structure of San Juan Chinook (excludes tributaries). Numbers indicate the number of samples contributing age data each year. Data from PADS (NuSEDS and MRPIS).'}
+```{r age-fig, echo=F, warning=F, message=F, fig.cap='Annual age structure of San Juan Chinook. Numbers above bars indicate the number of samples contributing age data each year. Data from PADS (NuSEDS and MRPIS).'}
 # FIGURE: AGE ~ TIME ----------------------- 
 ggplot() +
   geom_bar(data=sj.FULL.age %>% 
@@ -468,7 +468,7 @@ ggplot() +
        aes(x=`Sample Year`, y=propn, fill=as.factor(`(R) RESOLVED TOTAL AGE`), colour=as.factor(`(R) RESOLVED TOTAL AGE`)), 
        stat="identity", position="stack", width=0.5, alpha=0.8, size=1) +
   geom_text(data=sj.FULL.age %>% filter(!is.na(`(R) RESOLVED TOTAL AGE`)) %>% group_by(`Sample Year`) %>% summarize(sample_size = n()), 
-            aes(x=`Sample Year`, y=1, label=sample_size), hjust=0, vjust=0, angle=45) +
+            aes(x=`Sample Year`, y=1, label=sample_size), size=3) +
   labs(y="Proportion of all annual biosamples", fill="Age:", colour="Age:") +
   scale_x_continuous(breaks=seq(1990,2050,by=2)) +
   scale_y_continuous(breaks=seq(0,1.1,by=0.25), limits=c(0,1.1), labels=scales::label_percent()) +
@@ -521,7 +521,7 @@ ggplot() +
 
 ## Sex ratio and fecundity
 
-Very little sex ratio is available. We have some fence counts that may shed light, although are highly uncertain.
+Very little sex ratio is available. We have some fence counts that may shed light, although are highly uncertain. Notice that the fence typically handles more males earlier in the run. 
 
 ```{r}
 sj.fence %>% 
