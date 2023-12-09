@@ -1,13 +1,14 @@
 
 
+```{r fisheriessetup, include=FALSE}
 
+```
 
-fisheries test
+# **San Juan Chinook in fisheries**
 
+## Canadian fisheries
 
-
-
-
+## Coast-wide fisheries (CWT only)
 
 
 
