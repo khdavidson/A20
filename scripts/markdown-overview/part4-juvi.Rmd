@@ -1,0 +1,58 @@
+
+
+```{r juvisetup, include=FALSE, eval=F}
+# knitr::opts_chunk$set(echo = TRUE, warning=F, echo=F, message=F)
+# 
+# # Load libraries ------------------------------------
+# library(tidyverse)
+# library(readxl)
+# library(kableExtra)
+# library(bookdown)
+
+
+
+# Load data ------------------------------------
+juvi.SEM <- read_excel("C:/Users/DAVIDSONKA/OneDrive - DFO-MPO/# Study Designs/2023/Juveniles/PFN_DFO_FTFjuvi_2023.xlsx", sheet="sample_event_metadata")
+juvi.enocgy <- read_excel("C:/Users/DAVIDSONKA/OneDrive - DFO-MPO/# Study Designs/2023/Juveniles/PFN_DFO_FTFjuvi_2023.xlsx", sheet="enviro_ocgy")
+juvi.seten <- read_excel("C:/Users/DAVIDSONKA/OneDrive - DFO-MPO/# Study Designs/2023/Juveniles/PFN_DFO_FTFjuvi_2023.xlsx", sheet="set_totals")
+juvi.bio <- read_excel("C:/Users/DAVIDSONKA/OneDrive - DFO-MPO/# Study Designs/2023/Juveniles/PFN_DFO_FTFjuvi_2023.xlsx", sheet="biosamples")
+
+
+
+```
+
+
+# **Juvenile Chinook**
+
+## RST
+
+## Beach seine?
+
+## Purse seine
+
+
+```{r eval=F, include=F, eval=F}
+left_join(
+  juvi.bio %>% 
+    filter(!is.na(DNA_vial)) %>%
+    group_by(usid, ad_clip) %>%
+    summarize(n=n()),
+  
+  juvi.SEM %>%
+    select(usid, date_start, date_end, gear)
+) %>%
+  group_by(date_end, gear, ad_clip) %>%
+  summarize(n=sum(n)) %>%
+  group_by(date_end) %>%
+  mutate(total=sum(n))
+```
+
+
+
+
+
+
+
+
+
+
