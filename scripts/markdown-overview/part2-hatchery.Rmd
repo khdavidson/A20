@@ -312,7 +312,7 @@ SJ_mark_history_BYrollup <- full_join(
 
 
 # EXPORT ----------------------
-writexl::write_xlsx(SJ_mark_history_BYrollup, here("outputs", "R_OUT - San Juan mark history by BROOD YEAR.xlsx"))
+#writexl::write_xlsx(SJ_mark_history_BYrollup, here("outputs", "R_OUT - San Juan mark history by BROOD YEAR.xlsx"))
 ```
 
 ```{r}
