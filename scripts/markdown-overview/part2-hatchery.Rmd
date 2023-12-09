@@ -14,6 +14,8 @@
 
 # Helpers ------------------------
 "%notin%" <- Negate("%in%")
+options(scipen = 999999)
+analysis_year <- 2023
 
 #source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/functions/getExtractorData.R", local = knitr::knit_global())
 #source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/functions/getMrpPadsData.R", local = knitr::knit_global())
@@ -27,6 +29,25 @@ SJRelSEP <- lapply(list.files(path=here("data", "enhancement-PNI"),
                    readxl::read_excel, sheet="Actual Release") %>% 
   do.call("cbind",.) %>%
   filter(STOCK_NAME=="San Juan R") %>%
+  mutate(release_stage_detail = case_when(grepl("overwinter", RELEASE_COMMENT,ignore.case = T) ~ paste0(RELEASE_STAGE_NAME, " (overwinter)"),
+                                          TRUE ~ RELEASE_STAGE_NAME),
+         earliest_release_date = case_when(nchar(START_DATE)==8 ~ lubridate::ymd(START_DATE),
+                                           #TRUE ~ lubridate::ymd(paste0(START_DATE,"-15"))
+                                           TRUE ~ NA
+                                           ),
+         latest_release_date = case_when(nchar(END_DATE)==8 ~ lubridate::ymd(END_DATE),
+                                         #TRUE ~ lubridate::ymd(paste0(END_DATE,"-15"))
+                                         TRUE ~ NA
+                                         ),
+         mid_release_date = case_when(is.na(earliest_release_date) & !is.na(latest_release_date) ~ latest_release_date,
+                                      !is.na(earliest_release_date) & is.na(latest_release_date) ~ earliest_release_date,
+                                      TRUE ~ earliest_release_date+((latest_release_date-earliest_release_date)/2)),
+         release_date_est_quality = case_when(!is.na(mid_release_date) ~ "known",
+                                              is.na(mid_release_date) & (!is.na(START_DATE) | !is.na(END_DATE)) ~ "estimate",
+                                              TRUE ~ "unknown"),
+         release_date_estimated = case_when(release_date_est_quality=="estimate" ~ 
+                                              lubridate::ymd(paste0(START_DATE, "15")) + 
+                                              ((lubridate::ymd(paste0(END_DATE, "15"))-lubridate::ymd(paste0(START_DATE, "15")))/2))) %>%
   print()
 
 
@@ -133,9 +154,89 @@ All juveniles are incubated and reared in the hatchery until water supply become
 
 ## Releases
 
+Chinook releases began in 1979. Enhancement of other species also occurred sporadically over time; see appendix at end. 
 
+```{r BYrel-fig, fig.cap='Chinook releases from 4 Mile Hatchery. Data from SEP.'}
+ggplot() +
+  geom_bar(data=SJRelSEP %>% 
+             filter(SPECIES_NAME=="Chinook")%>% 
+             group_by(BROOD_YEAR, release_stage_detail)%>%
+             summarize(total_releases=sum(TotalRelease,na.rm=T)),
+           aes(x=BROOD_YEAR, y=total_releases, colour=release_stage_detail, fill=release_stage_detail), stat="identity", position="stack", alpha=0.8) +
+  scale_x_continuous(breaks=seq(1979,analysis_year,by=2)) +
+  scale_y_continuous(breaks=seq(0,5000000, by=100000), labels = scales::label_comma()) +
+  labs(x="Brood year", y="Total releases", fill="Release stage", colour="Release stage") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        axis.title = element_text(face="bold"))
+```
 
+### Release size and timing
 
+```{r sizerel-fig, fig.cap='Size at release of 4 Mile Hatchery chinook. Data from SEP.'}
+ggplot() +
+  geom_hline(data=SJRelSEP %>% 
+               filter(SPECIES_NAME=="Chinook")%>% 
+               group_by(release_stage_detail)%>%
+               summarize(avg_weight=median(AVE_WEIGHT,na.rm=T)),
+             aes(yintercept=avg_weight, colour=release_stage_detail)) +
+  geom_point(data=SJRelSEP %>% 
+               filter(SPECIES_NAME=="Chinook")%>% 
+               group_by(BROOD_YEAR, release_stage_detail)%>%
+               summarize(avg_weight=mean(AVE_WEIGHT,na.rm=T)),
+             aes(x=BROOD_YEAR, y=avg_weight, colour=release_stage_detail, fill=release_stage_detail), size=3, alpha=0.8) +
+  scale_x_continuous(breaks=seq(1979,analysis_year,by=2)) +
+  scale_y_continuous(breaks=seq(0,20, by=2)) +
+  labs(x="Brood year", y="Median weight (grams)", fill="Release stage", colour="Release stage") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        axis.title = element_text(face="bold")) +
+  guides(color = guide_legend(override.aes = list(linetype = 0)))
+```
+
+<br>
+
+```{r timerel-fig, fig.cap='Median release date of 4 Mile Hatchery Chinook. Paler points indicate cases where release date was estimated. Data from SEP.'}
+ggplot() +
+  geom_vline(data=SJRelSEP %>% 
+               filter(SPECIES_NAME=="Chinook") %>% 
+               mutate(yday = lubridate::yday(mid_release_date)) %>% 
+               group_by(release_stage_detail) %>% 
+               summarize(mean_yday = median(yday, na.rm=T),
+                         mean_date = median(mid_release_date, na.rm=T)),
+             aes(xintercept=as.Date(mean_yday, origin=as.Date("1970-12-31")), colour=release_stage_detail)) +
+  geom_jitter(data=SJRelSEP %>% 
+                filter(SPECIES_NAME=="Chinook") %>% 
+                mutate(yday = lubridate::yday(mid_release_date)) %>% 
+                group_by(BROOD_YEAR, release_stage_detail) %>% 
+                summarize(mean_yday = median(yday, na.rm=T),
+                          mean_date = median(mid_release_date, na.rm=T)),
+              aes(x=as.Date(mean_yday, origin=as.Date("1970-12-31")), 
+                  y=BROOD_YEAR, 
+                  colour=release_stage_detail, fill=release_stage_detail), 
+              size=3, alpha=0.9, height=0.4) +
+  geom_jitter(data=SJRelSEP %>% 
+                filter(SPECIES_NAME=="Chinook") %>% 
+                mutate(yday = lubridate::yday(release_date_estimated)) %>% 
+                group_by(BROOD_YEAR, release_stage_detail) %>% 
+                summarize(mean_yday = median(yday, na.rm=T),
+                          mean_date = median(release_date_estimated, na.rm=T)),
+              aes(x=as.Date(mean_yday, origin=as.Date("1970-12-31")), 
+                  y=BROOD_YEAR, 
+                  colour=release_stage_detail, fill=release_stage_detail), 
+              size=3, alpha=0.2, height=0.4) +
+  scale_x_date(date_labels="%b %d", date_breaks="10 day") +
+  scale_y_reverse(breaks=seq(1978, analysis_year, by=2)) +
+  labs(y="Brood year", x="Release date", fill="Release stage", colour="Release stage") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        axis.title = element_text(face="bold"))  +
+  guides(color = guide_legend(override.aes = list(linetype = 0)))
+```
+
+<br>
+
+<br>
 
 ## Hatchery marking
 
@@ -211,7 +312,7 @@ SJ_mark_history_BYrollup <- full_join(
 
 
 # EXPORT ----------------------
-writexl::write_xlsx(SJ_mark_history_BYrollup, here("outputs", "R_OUT - San Juan mark history by BROOD YEAR.xlsx"))
+#writexl::write_xlsx(SJ_mark_history_BYrollup, here("outputs", "R_OUT - San Juan mark history by BROOD YEAR.xlsx"))
 ```
 
 ```{r}
@@ -398,7 +499,8 @@ ggarrange(
     scale_colour_manual(values=c("Hatchery" = "black", "Natural" = "transparent", "Unknown" = "transparent"), guide=F) +
     scale_fill_manual(breaks=waiver(), values=c("#33BBEE", "#EE7733", "gray50"), labels=c("Hatchery (pHOB)", "Natural (pNOB)", "Unknown")) +
     labs(x="Return year", y="Origin of broodstock biosamples (total)", fill="Origin") +
-    theme_bw(),
+    theme_bw() +
+    theme(axis.title = element_text(face="bold")),
   
   
   ggplot() +
@@ -421,7 +523,8 @@ ggarrange(
     scale_colour_manual(values=c("Hatchery" = "black", "Natural" = "transparent", "Unknown" = "transparent"), guide=F) +
     scale_fill_manual(breaks=waiver(), values=c("purple", "dodger blue4", "dodger blue",  "deep sky blue", "sky blue1", "slate gray2", "#EE7733", "gray50")) +
     labs(x="Return year", y="Origin of broodstock biosamples (total)", fill="Origin") +
-    theme_bw(),
+    theme_bw() +
+    theme(axis.title = element_text(face="bold")),
   nrow=2 
 )
 ```
