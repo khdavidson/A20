@@ -312,7 +312,7 @@ SJ_mark_history_BYrollup <- full_join(
 
 
 # EXPORT ----------------------
-#writexl::write_xlsx(SJ_mark_history_BYrollup, here("outputs", "R_OUT - San Juan mark history by BROOD YEAR.xlsx"))
+writexl::write_xlsx(SJ_mark_history_BYrollup, here("outputs", "R_OUT - San Juan mark history by BROOD YEAR.xlsx"))
 ```
 
 ```{r}
@@ -469,7 +469,7 @@ After showing example data from a few fish exported from the CREST Biodata query
 
 <br>
 
-# PNI
+## PNI
 
 The recently-accepted WCVI Chinook Straying paper (CSAS) used only otolith thermal marks to assess PNI and straying across WCVI Chinook. The following summary of results was provided for San Juan. 
 
@@ -484,13 +484,18 @@ sj.pni %>%
 
 <br>
 
-Using recent-year data since 2012 and considering otolith thermal marks, CWTs and adipose clips, the % hatchery-origin in broodstock (pHOB) biosamples has varied considerably from >80% to <5%. NOTE that **"natural" is only inferred by the lack of a thermal mark**, but in reality there are likely a small number of natural strays; DNA results are not available to confirm this. 
+Using recent-year data since 2012 and considering otolith thermal marks, CWTs and adipose clips, the % hatchery-origin in broodstock (pHOB) biosamples has varied considerably from >80% to <5% (see Figure \@ref(fig:brood-origin-fig)). NOTE that **"natural" is only inferred by the lack of a thermal mark**, but in reality there are likely a small number of natural strays; DNA results are not available to confirm this. Most origin/composition ID is made via otolith thermal marks (see Table \@ref(tab:brood-id-method-tab)). 
 
-```{r fig.height=10, fig.width=10}
+```{r brood-origin-fig, fig.height=10, fig.width=10, fig.cap='Origin of recent San Juan broodstock. Top panel shows hatchery/natural breakdown, bottom panel shows stock composition where known. Note that natural is inferred based on lack of otolith thermal mark, but no DNA available to confirm stock of origin. Numbers above bars indicate sample sizes. Data from Stock Assessment.'}
+
 ggarrange(
   ggplot() +
-    geom_bar(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%
-               group_by(`(R) SAMPLE YEAR`, `(R) ORIGIN`) %>% summarize(n=n()) %>% group_by(`(R) SAMPLE YEAR`) %>% mutate(total=sum(n), perc = n/sum(n)), 
+    geom_bar(data=sj.cn.biodat%>%
+               filter(`Sample Type`!="FSC")%>%
+               group_by(`(R) SAMPLE YEAR`, `(R) ORIGIN`) %>% 
+               summarize(n=n()) %>% 
+               group_by(`(R) SAMPLE YEAR`) %>% 
+               mutate(total=sum(n), perc = n/sum(n)), 
              aes(x=`(R) SAMPLE YEAR`, y=perc, fill=`(R) ORIGIN`, colour=`(R) ORIGIN`), 
              stat="identity", position="stack", alpha=0.8, size=1) +
     geom_text(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%group_by(`(R) SAMPLE YEAR`) %>% summarize(total=n()), 
@@ -506,22 +511,24 @@ ggarrange(
   ggplot() +
     geom_bar(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%
                group_by(`(R) SAMPLE YEAR`, `(R) ORIGIN`, `(R) RESOLVED STOCK-ORIGIN`) %>% 
-               summarize(n=n()) %>% group_by(`(R) SAMPLE YEAR`) %>% 
+               summarize(n=n()) %>% 
+               group_by(`(R) SAMPLE YEAR`) %>% 
                mutate(total=sum(n), perc = n/sum(n)), 
              aes(x=`(R) SAMPLE YEAR`, y=perc, fill=`(R) RESOLVED STOCK-ORIGIN`), 
              stat="identity", position="stack", alpha=0.8, size=1, colour="transparent") +    
-    
     geom_bar(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%
-               group_by(`(R) SAMPLE YEAR`, `(R) ORIGIN`) %>% summarize(n=n()) %>% group_by(`(R) SAMPLE YEAR`) %>% mutate(total=sum(n), perc = n/sum(n)), 
+               group_by(`(R) SAMPLE YEAR`, `(R) ORIGIN`) %>% 
+               summarize(n=n()) %>% 
+               group_by(`(R) SAMPLE YEAR`) %>% 
+               mutate(total=sum(n), perc = n/sum(n)), 
              aes(x=`(R) SAMPLE YEAR`, y=perc, colour=`(R) ORIGIN`), 
              stat="identity", position="stack", alpha=0, size=1, fill="transparent") + 
-    
-    
     geom_text(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%group_by(`(R) SAMPLE YEAR`) %>% summarize(total=n()), 
               aes(x=`(R) SAMPLE YEAR`, y=1.02, label=total), size=3) +
     scale_y_continuous(labels = scales::label_percent()) +
     scale_colour_manual(values=c("Hatchery" = "black", "Natural" = "transparent", "Unknown" = "transparent"), guide=F) +
-    scale_fill_manual(breaks=waiver(), values=c("purple", "dodger blue4", "dodger blue",  "deep sky blue", "sky blue1", "slate gray2", "#EE7733", "gray50")) +
+    scale_fill_manual(breaks=waiver(), 
+                      values=c("purple", "dodger blue4", "dodger blue",  "deep sky blue", "sky blue1", "slate gray2", "#EE7733", "gray50")) +
     labs(x="Return year", y="Origin of broodstock biosamples (total)", fill="Origin") +
     theme_bw() +
     theme(axis.title = element_text(face="bold")),
@@ -529,41 +536,28 @@ ggarrange(
 )
 ```
 
-```{r include=F, eval=F}
-  perc_origin <- sj.cn.biodat %>% 
-    group_by(`(R) SAMPLE YEAR`, `Sample Type`, `(R) ORIGIN`, `(R) RESOLVED STOCK ID METHOD`)  %>%
-    summarize(n=n()) %>%
-    mutate(`(R) RESOLVED STOCK ID METHOD` = case_when(is.na(`(R) RESOLVED STOCK ID METHOD`) & `(R) ORIGIN`=="Natural" ~ "Otolith",
-                                                      TRUE ~ `(R) RESOLVED STOCK ID METHOD`)) %>%
-    group_by(`(R) SAMPLE YEAR`, `Sample Type`) %>%
-    mutate(total = sum(n)) %>%
-    group_by(`(R) SAMPLE YEAR`) %>%
-    mutate(perc=round(n/total,2)) %>%
-    print()
+```{r }
+# Origin by ID method
+perc_origin <- sj.cn.biodat %>% 
+  group_by(`(R) SAMPLE YEAR`, `Sample Type`, `(R) ORIGIN`, `(R) RESOLVED STOCK ID METHOD`)  %>%
+  summarize(n=n()) %>%
+  mutate(`(R) RESOLVED STOCK ID METHOD` = case_when(is.na(`(R) RESOLVED STOCK ID METHOD`) & `(R) ORIGIN`=="Natural" ~ "Otolith",
+                                                    TRUE ~ `(R) RESOLVED STOCK ID METHOD`)) %>%
+  group_by(`(R) SAMPLE YEAR`, `Sample Type`) %>%
+  mutate(total = sum(n)) %>%
+  group_by(`(R) SAMPLE YEAR`) %>%
+  mutate(perc=round(n/total,2)) 
 ```
 
 
-```{r include=F, eval=F}
-  perc_origin %>% 
-    kbl(align="c", caption="% hatchery origin in biosamples, 2012-present.") %>%
-    kable_paper("hover", full_width=T, position = "center") %>%
-    collapse_rows(columns=c(1:2), valign="middle") %>% 
-    print()
+```{r brood-id-method-tab}
+perc_origin %>% 
+  kbl(align="c", caption="Origin and stock ID method used to determine origin/composition of San Juan broodstock, 2012-present.") %>%
+  kable_paper("hover", full_width=T, position = "center")  
 ```
   
   
-  
-```{r include=F, eval=F}
-  tt <- 
-    
-    tt2 <- SJ_mark_history %>% 
-    filter(BROOD_YEAR>=2012) %>% 
-    select(`BROOD_YEAR`, `RELEASE_STAGE_NAME`, `% CWT`, `% AD`, OTO_READ_STATUS, OTO_MARK_QUALITY, oto_propn_by_quality, PBT) %>% 
-    #ungroup() %>% 
-    pivot_wider(names_from = OTO_MARK_QUALITY, values_from = oto_propn_by_quality)  
-  
-  
-```
+
   
   
   
