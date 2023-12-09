@@ -1,5 +1,5 @@
 ---
-title: "San Juan Chinook data compilation"
+title: "San Juan Chinook data compilation (DRAFT)"
 author: "South Coast StA"
 date: 'Last update: `r format(Sys.time(), sep="_", "%Y-%m-%d %H:%M")`'
 output: 
@@ -77,7 +77,7 @@ library(ggpubr)       # for ggarrange()
 
 <br>
 
-```{r child=here::here("scripts","markdown-overview", "part6-other.Rmd")}
+```{r child=here::here("scripts","markdown-overview", "partx-others.Rmd")}
 
 ```
 
