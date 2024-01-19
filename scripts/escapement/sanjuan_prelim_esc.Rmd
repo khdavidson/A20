@@ -268,6 +268,247 @@ tribs.sil %>%
 
 <br>
 
+## `r analysis_year` compared to historical abundance
+
+```{r}
+ggplot()  +
+  geom_bar(data=sj.esc %>% filter(`Waterbody Name`=="SAN JUAN RIVER", `Species Qualified`%in%c("SER","SEL")), 
+           aes(x=`Analysis Year`, y=`Natural Adult Spawners`), stat="identity", colour="dodger blue", fill="dodger blue", alpha=0.8) +
+  geom_bar(data=sj.esc %>% filter(`Waterbody Name`=="SAN JUAN RIVER", `Species Qualified`%in%c("SER","SEL")), 
+           aes(x=`Analysis Year`, y=`Unspecified Return`), stat="identity", colour="gray80", fill="gray80", alpha=0.8) +  
+  geom_bar(aes(x=analysis_year, y=37), stat="identity", colour="orange", fill="orange", alpha=0.8) +   
+  scale_x_continuous(breaks=seq(min(sj.esc$`Analysis Year`), analysis_year, by=2)) +
+  labs(x="Return Year", y="Sockeye spawners") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: 2023 preliminary adult Coho escapement estimate (orange) relative to historical adult (blue) and unspecified (gray) escapement estimates. Gaps indicate years without estimates. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# **Coho** 
+
+Three complete surveys conducted over 2-3 days per survey were conducted for in 2023. They were likely a little early for an accurate coho estimate. 
+
+<br>
+
+## Raw vs expanded counts
+
+Counts are expanded for % population estimated and/or observer efficiency, depending on survey conditions. 
+
+```{r}
+ggplot() +
+  geom_bar(data=ver23 %>% 
+             filter(ShortSpecies=="CO") %>% 
+             pivot_longer(LiveAdults:ExpDeadJacks, names_to="est_type", values_to="n") %>% 
+             filter(est_type %in% c("LiveAdults", "ExpLiveAdults")), 
+           aes(x=as.Date(Date), y=n, colour=est_type, fill=est_type), stat="identity", position="dodge", alpha=0.5) +
+  labs(x="", y="Adult Chinook counts", fill="Expansion", colour="Expansion") +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: Raw live Adult Coho counts (blue) and expanded for OE (pink). 
+
+<br>
+
+## Counts & environmentals
+
+```{r }
+ggplot() +
+  geom_ribbon(data=sj.water %>% group_by(date) %>% 
+                summarize(minL=min(level_m,na.rm=T), maxL=max(level_m,na.rm=T), 
+                          minD=min(cms,na.rm=T), maxD=max(cms,na.rm=T)) %>% 
+                filter(across(c(minL:maxD), ~ . !="Inf"), date<=as.Date("2023-11-10")), 
+              aes(x=as.Date(date), ymin=minD*5, ymax=maxD*5), fill="dodger blue", alpha=0.5) +
+  geom_line(data=sj.water %>% group_by(date) %>% 
+              summarize(meanL = mean(level_m,na.rm=T),
+                        meanD = mean(cms,na.rm=T)) %>% 
+              filter(across(c(meanL:meanD), ~.!="Inf"), date<=as.Date("2023-11-10")), 
+            aes(x=as.Date(date), y=meanD*5), colour="dodger blue") +
+  geom_bar(data=sj.sil %>% filter(species=="Coho") %>% group_by(date, section) %>% 
+             summarize(n=sum(`adults live / habitat seen (# Est Live)`)), 
+           aes(x=as.Date(date), y=n, fill=section, colour=section), 
+           stat="identity", position="stack", alpha=0.7) +
+  labs(x="", y="Expanded adult Coho", fill="Segment", colour="Segment") +
+  scale_y_continuous(sec.axis = sec_axis(~./5, name="Discharge (cms)")) +
+  scale_x_date(date_breaks="7 day", date_labels="%b %d") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: Coho counts (expanded live adults) and water levels (blue line).
+
+<br>
+
+<br>
+
+## Behaviour & carcasses 
+
+```{r}
+ggplot() +
+  geom_bar(data=sj.sil %>% filter(species=="Coho") %>% group_by(date, section) %>% 
+             summarize(Spawning=sum(`adults # spawning`),
+                       Holding = sum(`adults # holding`)) %>% 
+             pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count"), 
+           aes(x=as.Date(date), y=count, fill=behaviour, colour=section), 
+           stat="identity", position="stack", alpha=0.7, size=1) +
+  geom_point(data=sj.sil %>% filter(species=="Coho") %>% group_by(date) %>% 
+               summarize(n=sum(`adults dead`)), 
+             aes(x=as.Date(date), y=n*10), size=2, alpha=0.5) +
+  geom_line(data=sj.sil %>% filter(species=="Coho") %>% group_by(date) %>% 
+              summarize(n=sum(`adults dead`)), 
+            aes(x=as.Date(date), y=n*10), 
+            stat="identity", position="stack") +
+  scale_y_continuous(sec.axis = sec_axis(~./10, name="Carcasses")) +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d")+
+  scale_fill_manual(breaks=waiver(), values=c("transparent", "gray")) +
+  labs(x="", y="Spawning adult Coho", fill="Behaviour", colour="Segment") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+<br>
+
+Figure: Expanded live adult Coho (bars) and carcasses (black line). Bar fill colur indicates behaviour (spawning=gray, holding=white) while bar outline colour indicates river segment (lower=pink, mid=green, upper=blue). Note Oct 3/4 mid was covered within upper and lower segments.  
+
+<br>
+
+<br>
+
+## Swim & fence counts
+
+```{r}
+ggplot() +
+   geom_bar(data=sj.sil %>% filter(species=="Coho") %>% group_by(date, section) %>% 
+              summarize(n=sum(`adults live / habitat seen (# Est Live)`)), 
+            aes(x=as.Date(date), y=n, fill=section, colour=section), 
+            stat="identity", position="stack", alpha=0.7) + 
+    geom_line(data=mile4.fence %>% filter(species=="coho") %>% group_by(date) %>% summarize(n=sum(count)) %>% mutate(ncum = cumsum(n)),
+           aes(x=as.Date(date), y=as.numeric(ncum)), alpha=0.7) +
+      geom_point(data=mile4.fence %>% filter(species=="coho") %>% group_by(date) %>% summarize(n=sum(count)) %>% mutate(ncum = cumsum(n)),
+           aes(x=as.Date(date), y=as.numeric(ncum)), alpha=0.7, size=2) +
+  scale_y_continuous(breaks=seq(0,1500,by=100), sec.axis = sec_axis(~./1, name="Cumulative fence count (Chinook)")) +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d")+
+  labs(x="", y="Expanded adult Coho (swims)", fill="Segment", colour="Segment") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: Coho swim counts (expanded adults) relative to cumulative fence counts (black line). 
+
+<br>
+
+<br>
+
+## Preliminary escapement estimate (PL+D)
+
+<br>
+
+Table: San Juan swim counts (expanded live and dead) and preliminary escapement estimates for three San Juan surveys in 2023. 
+
+```{r}
+ver23 %>% 
+  filter(ShortSpecies=="CO") %>% 
+  select(-c(FabricatedZero)) %>% 
+  mutate(across(c(LiveAdults:ExpDeadJacks), ~round(., 0))) %>% 
+  kbl(align="c") %>%
+  kable_paper("hover", full_width=T, position = "center") %>%
+  collapse_rows(columns=c(1:4), valign="middle", target=1) 
+```
+
+<br>
+
+Table: Surveys rolled up based on mid-point date for each of 3 complete survey events. 
+
+```{r}
+pld23 %>% 
+  filter(ShortSpecies=="CO") %>% 
+  select(-c(FabricatedZero)) %>% 
+  mutate(across(c(LiveAdults:ExpDeadJacks), ~round(., 0)),
+         `PL+D Est` = ExpLiveAdults+ExpDeadAdults) %>% 
+  kbl(align="c") %>%
+  kable_paper("hover", full_width=T, position = "center") %>%
+  collapse_rows(columns=c(1:4), valign="middle", target=1) 
+```
+
+<br>
+
+### Estimate decision:   
+
+For 2023 estimate used expanded PL+D of 1844 adults and 102 jack. Given that peak count occurred Oct 27-29 and most were not spawning, still need to remove ~1153 Harris and 408 Lens adults so that final estimate is 37 adults + 1 jack. *This is subject to change; see EscBatchHardCopy report for specific estimate abundance.*
+
+<br>
+
+## Tributaries 
+
+Table: Sockeye counts (expanded live and dead) for San Juan tributaries (Renfrew, Lens, Harris) and Gordon River in 2023.
+```{r}
+tribs.sil %>% 
+  filter(species=="Coho") %>% 
+  group_by(trib_status, system,date) %>% 
+  summarize(expanded_live_adults = round(sum(`adults live / habitat seen (# Est Live)`),0),
+            dead_adults = sum(`adults dead`))%>% 
+  kbl(align="c") %>%
+  kable_paper("hover", full_width=T, position = "center") %>%
+  collapse_rows(columns=c(1:1), valign="middle", target=1) 
+```
+
+<br>
+
+<br>
+
+## `r analysis_year` compared to historical run timing and abundance
+
+```{r}
+ggplot() +
+  geom_point(data=sj.rtStWk%>%filter(species_R=="Coho"),
+           aes(x=stat_week, y=count, colour=plot_group, fill=plot_group, size=plot_group),
+           shape=21, alpha=0.7) +
+  scale_fill_manual(breaks=waiver(), values=c("gray60", "dodger blue")) +
+  scale_colour_manual(breaks=waiver(), values=c("gray60", "dodger blue")) +
+  scale_size_manual(breaks=waiver(), values=c(1.5,3.5)) +
+  labs(x="Stat week", y="Live adult Coho", fill="Year:", colour="Year:", size="Year:") +
+  theme_bw() +
+  theme(legend.position = "bottom",
+        legend.box = "horizontal")
+```
+<br>
+
+```{r}
+ggplot()  +
+  geom_bar(data=sj.esc %>% filter(`Waterbody Name`=="SAN JUAN RIVER", `Species Qualified`=="CO"), 
+           aes(x=`Analysis Year`, y=`Natural Adult Spawners`), stat="identity", colour="dodger blue", fill="dodger blue", alpha=0.8) +
+  geom_bar(data=sj.esc %>% filter(`Waterbody Name`=="SAN JUAN RIVER", `Species Qualified`=="CO"), 
+           aes(x=`Analysis Year`, y=`Unspecified Return`), stat="identity", colour="gray80", fill="gray80", alpha=0.8) +  
+  # << MANUAL UPDATE y= >> 
+  geom_bar(aes(x=analysis_year, y=1844), stat="identity", colour="orange", fill="orange", alpha=0.8) +   
+  scale_x_continuous(breaks=seq(min(sj.esc$`Analysis Year`), analysis_year, by=2)) +
+  labs(x="Return Year", y="Coho spawners") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: 2023 preliminary adult Coho escapement estimate (orange) relative to historical adult (blue) and unspecified (gray) escapement estimates. Gaps indicate years without estimates. 
+
+<br>
+
+<br>
+
+
 
 
 
