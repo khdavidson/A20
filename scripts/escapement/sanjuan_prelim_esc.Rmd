@@ -486,6 +486,7 @@ ggplot() +
   theme(legend.position = "bottom",
         legend.box = "horizontal")
 ```
+
 <br>
 
 ```{r}
@@ -781,7 +782,47 @@ tribs.sil %>%
   kable_paper("hover", full_width=T, position = "center") %>%
   collapse_rows(columns=c(1:1), valign="middle", target=1) 
 ```
+<br>
 
+<br>
+
+## `r analysis_year` compared to historical run timing and abundance
+
+```{r}
+ggplot() +
+  geom_point(data=sj.rtStWk%>%filter(species_R=="Chinook"),
+           aes(x=stat_week, y=count, colour=plot_group, fill=plot_group, size=plot_group),
+           shape=21, alpha=0.7) +
+  scale_fill_manual(breaks=waiver(), values=c("gray60", "dodger blue")) +
+  scale_colour_manual(breaks=waiver(), values=c("gray60", "dodger blue")) +
+  scale_size_manual(breaks=waiver(), values=c(1.5,3.5)) +
+  labs(x="Stat week", y="Live adult Chinook", fill="Year:", colour="Year:", size="Year:") +
+  theme_bw() +
+  theme(legend.position = "bottom",
+        legend.box = "horizontal")
+```
+
+<br>
+
+```{r}
+ggplot()  +
+  geom_bar(data=sj.esc %>% filter(`Waterbody Name`=="SAN JUAN RIVER", `Species Qualified`=="CO"), 
+           aes(x=`Analysis Year`, y=`Natural Adult Spawners`), stat="identity", colour="dodger blue", fill="dodger blue", alpha=0.8) +
+  geom_bar(data=sj.esc %>% filter(`Waterbody Name`=="SAN JUAN RIVER", `Species Qualified`=="CO"), 
+           aes(x=`Analysis Year`, y=`Unspecified Return`), stat="identity", colour="gray80", fill="gray80", alpha=0.8) +  
+  # << MANUAL UPDATE y= >> 
+  geom_bar(aes(x=analysis_year, y=1844), stat="identity", colour="orange", fill="orange", alpha=0.8) +   
+  scale_x_continuous(breaks=seq(min(sj.esc$`Analysis Year`), analysis_year, by=2)) +
+  labs(x="Return Year", y="Chinook spawners") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: 2023 preliminary adult Chinook escapement estimate (orange) relative to historical adult (blue) and unspecified (gray) escapement estimates. Gaps indicate years without estimates. 
+
+<br>
+
+<br>
 
 
 
