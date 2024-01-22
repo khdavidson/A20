@@ -1203,7 +1203,35 @@ Figure: 2023 preliminary adult Chinook escapement estimate (orange) relative to 
 
 <br>
 
+------------------------
+
+<br>
+
+<br>
 
 
+
+
+
+
+
+
+
+
+
+
+
+# **Pink** 
+
+No pinks observed in 2023 in any systems.
+
+```{r}
+sj.sil %>% 
+  filter(species=="Pink")
+```
+```{r}
+tribs.sil %>% 
+  filter(species=="Pink")
+```
 
 
