@@ -38,8 +38,12 @@ options(scipen = 9999)
 OD.dir <- paste("C:/Users", Sys.info()[6], "OneDrive - DFO-MPO/# Escapement Estimates/# 2023/Area 20/", sep="/")
 
 
+
+
+
 # SIL+AUC DATABASE DATA ----------------------------
-# Raw SIL entry for lower/mid/upper designations compared to water level 
+
+# Raw SIL entry for lower/mid/upper designations compared to water level etc: 
 sj.sil <- readxl::read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/2023/SILs/Area 20/A20_Port_Renfrew_2023.xlsx", sheet="Port Renfrew raw SIL entry", guess_max=20000) %>%
   filter(system=="San Juan") %>%
   mutate_at(c("SIL page", "page_rowref"), as.integer) %>%
@@ -51,14 +55,9 @@ tribs.sil <- readxl::read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESC
   filter(system!="San Juan") %>%
   mutate_at("SIL page", as.numeric) %>%
   print()
-# 
-# 
-# ver23 <- readxl::read_excel(path=paste0(OD.dir, "Area20_SIL+AUC_database_output_2024-01-08 - PL+D.xlsx"), sheet="raw")
-# 
-# pld23 <- readxl::read_excel(path=paste0(OD.dir, "Area20_SIL+AUC_database_output_2024-01-08 - PL+D.xlsx"), sheet="PL+D")
+ 
 
-
-# Waterbody values:
+# SIL+AUC DB TABLE: Waterbody values (to join to EscEStSppHeader table):
 wbdyVals <- readxl::read_excel(path=paste0(OD.dir, "WaterbodiesValues.xlsx")) %>% 
   mutate(AREA = case_when(NAME=="TUCK LAKE" ~ "22",
                           TRUE ~ AREA)) %>%
@@ -79,19 +78,12 @@ wbdyVals <- readxl::read_excel(path=paste0(OD.dir, "WaterbodiesValues.xlsx")) %>
   print()
 
 
-
-# AUC Data Table: 
+# SIL+AUC DB TABLE: AUC Data Table for analysis: 
 AUCdataTable <- readxl::read_excel(path=paste0(OD.dir, "AUC_DataAnalysisTable_area20.xlsx"))
 
-# sysNameCodes <- AUCdataTable %>% 
-#   select(Section_AreaInspected WatershedCode) %>% 
-#   group_by(Section_AreaInspected, WatershedCode) %>% 
-#   summarize() %>% 
-#   rename(systemName = Section_AreaInspected) %>%
-#   print()
 
 
-# Esc Estimates:
+# SIL+AUC DB TABLE: EscEstSppHeader table:
 escEstSpp <- readxl::read_excel(path=paste0(OD.dir, "EscEstSppHeader_area20.xlsx")) %>% 
   left_join(.,
             wbdyVals,
@@ -910,6 +902,8 @@ ggplot() +
         legend.box = "horizontal")
 ```
 
+Figure: Raw swim counts (blue) from this year compared to historical raw swim counts. Stat weeks indicate the month (8=August, 12=December) and week of momth (1=first week, 2=2nd week, etc.), e.g., 81=First week of August, 91=First week of September, etc. 
+
 <br>
 
 ```{r}
@@ -977,24 +971,27 @@ Three complete surveys conducted over 2-3 days per survey were conducted for Chi
 
 <br>
 
-## Raw vs expanded counts
+## Area 20 raw vs expanded counts
 
-Counts are expanded for both % habitat seen and observer efficiency, depending on survey conditions. 
+Counts are expanded for % population estimated and/or observer efficiency, depending on survey conditions. 
 
 ```{r}
 ggplot() +
-  geom_bar(data=ver23 %>% 
-             filter(ShortSpecies=="CN") %>% 
-             pivot_longer(LiveAdults:ExpDeadJacks, names_to="est_type", values_to="n") %>% 
+  geom_bar(data=AUCdataTable %>% 
+             filter(ShortSpecies=="CM") %>% 
+             pivot_longer(c(LiveAdults:TotalJacks,ExpLiveAdults:ExpDeadJacks), names_to="est_type", values_to="n") %>% 
              filter(est_type %in% c("LiveAdults", "ExpLiveAdults")), 
-           aes(x=as.Date(Date), y=n, colour=est_type, fill=est_type), stat="identity", position="dodge", alpha=0.5) +
-  labs(x="", y="Adult Chinook counts", fill="Expansion", colour="Expansion") +
-  scale_x_date(date_breaks="7 day", date_labels = "%b %d") +
+           aes(x=as.Date(SDate), y=n, colour=est_type, fill=est_type), stat="identity", position="dodge", alpha=0.5) +
+  labs(x="", y="Adult Chum counts", fill="Expansion", colour="Expansion") +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d", expand = c(0, 0)) +
+  scale_y_continuous(limits=c(0, max(AUCdataTable[AUCdataTable$ShortSpecies=="CM",]$ExpLiveAdults,na.rm=T))) +
   theme_bw() +
-  theme(axis.text.x = element_text(angle=45, hjust=1))
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        legend.position = c(0.8,0.2)) +
+  facet_wrap(~Section_AreaInspected, scales="free_y")
 ```
 
-Figure: Live Adult Chinook counts already expanded for % habitat seen (blue), and with additional % population expansion (pink). 
+Figure: Raw live Adult Chum counts (blue) and expanded for OE (pink). 
 
 <br>
 
@@ -1027,7 +1024,7 @@ ggplot() +
   theme(axis.text.x = element_text(angle=45, hjust=1))
 ```
 
-Figure: Chinook counts (expanded live adults) and water levels (blue line).
+Figure: Chinook counts (expanded live adults) and water levels (blue line) in the San Juan mainstem.
 
 <br>
 
@@ -1077,7 +1074,7 @@ Figure: Chinook counts (expanded live adults) and water levels (blue line).
 ```
 <br>
 
-Figure: Expanded live adult Chinook (bars) and carcasses (black line). Bar fill colour indicates behaviour (spawning=gray, holding=white) while bar outline colour indicates river segment (lower=pink, mid=green, upper=blue). Note Oct 3/4 mid was covered within upper and lower.  
+Figure: Expanded live adult Chinook (bars) and carcasses (black line) in the San Juan mainstem. Bar fill colour indicates behaviour (spawning=gray, holding=white) while bar outline colour indicates river segment (lower=pink, mid=green, upper=blue). Note Oct 3/4 mid was covered within upper and lower.  
 
 <br>
 
@@ -1102,7 +1099,7 @@ ggplot() +
   theme(axis.text.x = element_text(angle=45, hjust=1))
 ```
 
-Figure: Chinook swim counts (expanded adults) relative to cumulative fence counts (black line). 
+Figure: Chinook swim counts (expanded adults) in the San Juan mainstem relative to cumulative fence counts (black line). 
 
 <br>
 
@@ -1167,48 +1164,11 @@ Figure: October 3rd (lower) and 4th (upper) San Juan chinook counts (expanded ad
 
 <br>
 
-## Preliminary escapement estimate (PL+D)
-
-<br>
-
-Table: San Juan swim counts (expanded live and dead) and preliminary escapement estimates for three San Juan surveys in 2023. 
-
-```{r}
-ver23 %>% 
-  filter(ShortSpecies=="CN") %>% 
-  select(-c(FabricatedZero)) %>% 
-  mutate(across(c(LiveAdults:ExpDeadJacks), ~round(., 0))) %>% 
-  kbl(align="c") %>%
-  kable_paper("hover", full_width=T, position = "center") %>%
-  collapse_rows(columns=c(1:4), valign="middle", target=1) 
-```
-
-<br>
-
-Table: Surveys rolled up based on mid-point date for each of 3 complete survey events. 
-
-```{r}
-pld23 %>% 
-  filter(ShortSpecies=="CN") %>% 
-  select(-c(FabricatedZero)) %>% 
-  mutate(across(c(LiveAdults:ExpDeadJacks), ~round(., 0)),
-         `PL+D Est` = ExpLiveAdults+ExpDeadAdults) %>% 
-  kbl(align="c") %>%
-  kable_paper("hover", full_width=T, position = "center") %>%
-  collapse_rows(columns=c(1:4), valign="middle", target=1) 
-```
-
-<br>
-
-### Estimate decision:   
-
-For 2023 estimate we went with the expanded PL+D on Oct 4, even though there was potential for double-counting one school between the Oct 3/4 surveys (see above). Given that the majority of chinook were not observed to be holding at this time and trib swims occurred a couple of weeks later, trib counts should be subtracted from the total estimate. The PL+D estimate is 2642 adults + 67 jacks. Subtracting 24 expanded Harris and 21 expanded Lens Chinook results in 2597 adults + 67 jacks. *This is subject to change; see EscBatchHardCopy report for specific estimate abundance.*
-
-<br>
 
 ## Tributaries 
 
-Table: Chinook counts (expanded live and dead) for San Juan tributaries (Renfrew, Lens, Harris) and Gordon River in 2023.
+Table: Chinook counts (raw live and dead) for San Juan tributaries (Renfrew, Lens, Harris) and Gordon River in 2023.
+
 ```{r}
 tribs.sil %>% 
   filter(species=="Chinook") %>% 
@@ -1219,6 +1179,7 @@ tribs.sil %>%
   kable_paper("hover", full_width=T, position = "center") %>%
   collapse_rows(columns=c(1:1), valign="middle", target=1) 
 ```
+
 <br>
 
 ```{r}
@@ -1255,6 +1216,51 @@ Figure: Mainstem and trib counts for Chinook adults (unexpanded). Indicates subt
 
 <br>
 
+## Area 20 preliminary escapement estimate (PL+D)
+
+<br>
+
+Table: San Juan swim counts (expanded live and dead) and preliminary escapement estimates for three San Juan surveys in 2023. 
+
+```{r}
+AUCdataTable %>% 
+  filter(ShortSpecies=="CN") %>% 
+  select(ShortSpecies,Section_AreaInspected, SDate, WaterTemperature, WaterClarity, LiveAdults, DeadAdults,LiveJacks,DeadJacks, ExpLiveAdults,
+         ExpDeadAdults, ExpLiveJacks, ExpDeadJacks, OverallReliability, EstPctSeen) %>% 
+  mutate(across(c(LiveAdults:ExpDeadJacks), ~round(., 0))) %>% 
+  kbl(align="c") %>%
+  kable_paper("hover", full_width=T, position = "center") %>%
+  collapse_rows(columns=c(1:4), valign="middle", target=1) 
+```
+
+<br>
+
+Table: Escapement estimates for each system. San Juan mainstem surveys were rolled up based on mid-point date for each of 3 complete survey events, and then the PL+D was selected based on the 3 survey events.  **NOTE FINAL SJ CN ESTIMATE DOES NOT YET ACCOUNT FOR REMOVAL OF TRIBUTARY SPAWNERS, THAT MUST BE DONE LATER IN NuSEDS -- should be 2642-24-21 = 2597**.
+
+```{r}
+escEstSpp %>% 
+  filter(ShortSpecies=="CN", AREA=="20") %>% 
+  select(ShortSpecies, SystemName, contains("PLD"), contains("Reco"), -c(contains("Recommend"))) %>% 
+  rename(FinalAdultEstimate = AdultNaturalReco,
+         FinalJackEstimate = JackNaturalReco) %>% 
+  select(ShortSpecies, SystemName, contains("PLD"), AdultRemovalsReco, JackRemovalsReco, FinalAdultEstimate, FinalJackEstimate) %>% 
+  mutate(across(FinalJackEstimate:FinalAdultEstimate, ~case_when(.<0 ~ 0,
+                                                                 TRUE ~ .))) %>%
+  kbl(align="c") %>%
+  kable_paper("hover", full_width=T, position = "center") %>%
+  collapse_rows(columns=c(1:4), valign="middle", target=1) 
+```
+
+<br>
+
+### Estimate decision:   
+
+For 2023 estimate we went with the expanded PL+D on Oct 4, even though there was potential for double-counting one school between the Oct 3/4 surveys (see above) based on expert opinion by H and J Jones. Given that the majority of chinook were not observed to be holding at this time and trib swims occurred a couple of weeks later, trib counts should be subtracted from the total estimate. The PL+D estimate is 2642 adults + 67 jacks. Subtracting 24 expanded Harris and 21 expanded Lens Chinook results in 2597 adults + 67 jacks. *This is subject to change; see EscBatchHardCopy report for specific estimate abundance.*
+
+<br>
+
+<br>
+
 ## `r analysis_year` compared to historical run timing and abundance
 
 ```{r}
@@ -1271,6 +1277,8 @@ ggplot() +
         legend.box = "horizontal")
 ```
 
+Figure: Raw swim counts (blue) from this year compared to historical raw swim counts. Stat weeks indicate the month (8=August, 12=December) and week of momth (1=first week, 2=2nd week, etc.), e.g., 81=First week of August, 91=First week of September, etc. 
+
 <br>
 
 ```{r}
@@ -1279,15 +1287,17 @@ ggplot()  +
            aes(x=`Analysis Year`, y=`Natural Adult Spawners`), stat="identity", colour="dodger blue", fill="dodger blue", alpha=0.8) +
   geom_bar(data=sj.esc %>% filter(`Waterbody Name`=="SAN JUAN RIVER", `Species Qualified`=="CO"), 
            aes(x=`Analysis Year`, y=`Unspecified Return`), stat="identity", colour="gray80", fill="gray80", alpha=0.8) +  
-  # << MANUAL UPDATE y= >> 
-  geom_bar(aes(x=analysis_year, y=2597), stat="identity", colour="orange", fill="orange", alpha=0.8) +   
-  scale_x_continuous(breaks=seq(min(sj.esc$`Analysis Year`), analysis_year, by=2)) +
+  geom_bar(data=escEstSpp %>% 
+             filter(ShortSpecies=="CN", AREA=="20", SystemName!="Gordon River") %>% 
+             select(Year, SystemName, AdultNaturalReco) %>% 
+             summarize(n=sum(AdultNaturalReco)), 
+             aes(x=analysis_year, y=n-24-21), stat="identity", colour="red", fill="dodger blue", alpha=0.8) +   scale_x_continuous(breaks=seq(min(sj.esc$`Analysis Year`), analysis_year, by=2)) +
   labs(x="Return Year", y="Chinook spawners") +
   theme_bw() +
   theme(axis.text.x = element_text(angle=45, hjust=1))
 ```
 
-Figure: 2023 preliminary adult Chinook escapement estimate (orange) relative to historical adult (blue) and unspecified (gray) escapement estimates. Gaps indicate years without estimates. 
+Figure: 2023 preliminary adult Chinook escapement estimate (red outline) relative to historical adult (blue) and unspecified (gray) escapement estimates. Gaps indicate years without estimates. 
 
 <br>
 
