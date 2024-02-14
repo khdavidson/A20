@@ -35,10 +35,7 @@ options(scipen = 9999)
 
 # ============================= Load data ============================
 # OneDrive directory:
-OD.dir <- paste("C:/Users", Sys.info()[6], "OneDrive - DFO-MPO/# Escapement Estimates/# 2023/Area 20/", sep="/")
-
-
-
+#OD.dir <- paste("C:/Users", Sys.info()[6], "OneDrive - DFO-MPO/# Escapement Estimates/# 2023/Area 20/", sep="/")
 
 
 # SIL+AUC DATABASE DATA ----------------------------
@@ -58,7 +55,7 @@ tribs.sil <- readxl::read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESC
  
 
 # SIL+AUC DB TABLE: Waterbody values (to join to EscEStSppHeader table):
-wbdyVals <- readxl::read_excel(path=paste0(OD.dir, "WaterbodiesValues.xlsx")) %>% 
+wbdyVals <- readxl::read_excel(path=here("data", "escapement", "prelim-inseason", "WaterbodiesValues.xlsx")) %>% 
   mutate(AREA = case_when(NAME=="TUCK LAKE" ~ "22",
                           TRUE ~ AREA)) %>%
   select(AREA, NAME, WATERSHED_CDE) %>% 
@@ -79,28 +76,15 @@ wbdyVals <- readxl::read_excel(path=paste0(OD.dir, "WaterbodiesValues.xlsx")) %>
 
 
 # SIL+AUC DB TABLE: AUC Data Table for analysis: 
-AUCdataTable <- readxl::read_excel(path=paste0(OD.dir, "AUC_DataAnalysisTable_area20.xlsx"))
+AUCdataTable <- readxl::read_excel(path=here("data", "escapement", "prelim-inseason", "AUC_DataAnalysisTable_area20.xlsx"))
 
 
 
 # SIL+AUC DB TABLE: EscEstSppHeader table:
-escEstSpp <- readxl::read_excel(path=paste0(OD.dir, "EscEstSppHeader_area20.xlsx")) %>% 
+escEstSpp <- readxl::read_excel(path=here("data", "escapement", "prelim-inseason", "EscEstSppHeader_area20.xlsx")) %>% 
   left_join(.,
             wbdyVals,
             na_matches="never", relationship="many-to-one")
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
