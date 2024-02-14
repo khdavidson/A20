@@ -41,14 +41,26 @@ options(scipen = 9999)
 # SIL+AUC DATABASE DATA ----------------------------
 
 # Raw SIL entry for lower/mid/upper designations compared to water level etc: 
-sj.sil <- readxl::read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/2023/SILs/Area 20/A20_Port_Renfrew_2023.xlsx", sheet="Port Renfrew raw SIL entry", guess_max=20000) %>%
+sj.sil <- list.files(path=paste0("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/",
+                                         analysis_year,
+                                         "/SILs/Area 20/"),
+                     pattern = "^A20_Port_Renfrew*.*xlsx", 
+                     full.names = T) %>% 
+  map(~readxl::read_excel(path=.x, sheet="Port Renfrew raw SIL entry", guess_max=20000)) %>% 
+  list_rbind() %>%
   filter(system=="San Juan") %>%
   mutate_at(c("SIL page", "page_rowref"), as.integer) %>%
   mutate(`SIL page` = round(`SIL page`,0)) %>%
   arrange(desc(segment))  %>%
   print()
 
-tribs.sil <- readxl::read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/2023/SILs/Area 20/A20_Port_Renfrew_2023.xlsx", sheet="Port Renfrew raw SIL entry", guess_max=20000) %>%
+tribs.sil <- list.files(path=paste0("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/",
+                                         analysis_year,
+                                         "/SILs/Area 20/"),
+                     pattern = "^A20_Port_Renfrew*.*xlsx", 
+                     full.names = T) %>% 
+  map(~readxl::read_excel(path=.x, sheet="Port Renfrew raw SIL entry", guess_max=20000)) %>% 
+  list_rbind() %>%
   filter(system!="San Juan") %>%
   mutate_at("SIL page", as.numeric) %>%
   print()
