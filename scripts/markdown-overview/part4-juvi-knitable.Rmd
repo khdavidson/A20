@@ -13,20 +13,87 @@ library(tidyverse)
 library(readxl)
 library(kableExtra)
 library(bookdown)
+library(here)
 
 
 
-# Load data ------------------------------------
-juvi.SEM <- read_excel("C:/Users/DAVIDSONKA/OneDrive - DFO-MPO/# Study Designs/2023/Juveniles/PFN_DFO_FTFjuvi_2023.xlsx", sheet="sample_event_metadata")
-juvi.enocgy <- read_excel("C:/Users/DAVIDSONKA/OneDrive - DFO-MPO/# Study Designs/2023/Juveniles/PFN_DFO_FTFjuvi_2023.xlsx", sheet="enviro_ocgy")
-juvi.seten <- read_excel("C:/Users/DAVIDSONKA/OneDrive - DFO-MPO/# Study Designs/2023/Juveniles/PFN_DFO_FTFjuvi_2023.xlsx", sheet="set_totals")
-juvi.bio <- read_excel("C:/Users/DAVIDSONKA/OneDrive - DFO-MPO/# Study Designs/2023/Juveniles/PFN_DFO_FTFjuvi_2023.xlsx", sheet="biosamples")
+# Helpers ------------------------------------
+"%notin%" <- Negate("%in%")
 
 
 
+
+
+
+
+# ===================== LOAD DATA =====================
+# 2023 GSI ------------------------------------
+source(here("scripts","misc-helpers","gsiCompile.R")) 
+
+
+# Juvi Field Database ------------------------------------
+juvi.meta <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="sample_event_metadata", trim_ws=T)
+juvi.enocgy <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="enviro_ocgy", trim_ws=T)
+juvi.totals <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="set_totals", trim_ws=T)
+juvi.bio <- left_join(readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="biosamples", trim_ws=T),
+                      gsi.IDs,
+                      by="DNA_vial", na_matches="never")
+  
+
+
+
+
+
+
+# ===================== JOIN DATA =====================
+# Field biodata + MGL GSI results ------------------------------------
+intersect(colnames(juvi.bio), colnames(gsi.IDs))
+
+juvi.bioMeta <- left_join(juvi.bio,
+                          juvi.meta,
+                          na_matches="never",
+                          by="usid")  
+
+writexl::write_xlsx(path=here("outputs", "R_OUT - 2023 GSI results.xlsx"), x=juvi.bioMeta)
 ```
 
 
+# Freshwater 
+
+<br>
+
+<br>
+
+# Estuary (PFN beach seine)
+
+<br>
+
+<br>
+
+# Early marine entry (summer purse seine)
+
+```{r}
+juvi.bioMeta %>% 
+  filter(grepl("purse seine", gear), !is.na(DNA_vial)) %>%
+  group_by(lubridate::month(date_start), date_start, DNA_vial, is.na(indiv)) %>% 
+  summarize(n=n()) %>% 
+  mutate(n = case_when(`is.na(indiv)`=="TRUE" ~ 0,
+                       TRUE ~ n)) %>% 
+  group_by(date_start) %>% 
+  mutate(sum(n))
+  
+```
+
+
+```{r}
+ggplot() +
+  geom_bar(data=juvi.bio.GSI %>% filter(grepl("PRS", usid)))
+```
+
+
+<br>
+
+<br>
 
 
 
