@@ -93,7 +93,7 @@ AUCdataTable <- readxl::read_excel(path=here("data", "escapement", "prelim-insea
 
 
 # SIL+AUC DB TABLE: EscEstSppHeader table:
-escEstSpp <- readxl::read_excel(path=here("data", "escapement", "prelim-inseason", "EscEstSppHeader_area20.xlsx")) %>% 
+escEstSpp <- readxl::read_excel(path=here("data", "escapement", "prelim-inseason", "EscEstSppHeader_area20-22.xlsx")) %>% 
   left_join(.,
             wbdyVals,
             na_matches="never", relationship="many-to-one")
