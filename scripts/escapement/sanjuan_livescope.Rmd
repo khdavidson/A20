@@ -1,0 +1,286 @@
+---
+title: "San Juan LiveScope prelim report"
+output: html_document
+date: '`r Sys.Date()`'
+---
+
+```{r setup, include=F}
+knitr::opts_chunk$set(echo=F, warning=F, message=F)
+
+
+# Load libraries ---------------------------
+library(tidyverse)
+library(here)
+library(readxl)
+library(imputeTS)
+library(cowplot)
+library(stringr)
+
+
+
+# Helpers ---------------------------
+"%notin%" <- Negate("%in%")
+analysis_year <- 2023
+
+
+
+# =============== Load data ===============
+
+# LiveScope ---------------------------
+LSC <- readxl::read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/2023/SILs/Area 20/LiveScope/Data entry/SanJuan_Livescope_entry_2023_verified.xlsx",
+                          sheet="data_entry",  na="NA") %>% 
+  mutate(Comments = case_when(is.na(count_US) | is.na(count_DS) ~ paste0(Comments, " - REQUIRED INFILLING"),
+                              TRUE ~ Comments),
+         Observer = case_when(is.na(count_US) | is.na(count_DS) ~ "INFILL",
+                              TRUE ~ Observer)) %>% 
+  print()
+
+
+# Swim data ---------------------------
+sj.sil <- list.files(path=paste0("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/",
+                                         analysis_year,
+                                         "/SILs/Area 20/"),
+                     pattern = "^A20_Port_Renfrew*.*xlsx", 
+                     full.names = T) %>% 
+  map(~readxl::read_excel(path=.x, sheet="Port Renfrew raw SIL entry", guess_max=20000)) %>% 
+  list_rbind() %>%
+  filter(system=="San Juan") %>%
+  group_by(species, date) %>%
+  summarize(live_count = sum(`adults live`)) %>%
+  print()
+
+
+# 4 Mile fence ---------------------------
+mile4.fence <- readxl::read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/San_Juan_Fence_2022-present.xlsx", sheet="Sheet1", guess_max=20000) %>%
+  filter(year==analysis_year) %>% 
+  print()
+
+```
+
+
+# LiveScope raw data summary 
+
+
+## Study period and missing data
+
+
+```{r include=F}
+
+# Expand study period for all hours/days missing --------------
+LSC.fill <- LSC %>% 
+  mutate(datetime = case_when(`Count Hour` %in% c(1:23) ~ format(as.POSIXct(paste0(as.character(Date), paste0(`Count Hour`, ":00"))), "%Y-%m-%d %H:%M:%S"),
+                              `Count Hour` == 0 ~  format(as.POSIXct(Date, tz='UTC'),"%Y-%m-%d %H:%M:%S"))) %>% 
+  complete(., datetime = format(seq.POSIXt(from=min(as.POSIXct(datetime), na.rm=T), 
+                                           to=max(as.POSIXct(datetime), na.rm=T), 
+                                           by = "hour"), 
+                                "%Y-%m-%d %H:%M:%S"), 
+           fill = list(System="San Juan", Bank="Right", `Portion of Hour`="0-20", `Time Counted`=20, Observer="INFILL", count_US=NA, count_DS=NA)) %>%
+  filter((Date!=as.Date("2023-10-11") | `Count Hour` %notin% c(0:11)) & (Date!=as.Date("2023-11-02") | `Count Hour` %notin% c(4:23))) %>%
+  mutate(Date = case_when(is.na(Date) ~ as.Date(datetime),
+                          TRUE ~ as.Date(Date)),
+         `Count Hour` = case_when(is.na(`Count Hour`) ~ as.numeric(substr(datetime, 12, 13)),
+                                  TRUE ~ `Count Hour`)) %>%
+  print()
+
+
+# Create counts as time series to visualize NAs --------------
+LSC.usTS <- as.ts(LSC.fill$count_US)
+LSC.dsTS <- as.ts(LSC.fill$count_DS)
+```
+
+```{r fig.cap='Distribution of missing values (orange), either due to the LiveScope not running, or occasionally corrupted files. Top panel indicates upstream counts and bottom panel downstream counts (to exhibit the same values are missing for both variables). Points are unique date-time counts, starting 12:00pm Oct 11 and ending 3:00am NOv 2, 2023.'}
+plot_grid(
+ggplot_na_distribution(x = LSC.usTS, 
+                       x_axis_labels = as.POSIXct(LSC.fill$datetime),
+                       alpha_missing = 0.3,
+                       color_missing = "orange",
+                       color_missing_border = "transparent",
+                       color_points = "dodger blue",
+                       color_lines = "dodger blue",
+                       title = "Distribution of Missing Values",
+                       xlab = "Date-time",
+                       ylab = "U/S count",
+                       size_points = 4,
+                       theme = ggplot2::theme_bw()),
+
+ggplot_na_distribution(x = LSC.dsTS, 
+                       x_axis_labels = as.POSIXct(LSC.fill$datetime),
+                       alpha_missing = 0.3,
+                       color_missing = "orange",
+                       color_missing_border = "transparent",
+                       color_points = "dodger blue",
+                       color_lines = "dodger blue",
+                       title = "",
+                       subtitle = "",
+                       xlab = "Date-time",
+                       ylab = "D/S count",
+                       size_points = 4,
+                       theme = ggplot2::theme_bw()),
+nrow=2)
+```
+
+<br>
+
+
+## Infilling 
+
+The large period in early October can not reliably infilled. For 2023 snorkel surveys are the escapement estimate method so infilling is not critical. Infilling can be done from Oct 20 onward. 
+
+```{r include=F}
+# Infill missing values by calculating average of same hour the day before and after (1 L) --------------
+# Expand this for 2 days (2 L) before and after if there is more than 1 missing value either side 
+
+LSC.filled <- LSC.fill %>%
+  group_by(`Count Hour`) %>%
+  mutate(countUS_filled1L = case_when(is.na(count_US) ~ (lag(count_US, default = NA, n=1L) + 
+                                                           lead(count_US, default = NA, n=1L)) / 2, 
+                                    TRUE ~ count_US),
+         countDS_filled1L = case_when(is.na(count_DS) ~ (lag(count_DS, default = NA, n=1L) + 
+                                                           lead(count_DS, default = NA, n=1L)) / 2, 
+                                    TRUE ~ count_DS),
+         countUS_filled2L = case_when(is.na(countUS_filled1L) ~ (lag(countUS_filled1L, default = NA, n=2L) + 
+                                                                   lead(countUS_filled1L, default = NA, n=2L)) / 2, 
+                                    TRUE ~ countUS_filled1L),
+         countDS_filled2L = case_when(is.na(countDS_filled1L) ~ (lag(countDS_filled1L, default = NA, n=2L) + 
+                                                                   lead(countDS_filled1L, default = NA, n=2L)) / 2, 
+                                    TRUE ~ countDS_filled1L)) %>%
+  ungroup() %>% 
+  print()
+
+
+
+# Create time series of lag-1 and lag-2 days averages to visualize --------------
+LSC.usTS.infill1L <- as.ts(LSC.filled$countUS_filled1L)
+LSC.dsTS.infill1L <- as.ts(LSC.filled$countDS_filled1L)
+
+LSC.usTS.infill2L <- as.ts(LSC.filled$countUS_filled2L)
+LSC.dsTS.infill2L <- as.ts(LSC.filled$countDS_filled2L)
+```
+
+```{r fig.dim=c(10,10)}
+
+plot_grid(
+ggplot_na_distribution(x = LSC.usTS.infill1L, 
+                       x_axis_labels = as.POSIXct(LSC.filled$datetime),
+                       alpha_missing = 0.3,
+                       color_missing = "orange",
+                       color_missing_border = "transparent",
+                       color_points = "dodger blue",
+                       color_lines = "dodger blue",
+                       title = "Distribution of Missing Values - Lag 1 day",
+                       xlab = "Date-time",
+                       ylab = "U/S count",
+                       size_points = 2,
+                       theme = ggplot2::theme_bw()),
+
+ggplot_na_distribution(x = LSC.dsTS.infill1L, 
+                       x_axis_labels = as.POSIXct(LSC.filled$datetime),
+                       alpha_missing = 0.3,
+                       color_missing = "orange",
+                       color_missing_border = "transparent",
+                       color_points = "dodger blue",
+                       color_lines = "dodger blue",
+                       title = "",
+                       subtitle = "",
+                       xlab = "Date-time",
+                       ylab = "D/S count",
+                       size_points = 2,
+                       theme = ggplot2::theme_bw()),
+nrow=2)
+```
+```{r fig.cap='Distribution of missing values (orange) after infilling.', fig.dim=c(10,10)}
+plot_grid(
+  ggplot_na_distribution(x = LSC.usTS.infill2L, 
+                       x_axis_labels = as.POSIXct(LSC.filled$datetime),
+                       alpha_missing = 0.3,
+                       color_missing = "orange",
+                       color_missing_border = "transparent",
+                       color_points = "dodger blue",
+                       color_lines = "dodger blue",
+                       title = "Distribution of Missing Values - Lag 2 days",
+                       xlab = "Date-time",
+                       ylab = "U/S count",
+                       size_points = 2,
+                       theme = ggplot2::theme_bw()),
+
+ggplot_na_distribution(x = LSC.dsTS.infill2L, 
+                       x_axis_labels = as.POSIXct(LSC.filled$datetime),
+                       alpha_missing = 0.3,
+                       color_missing = "orange",
+                       color_missing_border = "transparent",
+                       color_points = "dodger blue",
+                       color_lines = "dodger blue",
+                       title = "",
+                       subtitle = "",
+                       xlab = "Date-time",
+                       ylab = "D/S count",
+                       size_points = 2,
+                       theme = ggplot2::theme_bw()),
+nrow=2
+)
+```
+
+
+<br>
+
+<br>
+
+# Net calculations 
+
+```{r }
+# Calculate net u/s movement and expand for the full hour ---------------
+LSC.net <- LSC.filled %>% 
+  group_by(Date, Bank, `Count Hour`, `Portion of hour`) %>% 
+  summarize(`Time counted` = unique(`Time counted`),
+            netUS = countUS_filled2L-countDS_filled2L, 
+            hourlyNetUS = case_when(`Time counted` > 0 ~ (netUS/`Time counted`)*60,
+                                    TRUE ~ NA),
+            `#counts` = unique(`Obs Count #`)) %>% 
+  print()
+```
+
+```{r include=F}
+LSC.daily <- LSC.net %>% 
+  group_by(Date) %>% 
+  summarize(dailyNetUS = sum(hourlyNetUS,na.rm=T)) %>% 
+  print()
+```
+
+```{r fig.cap='Daily net upstream passage past the LiveScope (purple) compared to swim counts (gray) and 4 Mile fence (red). Note differential axes.'}
+
+ggplot() +
+  geom_bar(data=LSC.daily, aes(x=as.Date(Date), y=dailyNetUS*10), 
+           stat="identity", width=0.6, colour="transparent", fill="gray", alpha=0.5) +
+  geom_bar(data=sj.sil, aes(x=as.Date(date), y=live_count, fill=species), 
+           stat="identity", width=0.6, alpha=0.6, colour="transparent") +
+  geom_line(data=mile4.fence %>% 
+              filter(species!="fence") %>% 
+              mutate(species=case_when(species=="coho"~"Coho",species=="chinook"~"Chinook")) %>% 
+              group_by(date, species) %>% 
+              summarize(n=sum(count)),
+            aes(x=as.Date(date), y=n*10, group=species), alpha=0.7) +
+  geom_point(data=mile4.fence %>% 
+               filter(species!="fence") %>% 
+               mutate(species=case_when(species=="coho"~"Coho",species=="chinook"~"Chinook")) %>% 
+               group_by(date, species) %>% 
+               summarize(n=sum(count)),
+             aes(x=as.Date(date), y=n*10, fill=species, group=species), alpha=0.7, size=3.5, shape=21) +
+  scale_x_date(date_breaks="1 day", date_labels="%b %d") +
+  scale_y_continuous(sec.axis = sec_axis(~./10, name="Net daily upstream count (LiveScope) and Fence count")) +
+  labs(x="", y="Expanded live adult salmon (swims)") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+## Number of fish following swims 
+
+```{r}
+LSC.daily %>% 
+  filter(Date >= max(sj.sil$date))
+```
+
+
+
+
+
+
