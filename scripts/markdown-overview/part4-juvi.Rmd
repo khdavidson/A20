@@ -1,51 +1,387 @@
 
 
-```{r juvisetup, include=FALSE, eval=F}
-# knitr::opts_chunk$set(echo = TRUE, warning=F, echo=F, message=F)
-# 
-# # Load libraries ------------------------------------
+```{r juvisetup, include=FALSE}
+knitr::opts_chunk$set(echo=F, warning=F, echo=F, message=F)
+
+# Load libraries ------------------------------------
 # library(tidyverse)
 # library(readxl)
 # library(kableExtra)
 # library(bookdown)
+# library(here)
+# library(scales)       # for label_percent()
+# library(ggpubr)       # for ggarrange()
 
 
 
-# Load data ------------------------------------
-juvi.SEM <- read_excel("C:/Users/DAVIDSONKA/OneDrive - DFO-MPO/# Study Designs/2023/Juveniles/PFN_DFO_FTFjuvi_2023.xlsx", sheet="sample_event_metadata")
-juvi.enocgy <- read_excel("C:/Users/DAVIDSONKA/OneDrive - DFO-MPO/# Study Designs/2023/Juveniles/PFN_DFO_FTFjuvi_2023.xlsx", sheet="enviro_ocgy")
-juvi.seten <- read_excel("C:/Users/DAVIDSONKA/OneDrive - DFO-MPO/# Study Designs/2023/Juveniles/PFN_DFO_FTFjuvi_2023.xlsx", sheet="set_totals")
-juvi.bio <- read_excel("C:/Users/DAVIDSONKA/OneDrive - DFO-MPO/# Study Designs/2023/Juveniles/PFN_DFO_FTFjuvi_2023.xlsx", sheet="biosamples")
+# Helpers ------------------------------------
+"%notin%" <- Negate("%in%")
 
 
 
-```
 
 
-# **Juvenile Chinook**
-
-## RST
-
-## Beach seine?
-
-## Purse seine
 
 
-```{r eval=F, include=F, eval=F}
-left_join(
-  juvi.bio %>% 
-    filter(!is.na(DNA_vial)) %>%
-    group_by(usid, ad_clip) %>%
-    summarize(n=n()),
+# ===================== LOAD DATA =====================
+
+
+# San Juan juvi Field Database ------------------------------------
+juvi.meta <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="sample_event_metadata", trim_ws=T)
+juvi.enocgy <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="enviro_ocgy", trim_ws=T)
+juvi.totals <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="set_totals", trim_ws=T)
+juvi.bio <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="biosamples", trim_ws=T) 
+                      
   
-  juvi.SEM %>%
-    select(usid, date_start, date_end, gear)
-) %>%
-  group_by(date_end, gear, ad_clip) %>%
-  summarize(n=sum(n)) %>%
-  group_by(date_end) %>%
-  mutate(total=sum(n))
+
+# WCVI juvenile data ------------------------------------
+wcvi.juviDS <- readxl::read_excel(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/JUVENILE_PROJECTS/DOWNSTREAM/WCVI Juvenile Down Stream Data Set 1972-present.xlsx", sheet="DS Summary", skip=2) %>% 
+  filter(`Data Type` != "Total Count") %>%
+  mutate(date = case_when(!is.na(Day) ~ lubridate::ymd(paste0(Year, substr(Day, 6, 10), sep="-")),
+                          TRUE ~ NA),
+         yday = lubridate::yday(date)) %>%
+  pivot_longer(c(`Coho smolt`:Chum, Steelhead), names_to = "Species", values_to = "Count") %>% 
+  group_by(Year, date, yday, `Data Type`, `Stat Area`, Location, Type, Species, `Temp (C)`) %>% 
+  summarize(Count=sum(Count))
+
+
+# Historical SJ ------------------------------------
+SJ06 <- readxl::read_excel(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/JUVENILE_PROJECTS/DOWNSTREAM/SAN JUAN RST/2006/SanJuanRSTReport/working files and data/2006-SanJuan-frybiosampling.xls", sheet="Data") %>% 
+  mutate(yday = lubridate::yday(date))
+
+
+
+# 2023 GSI ------------------------------------
+# Also links juvi.meta, juvi.bio and MGL outputs
+source(here("scripts","misc-helpers","gsiCompile.R")) 
+
+
+
+
+
+
+
+
+
+# ===================== JOIN DATA =====================
+
+# Field catch totals + meta ------------------------------------
+juvi.totalMeta <- left_join(juvi.totals,
+                            juvi.meta,
+                            by="usid") %>% 
+  unite(spp_stage, c(species, life_stage), remove = F, na.rm = T, sep=" ") %>% 
+  mutate(spp_group = case_when(species%in%c("coho","chinook","chum","pink","sockeye") ~ "salmon",
+                             TRUE ~ "non-salmonid")) %>% 
+  print()
+
+
+
+
+
+
+
+
+# ===================== SUMMARIZE DATA =====================
+# GSI RESULTS SUMMARY ------------------------------------
+juvi_summary <- juvi.bioMeta %>% 
+  filter(!grepl("dip net|pole seine", gear), !is.na(DNA_vial), !is.na(`(R) STOCK ID`)) %>% 
+  group_by(date_start, gear, `(R) ORIGIN`, `(R) STOCK-ORIGIN`) %>% 
+  summarize(n=n()) %>% 
+  group_by(date_start, `(R) ORIGIN`) %>%
+  mutate(origin_total=sum(n)) %>% 
+  group_by(date_start) %>%
+  mutate(day_total=sum(n),
+         day_ID_propn = n/day_total,
+         day_origin_propn = origin_total/day_total) %>% 
+  print()
+
+
+# Catch summary ------------------------------------
+catch_summary <- juvi.totalMeta %>% 
+  filter(grepl("purse seine", gear)) %>% 
+  group_by(date_start, spp_group, spp_stage) %>% 
+  summarize(n = sum(total_caught)) %>% 
+  group_by(date_start) %>% 
+  mutate(daily_total = sum(n),
+         catch_propn = n/daily_total) %>%
+  print()
+
+
+# Chinook mark/unmarked ------------------------------------
+cn_mark_summary <- juvi.bioMeta %>% 
+  filter(grepl("purse seine", gear), species=="chinook") %>% 
+  group_by(date_start, ad_clip) %>% 
+  summarize(n=n()) %>% 
+  group_by (date_start) %>% 
+  mutate(daily_total = sum(n),
+         daily_propn = n/daily_total) %>% 
+  print()
 ```
+
+
+# **San Juan juveniles**
+
+## **Freshwater**
+
+<br>
+
+### **RST**
+
+#### Catch time series
+
+```{r}
+ggplot() +
+  geom_bar(data=juvi.totalMeta%>%filter(grepl("RST", gear), grepl("coho|chum|chinook",spp_stage), life_stage!="alevin")%>%group_by(date_end, spp_stage)%>%summarize(n=sum(total_caught)),
+           aes(x=as.Date(date_end), y=n, fill=spp_stage, colour=spp_stage), stat="identity", alpha=0.8) +
+  theme_bw()
+```
+
+
+<br>
+
+#### Chinook-only catch
+
+```{r}
+ggplot() +
+  geom_bar(data=juvi.totalMeta%>%filter(grepl("RST", gear), grepl("chinook",spp_stage), life_stage!="alevin")%>%
+             group_by(date_end, spp_stage)%>%summarize(n=sum(total_caught)),
+           aes(x=as.Date(date_end), y=n, fill=spp_stage, colour=spp_stage), stat="identity", alpha=0.8) +
+  labs(x="",y="Number of chinook caught") +
+  theme_bw() +
+  theme(legend.position = "none")
+
+
+
+ggplot() +
+  geom_bar(data=wcvi.juviDS%>%filter(Species=="Chinook", Location%in%c("San Juan River", "Bedwell River")),
+           aes(x=as.Date(yday, origin=as.Date("1992-12-31")), y=Count, 
+               group=interaction(Year,Location), fill=as.factor(Year)), 
+           stat="identity", position="identity",  alpha=0.5, size=0, width=1) +
+  scale_x_date(date_breaks = "7 day", date_labels="%b %d") +
+  labs(x="",y="Number of chinook", fill="", colour="") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        axis.text= element_text(size=12, colour="black"),
+        axis.title = element_text(size=15, face="bold"),
+        legend.text = element_text(size=10)) +
+  facet_wrap(~Location, scales="free_y", nrow=2)
+```
+
+<br>
+
+##### Size
+
+```{r}
+ggplot() +
+    geom_boxplot(data=SJ06%>%filter(`hatchery code`=="wild", species==124),
+             aes(x=as.Date(yday, origin=as.Date("1970-12-31")), y=length, group=date), fill="gray80", alpha=0.8) +
+  
+    geom_boxplot(data=juvi.bioMeta%>%filter(grepl("RST",gear), species=="chinook"),
+             aes(x=as.Date(yday, origin=as.Date("1970-12-31")), y=length, group=date_end), 
+             fill="dodger blue", width=2.5, alpha=0.8) +
+  scale_y_continuous(limits=c(20,60)) +
+  scale_x_date(date_breaks="7 day", date_labels="%b %d", limits = c(as.Date(69, origin=as.Date("1970-12-31")), 
+                                                                    as.Date(205, origin=as.Date("1970-12-31")))) +
+  labs(x="", y="Mean fork length (mm)") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        axis.text = element_text(size=12, colour="black"),
+        axis.title = element_text(size=15, face="bold")) 
+
+
+
+ggplot() +
+    geom_boxplot(data=juvi.bioMeta%>%filter(grepl("RST",gear), species=="chinook"),
+             aes(x=as.Date(yday, origin=as.Date("1970-12-31")), y=weight, group=date_end), 
+             fill="dodger blue", width=2.5, alpha=0.8) +
+  scale_y_continuous(limits=c(0,1.5)) +
+  scale_x_date(date_breaks="7 day", date_labels="%b %d", limits = c(as.Date(69, origin=as.Date("1970-12-31")), 
+                                                                    as.Date(205, origin=as.Date("1970-12-31")))) +
+  labs(x="", y="Mean weight (g)") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        axis.text = element_text(size=12, colour="black"),
+        axis.title = element_text(size=15, face="bold")) 
+```
+
+
+```{r}
+juvi.bioMeta %>%
+  filter(grepl("RST", gear), species=="chinook") %>% 
+  summarize(meanFL=mean(length), sdFL=sd(length),
+            meanW=mean(weight), sdW=sd(weight))
+```
+
+
+###### Genetic sample processing
+
+Only a small number of genetic samples were collected from the RST as we figured we did not need to bother running genetics from known San Juan origin juveniles upstream of the hatchery release location. However, of the 7 samples collected on one day, 3 were inconclusive/non-San Juan!
+
+```{r rst-comps, fig.cap='Genetic results from the San Juan RST 2003. Samples were not collected as they were not considered a focus of the project.'}
+ggplot() +
+   geom_bar(data=juvi_summary%>%filter(grepl("RST", gear)), 
+            aes(x=as.Date(date_start), y=day_ID_propn, fill=`(R) STOCK-ORIGIN`), colour="transparent", stat="identity", size=2, alpha=0.6) +
+  geom_text(data=juvi_summary%>%filter(grepl("RST", gear))%>%arrange(desc(`(R) STOCK-ORIGIN`)), 
+            aes(x=as.Date(date_start), y=day_ID_propn, label=n), position = position_stack(vjust=0.5)) +
+  geom_bar(data=juvi_summary%>%filter(grepl("RST", gear)) %>% group_by(date_start, `(R) ORIGIN`) %>%
+             summarize(day_origin_propn=unique(day_origin_propn)), 
+           aes(x=as.Date(date_start), y=day_origin_propn, colour=`(R) ORIGIN`), fill="transparent", stat="identity", size=2) +
+  scale_colour_manual(breaks=waiver(), values = c("white", "black", "transparent")) +
+  scale_y_continuous(labels = scales::percent)  +
+  scale_x_date(date_labels = "%b %d") +
+  labs(x="", y="Daily stock composition") +
+  theme_bw()
+```
+
+
+
+<br>
+
+<br>
+
+## **Estuary (PFN beach seine)**
+
+<br>
+
+<br>
+
+## **Early marine entry (summer purse seine)**
+
+<br>
+
+### **Sampling events**
+
+The following purse seine events occurred in 2023: 
+
+```{r}
+juvi.bioMeta %>%
+  filter(grepl("purse seine", gear)) %>% 
+  group_by(date_start) %>% 
+  summarize() %>% 
+  kbl(align="c", caption="2023 purse seining events in Port Renfrew.") %>%
+  kable_paper("hover", full_width=T, position = "center")
+```
+
+<br>
+
+### **Catch composition**
+
+Most Chinook were encountered in late June, with a later bump in catch in mid-August. 
+
+```{r}
+catch_summary %>% 
+  kbl(align="c", caption="2023 purse seining catch composition in Port Renfrew.") %>%
+  kable_paper("hover", full_width=T, position = "center")
+```
+
+```{r catch-comp, fig.cap='2023 purse seine catch composition off Port Renfrew.'}
+
+ggplot() +
+  geom_bar(data=catch_summary, aes(x=as.Date(date_start), y=catch_propn, fill=spp_stage, colour=spp_stage), 
+           stat="identity", alpha=0.8, width=2) +
+  geom_text(data=catch_summary%>%group_by(date_start)%>%summarize(total=unique(daily_total)), 
+            aes(x=as.Date(date_start), y=1.05, label=total),
+            stat="identity", size=3.5) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_x_date(date_breaks = "7 day", date_labels="%b %d") +
+  labs(x="", y="Daily catch composition") +
+  theme_bw()
+```
+
+<br>
+
+
+
+
+
+#### Chinook-only catch
+
+Very few adipose-clipped hatchery Chinook were encountered, but clipped fish were generally larger than unclipped fish. However, note that on July 7, all fish with DNA results returned were hatchery-origin San Juan (1 clipped, 20 unclipped), with the exception of 1 unclipped Washington-origin hatchery fish (Willapa River). 
+
+```{r cn-catch-comp, fig.cap='2023 purse seine catch composition in Port Renfrew of chinook only.'}
+
+ggplot(data=cn_mark_summary, aes(x=as.Date(date_start), y=daily_propn, fill=ad_clip, colour=ad_clip, label=n)) +
+  geom_bar(stat="identity", width=2, alpha=0.8) +
+  geom_text(stat="identity", colour="black", position = position_stack(vjust=0.5)) +
+  labs(x="", y="Daily Chinook catch composition", fill="Adipose clip?", colour="Adipose clip?") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_x_date(date_breaks = "7 day", date_labels="%b %d") +
+  theme_bw()
+```
+
+<br>
+
+```{r prs-size, fig.cap='Size of Chinook (marked and unmarked) in 2023 purse seine samples in Port Renfrew.'}
+ggplot() +
+  geom_boxplot(data=juvi.bioMeta%>%filter(species=="chinook", grepl("purse seine", gear)), 
+               aes(x=as.Date(date_start), y=length, group=interaction(date_start, ad_clip), fill=ad_clip, colour=ad_clip), 
+               stat="boxplot", alpha=0.8, width=3) +
+  scale_x_date(date_breaks = "7 day", date_labels = "%b %d") +
+  labs(x="", y="Fork length (mm)", fill="Adipose clip?", colour="Adipose clip?") +
+  theme_bw()
+```
+
+
+
+
+
+
+
+
+
+```{r stock-comp-fig, fig.cap='GSI stock comps only from the samples collected July 7. Reminaing samples still in process.'}
+
+ggplot() +
+   geom_bar(data=juvi_summary%>%filter(grepl("purse seine", gear)), 
+            aes(x=as.Date(date_start), y=day_ID_propn, fill=`(R) STOCK-ORIGIN`), colour="transparent", stat="identity", size=2, alpha=0.6) +
+  geom_text(data=juvi_summary%>%filter(grepl("purse seine", gear))%>%arrange(desc(`(R) STOCK-ORIGIN`)), 
+            aes(x=as.Date(date_start), y=day_ID_propn, label=n), position = position_stack(vjust=0.5)) +
+  geom_bar(data=juvi_summary%>%filter(grepl("purse seine", gear)) %>% group_by(date_start, `(R) ORIGIN`) %>% summarize(day_origin_propn=unique(day_origin_propn)), 
+           aes(x=as.Date(date_start), y=day_origin_propn, colour=`(R) ORIGIN`), fill="transparent", stat="identity", size=2) +
+  scale_colour_manual(breaks=waiver(), values = c("black", "transparent")) +
+  scale_y_continuous(labels = scales::percent)  +
+  scale_x_date(date_labels = "%b %d") +
+  labs(x="", y="Daily stock composition") +
+  theme_bw()
+```
+
+
+
+
+
+<br>
+
+##### Genetic sample processing
+
+GSI results recently returned were only available for July 7th samples. Still waiting on the remaining days: 
+
+```{r}
+# Sample processing overview: samples analyzed and remaining to analyze
+juvi.bioMeta %>% 
+  filter(grepl("purse seine|beach seine", gear), !is.na(DNA_vial)) %>%
+  group_by(gear, lubridate::month(date_start), date_start, DNA_vial, is.na(indiv)) %>% 
+  summarize(n=n()) %>% 
+  mutate(n = case_when(`is.na(indiv)`=="TRUE" ~ 0,
+                       TRUE ~ n)) %>% 
+  group_by(gear, date_start) %>% 
+  mutate(results_by_date=sum(n)) %>% 
+  arrange(date_start) %>% 
+  kbl()
+```
+
+<br>
+
+
+
+
+<br>
+
+<br>
+
+
+
+
+
 
 
 
