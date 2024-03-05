@@ -81,28 +81,27 @@ SJPBT <- read_excel(paste0(here("data", "enhancement-PNI"), "/4Mile_mark_history
 
 # Load otolith reference specimens output ------------------------
 # Note, if new ref specimens have been added, run these lines first:
-# source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/WCVI_Chinook_Term_Run_Recon/WCVI_CN_TermRunRecon/scripts/misc-helpers/OtoCompile.R")
-# remove(wcviOtos)
-# remove(OtosRef)
+  # source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/WCVI_Chinook_Term_Run_Recon/WCVI_CN_TermRunRecon/scripts/misc-helpers/OtoCompile.R")
+  # remove(wcviOtos)
+  # remove(OtosRef)
 
 SJotoRef <- full_join(
   SJomRef <-
-    lapply(
-      sort(
-        list.files(
-          path=
-            "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/OtoCompile_base-files/ReferenceSpecimens/Export/",
-          pattern = "^R_OUT - OtoManager_CN_REFERENCEspecimens.*\\.xlsx$",
-          full.names = TRUE), 
-        decreasing=T)[1], 
-      readxl::read_excel, sheet="Sheet1") %>% 
+    lapply(sort(list.files(path=
+                             "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/OtoCompile_base-files/ReferenceSpecimens/2-Export-from-R/",
+                           pattern = "^R_OUT - OtoManager_CN_REFERENCEspecimens.*\\.xlsx$",
+                           full.names = TRUE), 
+                decreasing=T)[1], 
+           readxl::read_excel, sheet="Sheet1") %>% 
     do.call("cbind",.) %>%
     filter(grepl("SAN JUAN", FACILITY)) %>% 
     mutate(data_source = "reference specimen (Oto Manager)"),
   
   
-  SJnpafcRef <- readxl::read_excel(here("data", "biosamples", "All CN Marks from NPAFC Otolith Database to December 6, 2023.xlsx"), 
-    sheet="AC087805 (1)") %>% 
+  SJnpafcRef <- readxl::read_excel(path=list.files(path = here("data", "biosamples"),
+                                                   pattern = "^All CN Marks",   
+                                                   full.names = TRUE), 
+                                   sheet=1) %>% 
     filter(grepl("SAN JUAN", STOCK), BROOD_YEAR %notin% unique(SJomRef$`BROOD YEAR`)) %>% 
     mutate(data_source = "NPAFC mark records") %>% 
     rename(`BROOD YEAR` = BROOD_YEAR,
