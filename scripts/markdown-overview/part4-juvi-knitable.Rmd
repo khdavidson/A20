@@ -129,14 +129,15 @@ cn_mark_summary <- juvi.bioMeta %>%
   print()
 ```
 
+# **San Juan juveniles**
 
-# Freshwater 
+## **Freshwater**
 
 <br>
 
-## RST 
+### **RST**
 
-### Catch time series
+#### Catch time series
 
 ```{r}
 ggplot() +
@@ -148,7 +149,7 @@ ggplot() +
 
 <br>
 
-### Chinook-only catch
+#### Chinook-only catch
 
 ```{r}
 ggplot() +
@@ -178,7 +179,7 @@ ggplot() +
 
 <br>
 
-#### Size
+##### Size
 
 ```{r}
 ggplot() +
@@ -188,7 +189,6 @@ ggplot() +
     geom_boxplot(data=juvi.bioMeta%>%filter(grepl("RST",gear), species=="chinook"),
              aes(x=as.Date(yday, origin=as.Date("1970-12-31")), y=length, group=date_end), 
              fill="dodger blue", width=2.5, alpha=0.8) +
-  
   scale_y_continuous(limits=c(20,60)) +
   scale_x_date(date_breaks="7 day", date_labels="%b %d", limits = c(as.Date(69, origin=as.Date("1970-12-31")), 
                                                                     as.Date(205, origin=as.Date("1970-12-31")))) +
@@ -201,13 +201,9 @@ ggplot() +
 
 
 ggplot() +
-    # geom_boxplot(data=SJ06%>%filter(`hatchery code`=="wild", species==124),
-    #          aes(x=as.Date(yday, origin=as.Date("1970-12-31")), y=weight, group=date), fill="gray80", alpha=0.8) +
-  
     geom_boxplot(data=juvi.bioMeta%>%filter(grepl("RST",gear), species=="chinook"),
              aes(x=as.Date(yday, origin=as.Date("1970-12-31")), y=weight, group=date_end), 
              fill="dodger blue", width=2.5, alpha=0.8) +
-  
   scale_y_continuous(limits=c(0,1.5)) +
   scale_x_date(date_breaks="7 day", date_labels="%b %d", limits = c(as.Date(69, origin=as.Date("1970-12-31")), 
                                                                     as.Date(205, origin=as.Date("1970-12-31")))) +
@@ -227,7 +223,7 @@ juvi.bioMeta %>%
 ```
 
 
-##### Genetic sample processing
+###### Genetic sample processing
 
 Only a small number of genetic samples were collected from the RST as we figured we did not need to bother running genetics from known San Juan origin juveniles upstream of the hatchery release location. However, of the 7 samples collected on one day, 3 were inconclusive/non-San Juan!
 
@@ -253,17 +249,17 @@ ggplot() +
 
 <br>
 
-# Estuary (PFN beach seine)
+## **Estuary (PFN beach seine)**
 
 <br>
 
 <br>
 
-# Early marine entry (summer purse seine)
+## **Early marine entry (summer purse seine)**
 
 <br>
 
-## Sampling events
+### **Sampling events**
 
 The following purse seine events occurred in 2023: 
 
@@ -278,7 +274,7 @@ juvi.bioMeta %>%
 
 <br>
 
-## Catch composition
+### **Catch composition**
 
 Most Chinook were encountered in late June, with a later bump in catch in mid-August. 
 
@@ -308,7 +304,7 @@ ggplot() +
 
 
 
-### Chinook-only catch
+#### Chinook-only catch
 
 Very few adipose-clipped hatchery Chinook were encountered, but clipped fish were generally larger than unclipped fish. However, note that on July 7, all fish with DNA results returned were hatchery-origin San Juan (1 clipped, 20 unclipped), with the exception of 1 unclipped Washington-origin hatchery fish (Willapa River). 
 
@@ -365,7 +361,7 @@ ggplot() +
 
 <br>
 
-#### Genetic sample processing
+##### Genetic sample processing
 
 GSI results recently returned were only available for July 7th samples. Still waiting on the remaining days: 
 
@@ -391,7 +387,6 @@ juvi.bioMeta %>%
 <br>
 
 <br>
-
 
 
 
