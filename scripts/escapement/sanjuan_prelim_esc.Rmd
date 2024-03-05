@@ -1074,6 +1074,31 @@ Figure: Expanded live adult Chinook (bars) and carcasses (black line) in the San
 
 <br>
 
+### Jack to male ratio
+
+```{r include=F}
+
+# For run reconstruction
+
+jack_propn <- list.files(path=paste0("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/",
+                                         analysis_year,
+                                         "/SILs/Area 20/"),
+                     pattern = "^A20_Port_Renfrew*.*xlsx", 
+                     full.names = T) %>% 
+  map(~readxl::read_excel(path=.x, sheet="Port Renfrew raw SIL entry", guess_max=20000)) %>% 
+  list_rbind() %>%
+  filter(system=="San Juan", species=="Chinook") %>%
+  group_by(date) %>% 
+  summarize(n_adults = sum(`adults live`, na.rm=T),
+            n_jacks = sum(`jacks live`, na.rm=T),
+            propn_jacks = n_jacks/(n_adults+n_jacks))  %>%
+  print()
+```
+
+The proportion of total chinook that were jacks observed on the swims ranged from `r min(jack_propn[jack_propn$propn_jacks>0,]$propn_jacks, na.rm=T)*100`% to `r max(jack_propn$propn_jacks, na.rm=T)*100`% (mean = `r mean(jack_propn[jack_propn$propn_jacks>0,]$propn_jacks, na.rm=T)*100`%). 
+
+<br>
+
 <br>
 
 ## Swim & fence counts
