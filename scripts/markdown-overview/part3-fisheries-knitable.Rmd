@@ -1,0 +1,50 @@
+---
+title: "part3-fisheries-knitable"
+author: "South Coast StA"
+date: 'Last update: `r format(Sys.time(), sep="_", "%Y-%m-%d %H:%M")`'
+output: 
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+    toc_collapsed: false 
+    toc_depth: 5
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=F, warning=F, echo=F, message=F)
+
+# Load libraries ------------------------------------
+library(tidyverse)
+library(readxl)
+library(kableExtra)
+library(bookdown)
+library(here)
+library(scales)       # for label_percent()
+library(ggpubr)       # for ggarrange()
+library(saaWeb)
+
+
+
+# Helpers ------------------------------------
+"%notin%" <- Negate("%in%")
+
+
+# Load functions/extract data ------------------------------------
+source(here("scripts", "functions", "pullA20ChinookCWTRelRcvy.R"))
+  # saves as a20cwtRcvy
+
+
+# Load other data ------------------------------------
+
+
+
+
+
+
+```
+
+
+
+
+
