@@ -8,3 +8,4 @@ data/escapement/Oto Mgr compile (SJ)/
 data/escapement/*Stad Chinook Accessible Watershed Area*
 data/fisheries/
 data/biosamples/AllChinook*.xlsx
+scripts/functions/get*.R
