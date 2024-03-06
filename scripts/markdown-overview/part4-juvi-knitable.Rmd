@@ -320,6 +320,10 @@ ggplot() +
 
 <br>
 
+```{r}
+# ********** ADD LEAFLET MAP OF CATCH BY DATE/SITE
+```
+
 
 
 
@@ -387,7 +391,7 @@ GSI results recently returned were only available for July 7th purse seining. St
 
 ```{r}
 # Sample processing overview: samples analyzed and remaining to analyze
-juvi.bioMeta %>% 
+genetic.samples23 <- juvi.bioMeta %>% 
   filter(grepl("purse seine|beach seine", gear), !is.na(DNA_vial)) %>%
   group_by(gear, lubridate::month(date_start), date_start, DNA_vial, is.na(indiv)) %>% 
   summarize(n=n()) %>% 
@@ -402,6 +406,11 @@ juvi.bioMeta %>%
          `date collected`=date_start,
          `DNA vial` = DNA_vial,
          `Results returned? 1=yes, 0=no`=n) %>% 
+  mutate_at("date collected", as.Date)
+
+writexl::write_xlsx(genetic.samples23, here("outputs", "San Juan DNA samples outstanding 2023.xlsx"))
+
+genetic.samples23 %>%
   kbl()
 ```
 
