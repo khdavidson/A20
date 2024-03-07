@@ -20,10 +20,16 @@ library(readxl)
 library(kableExtra)
 library(bookdown)
 library(here)
-library(scales)       # for label_percent()
-library(ggpubr)       # for ggarrange()
+#library(ggpubr)       # for ggarrange()
 library(saaWeb)
-
+library(sf)                   # for mapping
+#library(ggspatial)            # for mapping
+library(rnaturalearth)        # for mapping ne_states()
+#library(rnaturalearthdata)    # for mapping
+#library(rnaturalearthhires)   # for mapping
+library(rgdal)                # for mapping readOGR()
+#library(scatterpie)           # for scatterplot mapping
+library(leaflet)
 
 
 # Helpers ------------------------------------
@@ -31,19 +37,144 @@ library(saaWeb)
 
 
 # Load functions/extract data ------------------------------------
-source(here("scripts", "functions", "pullA20ChinookCWTRelRcvy.R"))
+# source(here("scripts", "functions", "pullA20ChinookCWTRelRcvy.R"))
   # saves as a20cwtRcvy
 
-
-# Load other data ------------------------------------
-
+a20cwtRcvy <- readxl::read_excel(here("outputs", "R_OUT - Area 20 CWT Recoveries JOIN Releases - CHINOOK RY1982-2022.xlsx"), sheet=1)
 
 
+# ================================= Spatial data =================================
+
+# DFO PFMA spatial files -----------------------
+DFOcentroids <- read.csv(here("data", "fisheries", "spatial", "MRP_PFMA_spatial.csv")) %>%
+  rename(`R (RC) Recovery PSC Location-L4`=PFMA_resolved)
+pfmaPOLY <- rgdal::readOGR(dsn=here("data", "fisheries", "spatial"), layer="pfma1", verbose=F)
+
+
+# ADFG District spatial files -----------------------
+ADFGcook <- rgdal::readOGR(dsn=here("data", "fisheries", "spatial"), 
+                           layer="Commercial_Fisheries_Upper_Cook_Inlet_Salmon_Districts", verbose=F)
+ADFGcook_cent <- as.data.frame(cbind(st_point_on_surface(st_as_sf(ADFGcook)), 
+                                     do.call(rbind, st_point_on_surface(st_as_sf(ADFGcook))$geometry)))
+
+ADFGpws <- rgdal::readOGR(dsn=here("data", "fisheries", "spatial"), 
+                          layer="PVB_PWS_Districts_2018_Present_GCS_WGS1984", verbose=F)
+ADFGpws_cent <- as.data.frame(cbind(st_point_on_surface(st_as_sf(ADFGpws)), 
+                                    do.call(rbind, st_point_on_surface(st_as_sf(ADFGpws))$geometry)) )
+
+ADFGseak <- rgdal::readOGR(dsn=here("data", "fisheries", "spatial"), 
+                           layer="Southeast_Salmon_Districts_GCS_WGS1984", verbose=F)
+ADFGseak_cent <- as.data.frame(cbind(st_point_on_surface(st_as_sf(ADFGseak)), 
+                                     do.call(rbind, st_point_on_surface(st_as_sf(ADFGseak))$geometry)) )
+
+UScentroidAux <- readxl::read_excel(here("data", "fisheries", "spatial", "Centroid auxiliary file US.xlsx"), sheet=1)
+
+
+# Join centroids, join to aux centroid file:  
+UScentroids <- full_join(ADFGcook_cent %>% 
+                             mutate(across(everything(), as.character)),
+                           ADFGpws_cent %>%
+                             mutate(across(everything(), as.character))) %>%
+  full_join(., 
+            ADFGseak_cent %>%
+              mutate(across(everything(), as.character))) %>% 
+  mutate(DISTRICT_C = case_when(DISTRICT_N == "District 15" & X1 == -135.292221133256 ~ "115",
+                                TRUE ~ DISTRICT_C),
+         `R (RC) Recovery PSC Location-L4` = DISTRICT_C) %>% 
+  full_join(., 
+            UScentroidAux %>% 
+              mutate(across(everything(), as.character)))
 
 
 
+# Join CWT Recoveries with centroids: 
+a20cwtRcvy.spatial <- left_join(
+  a20cwtRcvy %>% 
+    mutate(`R (RC) Recovery PSC Location-L4` = case_when(`(RC) Reporting Agency Code`=="CDFO" ~ 
+                                                           str_remove(str_sub(`(RC) Recovery PSC Location-L4`,2,4), "^0+"),
+                                                         TRUE ~ `(RC) Recovery PSC Location-L4`)),
+  DFOcentroids %>%
+    select(`R (RC) Recovery PSC Location-L4`, lat, long) %>%
+    mutate(`(RC) Reporting Agency Code` = "CDFO"),
+  by=c("(RC) Reporting Agency Code", "R (RC) Recovery PSC Location-L4"),
+  na_matches="never") %>%
+  
+  left_join(.,
+            UScentroids, 
+            by=c("(RC) Reporting Agency Code", "R (RC) Recovery PSC Location-L4")) %>%
+  mutate(lat = case_when(is.na(lat) ~ as.numeric(X2) , 
+                         TRUE ~ lat),
+         long = case_when(is.na(long) ~ as.numeric(X1),
+                          TRUE ~ long)) %>% 
+  print()
+
+
+
+# ================================= Spatial data =================================
+PSCfisheryCodes <- readxl::read_excel(here("data", "fisheries", "MRP PSC fishery codes.xlsx"), sheet=1)
 ```
 
+# **San Juan Chinook in Fisheries**
+
+<br>
+
+## **CWT Recoveries Coast-wide (MRP)** 
+
+### Total time series 
+
+Overview of expanded CWT recoveries with known spatial data for the entire time series of recoveries available (BY 1979 / RelY 1980 / RecY 1982 to present, non-continuous). 
+
+
+```{r}
+leaflet() %>% 
+  # 1. Structure BASEMAP: 
+  
+  #addProviderTiles(providers$Stamen.TerrainBackground) %>%
+  #addProviderTiles(providers$CartoDB.VoyagerNoLabels) %>%
+  #addProviderTiles(providers$OpenStreetMap.HOT) %>%
+  #addProviderTiles(providers$Esri.WorldImagery) %>%
+  
+  addProviderTiles(providers$Esri.OceanBasemap) %>%
+  addWMSTiles(
+    "https://gis.ngdc.noaa.gov/arcgis/services/graticule/MapServer/WMSServer/",
+    layers = c("1-degree grid", "5-degree grid"),
+    options = WMSTileOptions(format = "image/png8", transparent = TRUE),
+    attribution = NULL,group = 'Graticules') %>%
+  setView(lng=-135.990722, lat=53.095034, zoom=4) %>%
+  hideGroup(c('Place names')) %>%
+  
+  # 2. Add RECOVERIES
+  addCircleMarkers(data=a20cwtRcvy.spatial %>% filter(!is.na(lat)) %>%
+                     group_by(lat,long) %>% summarize(totalExp = sum(`(RC) Expanded Number`)),
+                   lat= ~lat,
+                   lng = ~long,
+                   radius=~ifelse(totalExp<10, 1.5,
+                                  ifelse(totalExp>=120 & 
+                                           totalExp <50, 3,
+                                         ifelse(totalExp >= 50, 5, 7))),
+                   color=~"orange", stroke=F, fillOpacity=0.8) 
+```
+
+
+
+
+
+
+```{r CWTrcvy-allyrs, fig.cap=''}
+# MAP OF CWT RECOVERIES 
+ggplot() +
+  geom_polygon(data=pfmaPOLY, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
+  geom_polygon(data=ADFGcook, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
+  geom_polygon(data=ADFGpws, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
+  geom_polygon(data=ADFGseak, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
+  geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="medium", returnclass="sf"), colour="transparent", fill="gray40") +
+  coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-170, -122), ylim=c(40, 65)) +
+  
+  
+  #geom_jitter(data=a20cwtRcvy.spatial%>%filter(!is.na(lat)), aes(x=long, y=lat), colour="blue", alpha=0.8) +
+  labs(x="", y="") +
+  theme_bw() 
+```
 
 
 
