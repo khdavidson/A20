@@ -1,17 +1,307 @@
 
-
 ```{r fisheriessetup, include=FALSE}
+knitr::opts_chunk$set(echo=F, warning=F, echo=F, message=F)
+
+# Load libraries ------------------------------------
+library(tidyverse)
+library(readxl)
+library(kableExtra)
+library(bookdown)
+library(here)
+#library(ggpubr)       # for ggarrange()
+library(saaWeb)
+library(sf)                   # for mapping
+#library(ggspatial)            # for mapping
+library(rnaturalearth)        # for mapping ne_states()
+#library(rnaturalearthdata)    # for mapping
+#library(rnaturalearthhires)   # for mapping
+library(rgdal)                # for mapping readOGR()
+#library(scatterpie)           # for scatterplot mapping
+library(leaflet)
+
+
+# Helpers ------------------------------------
+"%notin%" <- Negate("%in%")
+
+
+
+
+
+# ================================= MRP CWT Recovery data =================================
+
+# MRP DUMP ------------------------------------
+  # source(here("scripts", "functions", "pullA20ChinookCWTRelRcvy.R"))
+  # saves as a20cwtRcvy
+a20cwtRcvy <- readxl::read_excel(here("outputs", "R_OUT - Area 20 CWT Recoveries JOIN Releases - CHINOOK RY1982-2022.xlsx"), sheet=1)
+
+# Fishery mapping ------------------------------------
+FisheryGearMapping <- readxl::read_excel(here("data", "fisheries", "MRP-RMPC - Fishery Gear Mapping.xlsx"), sheet=1)
+
+intersect(colnames(a20cwtRcvy), colnames(FisheryGearMapping))
+
+
+# ================================= Spatial data =================================
+
+# DFO PFMA spatial files -----------------------
+DFOcentroids <- read.csv(here("data", "fisheries", "spatial", "MRP_PFMA_spatial.csv")) %>%
+  rename(`R (RC) Recovery PSC Location-L4`=PFMA_resolved)
+pfmaPOLY <- rgdal::readOGR(dsn=here("data", "fisheries", "spatial"), layer="pfma1", verbose=F)
+
+
+# AMERICA District spatial files -----------------------
+ADFGcook <- rgdal::readOGR(dsn=here("data", "fisheries", "spatial"), 
+                           layer="Commercial_Fisheries_Upper_Cook_Inlet_Salmon_Districts", verbose=F)
+ADFGcook_cent <- as.data.frame(cbind(st_point_on_surface(st_as_sf(ADFGcook)), 
+                                     do.call(rbind, st_point_on_surface(st_as_sf(ADFGcook))$geometry)))
+
+ADFGpws <- rgdal::readOGR(dsn=here("data", "fisheries", "spatial"), 
+                          layer="PVB_PWS_Districts_2018_Present_GCS_WGS1984", verbose=F)
+ADFGpws_cent <- as.data.frame(cbind(st_point_on_surface(st_as_sf(ADFGpws)), 
+                                    do.call(rbind, st_point_on_surface(st_as_sf(ADFGpws))$geometry)) )
+
+ADFGseak <- rgdal::readOGR(dsn=here("data", "fisheries", "spatial"), 
+                           layer="Southeast_Salmon_Districts_GCS_WGS1984", verbose=F)
+ADFGseak_cent <- as.data.frame(cbind(st_point_on_surface(st_as_sf(ADFGseak)), 
+                                     do.call(rbind, st_point_on_surface(st_as_sf(ADFGseak))$geometry)) )
+
+UScentroidAux <- readxl::read_excel(here("data", "fisheries", "spatial", "Centroid auxiliary file US.xlsx"), sheet=1)
+
+
+# Join centroids, join to aux centroid file:  
+UScentroids <- full_join(ADFGcook_cent %>% 
+                             mutate(across(everything(), as.character)),
+                           ADFGpws_cent %>%
+                             mutate(across(everything(), as.character))) %>%
+  full_join(., 
+            ADFGseak_cent %>%
+              mutate(across(everything(), as.character))) %>% 
+  mutate(DISTRICT_C = case_when(DISTRICT_N == "District 15" & X1 == -135.292221133256 ~ "115",
+                                TRUE ~ DISTRICT_C),
+         `R (RC) Recovery PSC Location-L4` = DISTRICT_C) %>% 
+  full_join(., 
+            UScentroidAux %>% 
+              mutate(across(everything(), as.character)))
+
+
+
+# ================================= JOIN MRP + FISHERY-GEAR + SPATIAL data =================================
+
+a20cwtRcvy.spatial <- left_join(
+  a20cwtRcvy %>% 
+    mutate(`R (RC) Recovery PSC Location-L4` = case_when(`(RC) Reporting Agency Code`=="CDFO" ~ 
+                                                           str_remove(str_sub(`(RC) Recovery PSC Location-L4`,2,4), "^0+"),
+                                                         TRUE ~ `(RC) Recovery PSC Location-L4`)),
+  # 1. Join to DFO points
+  DFOcentroids %>%
+    select(`R (RC) Recovery PSC Location-L4`, lat, long) %>%
+    mutate(`(RC) Reporting Agency Code` = "CDFO"),
+  by=c("(RC) Reporting Agency Code", "R (RC) Recovery PSC Location-L4"),
+  na_matches="never") %>%
+  
+  #2. Join to US points
+  left_join(.,
+            UScentroids, 
+            by=c("(RC) Reporting Agency Code", "R (RC) Recovery PSC Location-L4")) %>%
+  mutate(lat = case_when(is.na(lat) ~ as.numeric(X2) , 
+                         TRUE ~ lat),
+         long = case_when(is.na(long) ~ as.numeric(X1),
+                          TRUE ~ long)) %>% 
+  
+  # 3. Join to Fishery mapping codes
+  left_join(.,
+            FisheryGearMapping %>% 
+              mutate(across(everything(), as.character)),
+            by=c( "(RC) Fishery PSC Code", "(RC) Gear PSC Code")) %>%
+  print()
 
 ```
 
-# **San Juan Chinook in fisheries**
+# **San Juan Chinook in Fisheries**
 
-## Canadian fisheries
+<br>
 
-## Coast-wide fisheries (CWT only)
+## **CWT Recoveries Coast-wide (MRP)** 
+
+<br>
+
+### **Aggregate Recoveries** {.tabset .tabset-fade}
+
+<br>
+
+#### Total time series 
+
+Overview of expanded CWT recoveries with known spatial data for the entire time series of recoveries available (BY 1979 / RelY 1980 / RecY 1982 to present, non-continuous). 
+
+```{r cwt-allyrs}
+leaflet() %>% 
+  # 1. Structure BASEMAP: 
+  
+  #addProviderTiles(providers$Stamen.TerrainBackground) %>%
+  #addProviderTiles(providers$CartoDB.VoyagerNoLabels) %>%
+  #addProviderTiles(providers$OpenStreetMap.HOT) %>%
+  #addProviderTiles(providers$Esri.WorldImagery) %>%
+  
+  addProviderTiles(providers$Esri.OceanBasemap) %>%
+  addWMSTiles(
+    "https://gis.ngdc.noaa.gov/arcgis/services/graticule/MapServer/WMSServer/",
+    layers = c("1-degree grid", "5-degree grid"),
+    options = WMSTileOptions(format = "image/png8", transparent = TRUE),
+    attribution = NULL,group = 'Graticules') %>%
+  setView(lng=-135.990722, lat=53.095034, zoom=4) %>%
+  hideGroup(c('Place names')) %>%
+  
+  # 2. Add RECOVERIES
+  addCircleMarkers(data=a20cwtRcvy.spatial %>% filter(!is.na(lat)) %>%
+                     group_by(lat,long) %>% summarize(totalExp = sum(`(RC) Expanded Number`)),
+                   lat= ~lat,
+                   lng = ~long,
+                   radius=~ifelse(totalExp<10, 1.5,
+                                  ifelse(totalExp>=120 & 
+                                           totalExp <50, 3,
+                                         ifelse(totalExp >= 50, 5, 7))),
+                   color=~"purple", stroke=F, fillOpacity=0.8) 
+```
+
+#### Recent Treaty period (2019-2028) 
+
+Overview of expanded CWT recoveries with known spatial data for the current PST period (2019 - present, non-continuous). 
+
+```{r cwt-pst19}
+leaflet() %>% 
+  # 1. Structure BASEMAP: 
+  
+  #addProviderTiles(providers$Stamen.TerrainBackground) %>%
+  #addProviderTiles(providers$CartoDB.VoyagerNoLabels) %>%
+  #addProviderTiles(providers$OpenStreetMap.HOT) %>%
+  #addProviderTiles(providers$Esri.WorldImagery) %>%
+  
+  addProviderTiles(providers$Esri.OceanBasemap) %>%
+  addWMSTiles(
+    "https://gis.ngdc.noaa.gov/arcgis/services/graticule/MapServer/WMSServer/",
+    layers = c("1-degree grid", "5-degree grid"),
+    options = WMSTileOptions(format = "image/png8", transparent = TRUE),
+    attribution = NULL,group = 'Graticules') %>%
+  setView(lng=-135.990722, lat=53.095034, zoom=4) %>%
+  hideGroup(c('Place names')) %>%
+  
+  # 2. Add RECOVERIES
+  addCircleMarkers(data=a20cwtRcvy.spatial %>% filter(!is.na(lat), `(RC) Recovery Year`>=2019) %>%
+                     group_by(lat,long) %>% summarize(totalExp = sum(`(RC) Expanded Number`)),
+                   lat= ~lat,
+                   lng = ~long,
+                   radius=~ifelse(totalExp<10, 1.5,
+                                  ifelse(totalExp>=120 & 
+                                           totalExp <50, 3,
+                                         ifelse(totalExp >= 50, 5, 7))),
+                   color=~"red", stroke=F, fillOpacity=0.8) 
+```
+
+<br>
+
+### **Fine-scale fishery/gear**
+
+<br>
+
+CWT recoveries of San Juan Chinook are limited in number. Note that not all brood years have been consistently tagged. Over the entire time period, WCVI Troll has accounted for many recoveries, but in recent years (recent PST period 2019-present) recoveries have mostly been limited to sport harvest. This is likely due to fishery reductions/allocation policy changes over time. 
+
+The two maps below showcase the two time periods. Note that symbol size is scaled by Expanded CWT recoveries, where one CWT recovery is expanded for a fishery strata and takes into account the total number of juveniles released vs. those released with a CWT. It is the best estimate of total harvest available (using CWTs only). 
+
+<br> 
+
+- All years map: 
+https://github.com/khdavidson/A20/blob/main/scripts/markdown-overview/SanJuan_DC_files/figure-html/SJ%20CWT%20recoveries%20coastwide%20-%20all%20years.pdf 
+
+- Present PST period (2019-present): https://github.com/khdavidson/A20/blob/main/scripts/markdown-overview/SanJuan_DC_files/figure-html/SJ%20CWT%20recoveries%20coastwide%20-%20PST19.pdf
+
+```{r CWTrcvy-allyrs, out.width='3000px', dpi=300, include=F}
+# open PDF to save
+pdf(file = here("scripts", "markdown-overview", "SanJuan_DC_files", "figure-html", "SJ CWT recoveries coastwide - all years.pdf"),   
+    width = 11, height = 8.5)    # inches
+
+# MAP OF CWT RECOVERIES 
+ggplot() +
+  geom_polygon(data=pfmaPOLY, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
+  geom_polygon(data=ADFGcook, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
+  geom_polygon(data=ADFGpws, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
+  geom_polygon(data=ADFGseak, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
+  geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), colour="transparent", fill="gray40") +
+  coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-160, -121), ylim=c(45, 61)) +
+  geom_jitter(data=a20cwtRcvy.spatial%>%
+                filter(!is.na(lat))%>%
+                group_by(lat, long, `Gear PSC Code english`, `Fishery PSC Code english`, `Fishery Series`) %>% 
+                summarize(totalExp = sum(`(RC) Expanded Number`)), 
+              aes(x=long, y=lat, colour=`Fishery PSC Code english`, fill=`Fishery PSC Code english`, 
+                  size=totalExp, shape=`Fishery Series`), alpha=0.6, width=0.2, height=0.2) +
+  scale_size(range=c(2,5)) +
+  scale_shape_manual(values=c(21,22,23,24,25)) +
+  labs(x="", y="", fill="PSC Fishery Gear", colour="PSC Fishery Gear", shape="Fishery group") +
+  theme_bw() +
+  theme(legend.text = element_text(size=8),
+        legend.title = element_text(size=9, face="bold"),
+        legend.position = "bottom",
+        # legend.spacing.x = unit(1,"mm"),
+        # legend.spacing.y = unit(1, "mm")
+        ) +
+  guides(fill=guide_legend(ncol=2),
+         colour=guide_legend(ncol=2),
+         shape=guide_legend(ncol=2), 
+         size=guide_legend(ncol=2))
+
+# save plot
+dev.off()
+```
+
+```{r CWTrcvy-recentPST, out.width='3000px', dpi=300, include=F}
+# open PDF to save
+pdf(file = here("scripts", "markdown-overview", "SanJuan_DC_files", "figure-html", "SJ CWT recoveries coastwide - PST19.pdf"),   
+    width = 11, height = 8.5)    # inches
+
+# MAP OF CWT RECOVERIES 
+ggplot() +
+  geom_polygon(data=pfmaPOLY, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
+  geom_polygon(data=ADFGcook, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
+  geom_polygon(data=ADFGpws, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
+  geom_polygon(data=ADFGseak, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
+  geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), colour="transparent", fill="gray40") +
+  coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-160, -121), ylim=c(45, 61)) +
+  geom_jitter(data=a20cwtRcvy.spatial%>%
+                filter(!is.na(lat),
+                       `(RC) Recovery Year`>=2019)%>%
+                group_by(lat, long, `Gear PSC Code english`, `Fishery PSC Code english`, `Fishery Series`) %>% 
+                summarize(totalExp = sum(`(RC) Expanded Number`)), 
+              aes(x=long, y=lat, colour=`Fishery PSC Code english`, fill=`Fishery PSC Code english`, 
+                  size=totalExp, shape=`Fishery Series`), alpha=0.6, width=0.2, height=0.2) +
+  scale_size(range=c(2,5)) +
+  scale_shape_manual(values=c(21,22,23,24,25)) +
+  labs(x="", y="", fill="PSC Fishery Gear", colour="PSC Fishery Gear", shape="Fishery group") +
+  theme_bw() +
+  theme(legend.text = element_text(size=8),
+        legend.title = element_text(size=9, face="bold"),
+        legend.position = "bottom",
+        # legend.spacing.x = unit(1,"mm"),
+        # legend.spacing.y = unit(1, "mm")
+        ) +
+  guides(fill=guide_legend(ncol=2),
+         colour=guide_legend(ncol=2),
+         shape=guide_legend(ncol=2), 
+         size=guide_legend(ncol=2))
+
+# save plot
+dev.off()
+```
+
+<br>
+
+<br> 
+
+<br>
+
+## **BC Sport Fishery Data** 
 
 
 
+
+- CREST data
 
 
 
