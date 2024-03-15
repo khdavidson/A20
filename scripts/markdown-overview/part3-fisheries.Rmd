@@ -1,4 +1,5 @@
 
+
 ```{r fisheriessetup, include=FALSE}
 knitr::opts_chunk$set(echo=F, warning=F, echo=F, message=F)
 
@@ -234,13 +235,14 @@ ggplot() +
                   size=totalExp, shape=`Fishery Series`), alpha=0.6, width=0.2, height=0.2) +
   scale_size(range=c(2,5)) +
   scale_shape_manual(values=c(21,22,23,24,25)) +
-  labs(x="", y="", fill="PSC Fishery Gear", colour="PSC Fishery Gear", shape="Fishery group") +
+  labs(x="", y="", fill="PSC Fishery Gear", colour="PSC Fishery Gear", shape="Fishery group", size="Number of Chinook (expanded CWTs)") +
   theme_bw() +
   theme(legend.text = element_text(size=8),
         legend.title = element_text(size=9, face="bold"),
-        legend.position = "bottom",
-        # legend.spacing.x = unit(1,"mm"),
-        # legend.spacing.y = unit(1, "mm")
+        legend.position = c(0.3,0.3),
+        legend.spacing.x = unit(1,"mm"),
+        legend.spacing.y = unit(1, "mm"),
+        legend.background = element_rect(fill=alpha("white", 0.7))
         ) +
   guides(fill=guide_legend(ncol=2),
          colour=guide_legend(ncol=2),
@@ -273,13 +275,14 @@ ggplot() +
                   size=totalExp, shape=`Fishery Series`), alpha=0.6, width=0.2, height=0.2) +
   scale_size(range=c(2,5)) +
   scale_shape_manual(values=c(21,22,23,24,25)) +
-  labs(x="", y="", fill="PSC Fishery Gear", colour="PSC Fishery Gear", shape="Fishery group") +
+  labs(x="", y="", fill="PSC Fishery Gear", colour="PSC Fishery Gear", shape="Fishery group", size="Number of Chinook (expanded CWTs)") +
   theme_bw() +
   theme(legend.text = element_text(size=8),
         legend.title = element_text(size=9, face="bold"),
-        legend.position = "bottom",
-        # legend.spacing.x = unit(1,"mm"),
-        # legend.spacing.y = unit(1, "mm")
+        legend.position = c(0.2,0.2),
+        legend.spacing.x = unit(1,"mm"),
+        legend.spacing.y = unit(1, "mm"),
+        legend.background = element_rect(fill=alpha("white", 0.7))
         ) +
   guides(fill=guide_legend(ncol=2),
          colour=guide_legend(ncol=2),

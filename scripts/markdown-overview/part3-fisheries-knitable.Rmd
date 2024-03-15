@@ -227,7 +227,7 @@ https://github.com/khdavidson/A20/blob/main/scripts/markdown-overview/SanJuan_DC
 
 ```{r CWTrcvy-allyrs, out.width='3000px', dpi=300, include=F}
 # open PDF to save
-pdf(file = here("scripts", "markdown-overview", "SanJuan_DC_files", "figure-html", "SJ CWT recoveries coastwide - all years.pdf"),   
+pdf(file = here("outputs", "figures", "SJ CWT recoveries coastwide - all years.pdf"),   
     width = 11, height = 8.5)    # inches
 
 # MAP OF CWT RECOVERIES 
@@ -240,19 +240,22 @@ ggplot() +
   coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-160, -121), ylim=c(45, 61)) +
   geom_jitter(data=a20cwtRcvy.spatial%>%
                 filter(!is.na(lat))%>%
-                group_by(lat, long, `Gear PSC Code english`, `Fishery PSC Code english`, `Fishery Series`) %>% 
-                summarize(totalExp = sum(`(RC) Expanded Number`)), 
+                group_by(`(RC) Recovery Year`, lat, long, `Gear PSC Code english`, `Fishery PSC Code english`, `Fishery Series`) %>% 
+                summarize(finescaleExp = sum(`(RC) Expanded Number`,  na.rm=T)) %>%
+                group_by(lat, long, `Gear PSC Code english`, `Fishery PSC Code english`, `Fishery Series`) %>%
+                mutate(overallMeanFinescaleExp = mean(finescaleExp,na.rm=T)), 
               aes(x=long, y=lat, colour=`Fishery PSC Code english`, fill=`Fishery PSC Code english`, 
-                  size=totalExp, shape=`Fishery Series`), alpha=0.6, width=0.2, height=0.2) +
-  scale_size(range=c(2,5)) +
+                  size=overallMeanFinescaleExp, shape=`Fishery Series`), alpha=0.6, width=0.2, height=0.2) +
+  scale_size(range=c(1,5)) +
   scale_shape_manual(values=c(21,22,23,24,25)) +
-  labs(x="", y="", fill="PSC Fishery Gear", colour="PSC Fishery Gear", shape="Fishery group") +
+  labs(x="", y="", fill="Finescale fishery (PSC)", colour="Finescale fishery (PSC)", shape="Sector", size="Average Number of Chinook \n per Finescale Fishery (expanded CWTs)", title = "All years (1982-present)") +
   theme_bw() +
   theme(legend.text = element_text(size=8),
         legend.title = element_text(size=9, face="bold"),
-        legend.position = "bottom",
-        # legend.spacing.x = unit(1,"mm"),
-        # legend.spacing.y = unit(1, "mm")
+        legend.position = c(0.3,0.3),
+        legend.spacing.x = unit(1,"mm"),
+        legend.spacing.y = unit(1, "mm"),
+        legend.background = element_rect(fill=alpha("white", 0.7))
         ) +
   guides(fill=guide_legend(ncol=2),
          colour=guide_legend(ncol=2),
@@ -265,7 +268,7 @@ dev.off()
 
 ```{r CWTrcvy-recentPST, out.width='3000px', dpi=300, include=F}
 # open PDF to save
-pdf(file = here("scripts", "markdown-overview", "SanJuan_DC_files", "figure-html", "SJ CWT recoveries coastwide - PST19.pdf"),   
+pdf(file = here("outputs", "figures", "SJ CWT recoveries coastwide - PST19.pdf"),   
     width = 11, height = 8.5)    # inches
 
 # MAP OF CWT RECOVERIES 
@@ -277,21 +280,23 @@ ggplot() +
   geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), colour="transparent", fill="gray40") +
   coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-160, -121), ylim=c(45, 61)) +
   geom_jitter(data=a20cwtRcvy.spatial%>%
-                filter(!is.na(lat),
-                       `(RC) Recovery Year`>=2019)%>%
-                group_by(lat, long, `Gear PSC Code english`, `Fishery PSC Code english`, `Fishery Series`) %>% 
-                summarize(totalExp = sum(`(RC) Expanded Number`)), 
+                filter(!is.na(lat), `(RC) Recovery Year` >= 2019)%>%
+                group_by(`(RC) Recovery Year`, lat, long, `Gear PSC Code english`, `Fishery PSC Code english`, `Fishery Series`) %>% 
+                summarize(finescaleExp = sum(`(RC) Expanded Number`,  na.rm=T)) %>%
+                group_by(lat, long, `Gear PSC Code english`, `Fishery PSC Code english`, `Fishery Series`) %>%
+                mutate(overallMeanFinescaleExp = mean(finescaleExp,na.rm=T)), 
               aes(x=long, y=lat, colour=`Fishery PSC Code english`, fill=`Fishery PSC Code english`, 
-                  size=totalExp, shape=`Fishery Series`), alpha=0.6, width=0.2, height=0.2) +
-  scale_size(range=c(2,5)) +
+                  size=overallMeanFinescaleExp, shape=`Fishery Series`), alpha=0.6, width=0.2, height=0.2) +
+  scale_size(range=c(1,5)) +
   scale_shape_manual(values=c(21,22,23,24,25)) +
-  labs(x="", y="", fill="PSC Fishery Gear", colour="PSC Fishery Gear", shape="Fishery group") +
+  labs(x="", y="", fill="Finescale fishery (PSC)", colour="Finescale fishery (PSC)", shape="Sector", size="Average Number of Chinook \n per Finescale Fishery (expanded CWTs)", title = "All years (1982-present)") +
   theme_bw() +
   theme(legend.text = element_text(size=8),
         legend.title = element_text(size=9, face="bold"),
-        legend.position = "bottom",
-        # legend.spacing.x = unit(1,"mm"),
-        # legend.spacing.y = unit(1, "mm")
+        legend.position = c(0.3,0.3),
+        legend.spacing.x = unit(1,"mm"),
+        legend.spacing.y = unit(1, "mm"),
+        legend.background = element_rect(fill=alpha("white", 0.7))
         ) +
   guides(fill=guide_legend(ncol=2),
          colour=guide_legend(ncol=2),
@@ -304,6 +309,49 @@ dev.off()
 
 <br>
 
+
+```{r eval=F, include=F}
+View(a20cwtRcvy.spatial%>%
+  filter(!is.na(lat))%>%
+  group_by(`(RC) Recovery Year`, lat, long, `Gear PSC Code english`, `Fishery PSC Code english`, `Fishery Series`) %>% 
+  summarize(finescaleExp = sum(`(RC) Expanded Number`,  na.rm=T)) %>%
+  group_by(lat, long, `Gear PSC Code english`, `Fishery PSC Code english`, `Fishery Series`) %>%
+    mutate(overallMeanFinescaleExp = mean(finescaleExp,na.rm=T))
+)
+    
+    
+  # group_by(`(RC) Recovery Year`, `Fishery Series`) %>% 
+  # mutate(totalCoarseFisheryExp = sum(finescaleExp, na.rm=T)) %>%
+  # group_by(`Fishery Series`) %>%
+  # mutate(OverallMeanCoarseExp = mean(totalCoarseFisheryExp,na.rm=T)) %>% 
+  # group_by(`(RC) Recovery Year`) %>% 
+  # mutate(annualMeanCoarseExpPropn = totalCoarseFisheryExp/sum(totalCoarseFisheryExp,na.rm=T),
+  #        check=sum(annualMeanCoarseExpPropn))) 
+  
+  
+
+  
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <br> 
 
 <br>
@@ -313,7 +361,7 @@ dev.off()
 
 
 
-- CREST data
+- CREST data   NEXT DAY!! 
 
 
 
