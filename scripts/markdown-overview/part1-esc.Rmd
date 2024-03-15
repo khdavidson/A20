@@ -327,7 +327,7 @@ ggplot() +
 
 ### Escapement goals {#esc-goals}
 
-The current escapement goals developed by Holt et al. based on a habitat model (Parken et al 2008) are:
+The current escapement goals developed by Holt et al. based on a habitat model (Parken et al 2008), which are estimates of individual fish (not spawning pairs - requires assumptions about sex ratios to infer juvenile output):
 
 -   Smsy: `r RPs %>% filter(RP=="SMSY") %>% pull(Value)` (`r RPs %>% filter(RP=="SMSY") %>% pull(lwr)`-`r RPs %>% filter(RP=="SMSY") %>% pull(upr)`) - The escapement required to produce maximum sustainable yield
 
@@ -335,7 +335,11 @@ The current escapement goals developed by Holt et al. based on a habitat model (
 
 -   Srep: `r RPs %>% filter(RP=="SREP") %>% pull(Value)` (`r RPs %>% filter(RP=="SREP") %>% pull(lwr)`-`r RPs %>% filter(RP=="SREP") %>% pull(upr)`) - System capacity
 
--   Fish Stock Provisions Rebuilding goal = `r RPs %>% filter(RP=="SGEN") %>% pull(Value)*1.5`
+Additional benchmarks for use:  
+
+-   Fish Stock Provisions Rebuilding goal (Sgen * 1.5) = `r RPs %>% filter(RP=="SGEN") %>% pull(Value)*1.5`
+
+-   Pacheedaht/Burt habitat capacity estimate = 10,000 spawning pairs (or individuals?? Need to confirm!)
 
 -   Pacheedaht Rebuilding Goal: 5,000
 
