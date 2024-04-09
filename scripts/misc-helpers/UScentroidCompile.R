@@ -48,5 +48,7 @@ UScentroids <- full_join(ADFGcook_cent %>%
               mutate(across(everything(), as.character)))
 
 
-# Remove unneccessary temp files 
+
+
+# ============= Remove unneccessary temp files =============  
 rm(list = c('ADFGcook','ADFGcook_cent', "ADFGpws", "ADFGpws_cent", "ADFGseak", "ADFGseak_cent", "UScentroidAux"))
