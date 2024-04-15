@@ -1,0 +1,505 @@
+
+```{r WCVIfisheriessetup, include=FALSE}
+knitr::opts_chunk$set(echo=F, warning=F, echo=F, message=F)
+
+# Load libraries ------------------------------------
+library(tidyverse)
+library(readxl)
+library(kableExtra)
+library(bookdown)
+library(here)
+#library(ggpubr)                # for ggarrange()
+library(saaWeb)
+library(sf)                     # for mapping
+library(sp)                     # for merge()
+#library(ggspatial)             # for mapping
+library(rnaturalearth)          # for mapping ne_states()
+#library(rnaturalearthdata)     # for mapping
+#library(rnaturalearthhires)    # for mapping
+#library(scatterpie)            # for scatterplot mapping
+library(leaflet)                # for leaflet()
+library(plotly)                 # for ggplotly()
+
+
+
+# Helpers ------------------------------------
+"%notin%" <- Negate("%in%")
+
+
+
+
+
+# ================================= MRP CWT Recovery data =================================
+
+# MRP DUMP ------------------------------------
+  # source(here("scripts", "functions", "pullA20ChinookCWTRelRcvy.R"))
+  # saves as a20cwtRcvy
+a20cwtRcvy <- readxl::read_excel(here("outputs", "R_OUT - Area 20 CWT Recoveries JOIN Releases - CHINOOK RY1982-2022.xlsx"), sheet=1)
+
+# Fishery mapping ------------------------------------
+FisheryGearMapping <- readxl::read_excel(here("data", "fisheries", "MRP-RMPC - Fishery Gear Mapping.xlsx"), sheet=1)
+
+
+
+# ================================= Spatial data =================================
+
+# DFO PFMA spatial files -----------------------
+DFOcentroids <- read.csv(here("data", "fisheries", "spatial", "MRP_PFMA_spatial.csv")) %>%
+  rename(`R (RC) Recovery PSC Location-L4`=PFMA_resolved)
+
+pfmaPOLY <- rgdal::readOGR(dsn=here("data", "fisheries", "spatial"), layer="pfma1", verbose=F)
+wcviPFMApoly <- pfmaPOLY[pfmaPOLY@data$STATAREA%in%c(20:27,121:127),]
+pfma_sf <- sf::st_read(dsn=here("data", "fisheries", "spatial"), layer="pfma1")
+
+# Lad "UScentroids" -----------------------
+source(here("scripts", "misc-helpers", "UScentroidCompile.R"))
+
+
+# ================================= JOIN MRP + FISHERY-GEAR + SPATIAL data =================================
+# 
+# a20cwtRcvy.spatial <- left_join(
+#   a20cwtRcvy %>% 
+#     mutate(`R (RC) Recovery PSC Location-L4` = case_when(`(RC) Reporting Agency Code`=="CDFO" ~ 
+#                                                            str_remove(str_sub(`(RC) Recovery PSC Location-L4`,2,4), "^0+"),
+#                                                          TRUE ~ `(RC) Recovery PSC Location-L4`)),
+#   # 1. Join to DFO points
+#   DFOcentroids %>%
+#     select(`R (RC) Recovery PSC Location-L4`, lat, long) %>%
+#     mutate(`(RC) Reporting Agency Code` = "CDFO"),
+#   by=c("(RC) Reporting Agency Code", "R (RC) Recovery PSC Location-L4"),
+#   na_matches="never") %>%
+#   
+#   #2. Join to US points
+#   left_join(.,
+#             UScentroids, 
+#             by=c("(RC) Reporting Agency Code", "R (RC) Recovery PSC Location-L4")) %>%
+#   mutate(lat = case_when(is.na(lat) ~ as.numeric(X2) , 
+#                          TRUE ~ lat),
+#          long = case_when(is.na(long) ~ as.numeric(X1),
+#                           TRUE ~ long)) %>% 
+#   
+#   # 3. Join to Fishery mapping codes
+#   left_join(.,
+#             FisheryGearMapping %>% 
+#               mutate(across(everything(), as.character)),
+#             by=c( "(RC) Fishery PSC Code", "(RC) Gear PSC Code")) %>%
+#   print()
+# 
+# 
+# # ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ Remove temp file clutter ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+# rm(list = c('DFOcentroids', 'a20cwtRcvy', "FisheryGearMapping", "UScentroids"))
+# 
+
+
+
+# ================================= CREST data =================================
+
+# Biodata w results ----------------------
+crestBDWR <- readxl::read_excel(path=list.files(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/CRESTcompile_base-files/2-Export-from-R/",
+                                                pattern="R_OUT - Biological_Data_With_Results*.*xlsx", full.names = T),
+                                sheet="CREST Biodata Compiled") %>%
+  mutate(yday = lubridate::yday(COLLECTION_DATE),
+         LEGAL_STATUS = case_when(LENGTH_MM > 450 & LENGTH_MM < 800 ~ "LEGAL",
+                                  LENGTH_MM <= 450 ~ "SUBLEGAL",
+                                  LENGTH_MM >= 800 & yday%in%c(196:212) ~ "SUPERLEGAL",
+                                  LENGTH_MM >= 800 & yday%notin%c(196:212) ~ "LEGAL"),
+         isSJ1 = case_when(grepl("San Juan", `(R) RESOLVED ORIGIN-STOCK ID`) ~ `(R) RESOLVED ORIGIN-STOCK ID`,
+                          !grepl("San Juan", `(R) RESOLVED ORIGIN-STOCK ID`) & `(R) Origin`!="Unknown" ~ 
+                            paste0(`(R) Origin`, " ", "Non-San Juan"),
+                          !grepl("San Juan", `(R) RESOLVED ORIGIN-STOCK ID`) & `(R) Origin`=="Unknown" ~ 
+                            "Unknown Non-San Juan"),
+         isSJ2 = case_when(grepl("Non-San Juan", isSJ1) ~ "Other",
+                           TRUE ~ isSJ1)) %>% 
+  print()
+
+
+# Catch estimates ----------------------
+catEst <- readxl::read_excel(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/Salmon$/FMCR_Fishery_Monitoring_Catch_Reporting/Recreational_CM/Catch_Data/SC Sport Catch Creel Sub-area Disposition (Master Do No Edit).xlsx", sheet="YTD") %>%
+  filter(grepl("127|27|126|26|125|25|124|24|123|23|121|21|22|20", PFMA), YEAR%in%c(2017:2023), SPECIES=="CHINOOK SALMON")
+```
+
+## **WCVI Sport Fishery**
+
+<br>
+
+### Assumptions and caveats to using CREST Biodata
+
+Definitions of natural, hatchery and unknown origin Chinook:
+
+- A fish is assumed Natural origin if an otolith is returned as "Not Marked" and the adipose fin is intact. PBT is not currently considered as it is stock/facility-specific, and would likely only apply to very recent RYs (2022/2023). 
+  + This assumption may not be appropriate in cases where hatchery fish are not thermally marked AND have no other identifier (probably rare? Perhaps US?).
+  + Intact adipose fins *alone* are NOT evidence of a natural fish, and are considered "Unknown" origin (see below)
+- A fish is Hatchery origin if it has an adipose clip, a thermal mark, a CWT, and/or a PBT BY assignment (in recent years).
+  + Note there are some rare cases of wild-tagging programs in Yukon/Alaska, but these are not expected to show up in great numbers for Chinook. 
+- A fish is Unknown origin if it has an intact adipose and no other mark or tag to inform further, e.g., destroyed or missing otolith, missing or lost tag, no  samples analyzed, etc.) 
+- Stock ID is assigned in order of reliability: CWT > PBT > Otolith > GSI
+
+<br>
+
+The following caveats/assumptions must be taken into consideration when interpreting the recreational fishery data presented below:
+
+- A genetic stock ID is only included if it has >= 75% certainty.
+- It is assumed that biosampling is representative of kept catch, but this varies year to year as sample sizes are low. 
+- Biosamples represent kept, legal catch and therefore do not represent the portions of populations <45cm or >80cm
+  + Only legal sized Chinook are included here (> 45cm). Extra-legal (aka Super-legal) Chinook (>80cm) have also been excluded as current regs exclude these fish from the fishery.
+- **No corrections are done to account for thermal mark issues from any facility in any given year. Missing  thermal marks would show up as "Not Marked" and bias results towards reporting more natural-origin Chinook than may in fact exist.**
+- No GSI results are available prior to 2020 in Area 21/121. 
+- Considerable changes to the recreational fishery along SWVI came into effect around 2018-2019 so comparisons across these years should be careful. 
+- Unknown stock IDs were excluded from the following analyses. Results are expressed as regional population IDs as a proportion of known samples. 
+
+<br>
+
+**Please keep in mind sample rates for these areas are below ideal levels, so conclusions drawn should be very careful. Please read the last section that lays out the sample rates (i.e., % of kept catch sampled) by month and year!"**
+
+<br>
+
+<br>
+
+
+```{r include=F}
+# CREST biodata joined to catch ------------------------
+crestBDWR.catEst.sj <- left_join(crestBDWR %>% 
+                                   mutate(SUBAREAfocal = case_when(AREA=="20" ~ SUBAREA,
+                                                                   TRUE ~ AREA)) %>% 
+                                   filter(SAMPLE_TYPE=="Sport", SPECIES==124, DISPOSITION=="Kept", LEGAL_STATUS=="LEGAL",
+                                          SUBAREA%notin%c("20C", "20D", "20DO", "20DI", "20DB")) %>% 
+                                   group_by(YEAR, MONTH, AREA,  isSJ2) %>% 
+                                   summarize(n = n())  %>%
+                                   group_by(YEAR, MONTH, AREA) %>%
+                                   mutate(AreaMonthSampleTotal = sum(n),
+                                          AreaPropnMonthlySamples=n/AreaMonthSampleTotal),
+                                 
+                                 catEst %>% 
+                                   rename(AREA=PFMA) %>% 
+                                   filter(CREEL_SUB_AREA%notin%c("20C", "20D", "20DO", "20DI", "20DB")) %>%
+                                   mutate(AREA = str_sub(AREA, start=6, end=9)) %>%
+                                   group_by(YEAR, AREA, MONTH, DISPOSITION) %>% 
+                                   summarize(Est = sum(ESTIMATE,na.rm=T),
+                                             SE = sum(STANDARD_ERROR,na.rm=T)) %>% 
+                                   pivot_wider(names_from=DISPOSITION, values_from=c(Est, SE)) %>%
+                                   select(YEAR, AREA, MONTH, Est_Kept, SE_Kept, `Est_Released Legal`, `SE_Released Legal`, 
+                                          `Est_Released Sub-legal`, `SE_Released Sub-legal`),
+                                 
+                                 by=c("YEAR", "MONTH", "AREA")) %>%
+  mutate(estKeptByID = AreaPropnMonthlySamples*Est_Kept,
+         seKeptByID = AreaPropnMonthlySamples*SE_Kept)  
+    
+
+# Summarize average catch by stock ID of San Juan only fish ------------------
+avg_catch_area <- crestBDWR.catEst.sj %>%
+  arrange(YEAR, AREA, MONTH) %>%
+  filter(isSJ2!="Other") %>% 
+  group_by(MONTH, AREA, isSJ2) %>%
+  summarize(meanLC = mean(estKeptByID,na.rm=T),
+            sdLC = sd(estKeptByID,na.rm=T),
+            meanpropn=mean(AreaPropnMonthlySamples,na.rm=T),
+            totaln=sum(n,na.rm=T),
+            meann=mean(n,na.rm=T)) %>%
+
+  print()
+
+
+
+# Helpers for graphing ------------------
+avg_catch_area$AREA <- factor(avg_catch_area$AREA, levels=c("127", "27", "126", "26", "125", "25", "124", "24", "123", "23", "121", "22", "21", "20", ordered=T))
+crestBDWR.catEst.sj$AREA <- factor(crestBDWR.catEst.sj$AREA, levels=c("127", "27", "126", "26", "125", "25", "124", "24", "123", "23", "121", "22", "21", "20", ordered=T))
+crestBDWR.catEst.sj$MONTH <- factor(crestBDWR.catEst.sj$MONTH, levels=month.name)
+crestBDWR.catEst.sj$MONTH <- factor(crestBDWR.catEst.sj$MONTH, levels=month.name)
+
+
+ggplot() +
+  geom_boxplot(data=crestBDWR.catEst.sj%>%filter(isSJ2!="Other"),
+               aes(x=MONTH, y=estKeptByID, group=interaction(MONTH,isSJ2), fill=isSJ2, colour=isSJ2), 
+               position=position_dodge(width=0.75), width=0.7, size=1, alpha=0.6) +
+  geom_text(data=avg_catch_area, 
+            aes(x=MONTH, y=0, group=interaction(MONTH,isSJ2), label=paste0("n=", round(meann,1)), colour=isSJ2, fontface="italic"),
+            position=position_dodge(width=0.7), size=4) +
+  expand_limits(y=0) +
+  labs(x="", y="Approximate number of kept, legal San Juan Chinook by strata", fill="", colour="", tag="No corrections have been made to natural origin fish \nto account for missing BY thermal marks.") +
+  facet_wrap(~AREA, scales="free") +
+  theme_bw() +
+  theme(axis.title = element_text(face="bold", size=10),
+        axis.text = element_text(size=8),
+        legend.position = c(0.8,0.2),
+        plot.tag.position = c(0.75,0.15),
+        plot.tag = element_text(colour="red", hjust=0))
+
+
+
+
+
+# # CWTs
+# cwt_by_area <- a20cwtRcvy.spatial %>% 
+#   filter(`(RC) Recovery Year`>=2017,  `(RC) Fishery PSC Code`==40) %>%
+#   group_by(`(RC) Recovery Year`, `(RC) Recovery Month`, `(RC) Recovery PSC Location-L3`) %>%
+#   summarize(total_obs = sum(`(RC) Observed Number`), lat=lat, long=long) %>%
+#   filter(!is.na(lat)) %>%
+#   mutate(`(RC) Recovery Month` = lubridate::month(`(RC) Recovery Month`, label = T, abbr = F)) %>%
+#   print()
+
+
+
+
+
+
+
+
+
+# # Join to spatial
+ # crestBDWR.catEst.sj.spatial <- sp::merge(x=pfmaPOLY, 
+ #                                   y=crestBDWR.catEst.sj %>%
+ #                                       filter(isSJ2!="Other", YEAR==2022, MONTH=="July") %>%
+ #                                       ungroup() %>%
+ #                                       select(AREA, AreaPropnMonthlySamples, estKeptByID),
+ #                        by.x="STATAREA", by.y="AREA", duplicateGeoms=T)
+
+
+wcviPFMA_sjCatEst <- left_join(pfma_sf ,
+                   crestBDWR.catEst.sj %>%
+                     filter(isSJ2!="Other") %>%
+                     group_by(YEAR, AREA, MONTH) %>%
+                     summarize(n=sum(n),
+                               strata_n = sum(AreaMonthSampleTotal,na.rm=T),
+                               propn=n/strata_n,
+                               Est_Kept = unique(Est_Kept),
+                               estKeptByID=propn*Est_Kept
+                               ) %>%
+                     rename(STATAREA=AREA) %>% 
+                     ungroup() %>%
+                     mutate_at("STATAREA", as.character) %>%
+                     mutate_at("STATAREA", as.integer), #%>%
+                     #select(STATAREA, MONTH, AreaPropnMonthlySamples, estKeptByID) %>%
+                     #pivot_wider(names_from = MONTH, values_from = c(AreaPropnMonthlySamples, estKeptByID)),
+                   by="STATAREA")
+
+```
+
+
+
+
+```{r eval=F, include=F}
+pal <- colorNumeric("BuYlRd", na.color = "transparent", c(0.01,400)) # forgot the arguments here
+
+leaflet() %>% 
+  # 1. Structure BASEMAP: 
+  
+  #addProviderTiles(providers$Stamen.TerrainBackground) %>%
+  #addProviderTiles(providers$CartoDB.VoyagerNoLabels) %>%
+  #addProviderTiles(providers$OpenStreetMap.HOT) %>%
+  #addProviderTiles(providers$Esri.WorldImagery) %>%
+  
+  addProviderTiles(providers$Esri.OceanBasemap) %>%
+  addWMSTiles(
+    "https://gis.ngdc.noaa.gov/arcgis/services/graticule/MapServer/WMSServer/",
+    layers = c("1-degree grid", "5-degree grid"),
+    options = WMSTileOptions(format = "image/png8", transparent = TRUE),
+    attribution = NULL,group = 'Graticules') %>%
+  setView(lng=-125.686921, lat= 49.534798, zoom=7) %>%
+  hideGroup(c('Place names')) %>%
+
+  
+  #3. Add WCVI PFMAs coloured by # kept 
+  addPolygons(data = wcvitt,
+              stroke=T, fillOpacity=0.2, smoothFactor=0.5, weight=1, fill=T, fillColor=~pal(wcvitt$estKeptByID)) %>%
+  addLegend(
+    pal = pal,
+    values = wcvitt$estKeptByID,
+    position = 'topright')
+  
+  
+  
+  
+  addCircleMarkers(data=a20cwtRcvy.spatial %>% filter(!is.na(lat)) %>%
+                     group_by(lat,long) %>% summarize(totalExp = sum(`(RC) Expanded Number`)),
+                   lat= ~lat,
+                   lng = ~long,
+                   radius=~ifelse(totalExp<10, 1.5,
+                                  ifelse(totalExp>=120 & 
+                                           totalExp <50, 3,
+                                         ifelse(totalExp >= 50, 5, 7))),
+                   color=~"purple", stroke=F, fillOpacity=0.8) 
+```
+
+
+
+
+### WCVI: San Juan catch across all WCVI PFMAs (27-20 and offshore) 
+
+Proportion of legal sized biosamples that return as San Juan in each Area applied to kept, legal catch estimates for 2017-2023 (note 2023 biodata still incomplete). 
+
+
+
+```{r wcvi22}
+ggplotly(
+ggplot() +
+  geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2022"), 
+          aes(fill=round(estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour="gray80", alpha=0.8, stroke=0.1) +
+  scale_fill_viridis_b(na.value = NA) +
+  geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
+          colour="transparent", fill="gray60") +
+  coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
+  theme_bw() +
+  facet_wrap(~MONTH),
+tooltip = c("text", "estKeptByID")
+)
+```
+
+```{r wcvi21}
+ggplotly(
+ggplot() +
+  geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2021"), 
+          aes(fill=round(estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour="gray80", alpha=0.8, stroke=0.1) +
+  scale_fill_viridis_b(na.value = NA) +
+  geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
+          colour="transparent", fill="gray60") +
+  coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
+  theme_bw() +
+  facet_wrap(~MONTH),
+tooltip = c("text", "estKeptByID")
+)
+```
+
+```{r wcvi20}
+ggplotly(
+ggplot() +
+  geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2020"), 
+          aes(fill=round(estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour="gray80", alpha=0.8, stroke=0.1) +
+  scale_fill_viridis_b(na.value = NA) +
+  geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
+          colour="transparent", fill="gray60") +
+  coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
+  theme_bw() +
+  facet_wrap(~MONTH),
+tooltip = c("text", "estKeptByID")
+)
+```
+
+```{r wcvi19}
+ggplotly(
+ggplot() +
+  geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2019"), 
+          aes(fill=round(estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour="gray80", alpha=0.8, stroke=0.1) +
+  scale_fill_viridis_b(na.value = NA) +
+  geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
+          colour="transparent", fill="gray60") +
+  coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
+  theme_bw() +
+  facet_wrap(~MONTH),
+tooltip = c("text", "estKeptByID")
+)
+```
+
+<br>
+
+<br>
+
+### Area 20: Area, regional IDs
+
+```{r echo=T, message=F, warning=F, eval=F}
+# ================= Region-level monthly % composition =================
+area20REGION.BDWR <- crestBDWR %>% 
+  filter(AREA %in% c("20"), SAMPLE_TYPE=="Sport", SPECIES==124, DISPOSITION=="Kept", LEGAL_STATUS=="LEGAL", `(R) RESOLVED ORIGIN-REGION ID`%notin%c("Unknown NA", "Unknown Unknown (<75% GSI assignment)")) %>% 
+  group_by(YEAR, MONTH, AREA, `(R) RESOLVED ORIGIN-REGION ID`) %>% 
+  summarize(n = n()) %>% 
+  group_by(YEAR, MONTH, AREA) %>%
+  mutate(AreaMonthSampleTotal = sum(n),
+         AreaPropnMonthlySamples=n/AreaMonthSampleTotal) 
+
+
+
+# ================= Stock-level monthly % composition =================
+# FOCUS ON Area 20 sub-areas SPECIFICALLY
+# 1. Summarize biosampling results and group as Nitinat, Non-Nitinat, and Unknown -----------------
+area20STOCK.BDWR <- crestBDWR %>% 
+  filter(AREA %in% c("20"), SAMPLE_TYPE=="Sport", SPECIES==124, DISPOSITION=="Kept", LEGAL_STATUS=="LEGAL", `(R) RESOLVED ORIGIN-STOCK ID`%notin%c("Unknown NA", "Unknown Unknown (<75% GSI assignment)")) %>% 
+  group_by(YEAR, AREA, SUBAREA, MONTH, isSJ) %>% 
+  summarize(n = n()) %>% 
+  group_by(YEAR, MONTH, AREA, SUBAREA) %>%
+  mutate(AreaMonthSampleTotal = sum(n),
+         PropnMonthlySamplesSJ=n/AreaMonthSampleTotal)  
+
+# 2. Join Biodata composition to catch and calculate # caught by ID -----------------
+a20catchComp <- left_join(area20STOCK.BDWR,
+                          catEst %>% 
+                            rename(AREA=PFMA) %>% 
+                            mutate(AREA = str_sub(AREA, start=6, end=9)) %>%
+                            group_by(YEAR, AREA, CREEL_SUB_AREA, MONTH, DISPOSITION) %>% 
+                            summarize(Est = sum(ESTIMATE),
+                                      `%SE` = sum(PERCENT_STANDARD_ERROR)) %>% 
+                            pivot_wider(names_from=DISPOSITION, values_from=c(Est, `%SE`)) %>%
+                            select(YEAR, AREA, CREEL_SUB_AREA, MONTH, Est_Kept, `%SE_Kept`, `Est_Released Legal`, `%SE_Released Legal`, 
+                                   `Est_Released Sub-legal`, `%SE_Released Sub-legal`) %>% 
+                            rename(SUBAREA = CREEL_SUB_AREA),
+                          by=c("AREA", "YEAR", "MONTH", "SUBAREA")) %>% 
+  mutate(estKeptByID = PropnMonthlySamplesSJ*Est_Kept) 
+```
+
+
+```{r a20comp, out.width='1300px', out.height='500px', fig.align='left', fig.cap='Region-level ID of Chinook caught in Area 20. Data are expressed as a proportion of the number of biological samples collected each month. Results are from creel survey data and therefore only represent legal (<45cm, >80cm), kept catch. Gray shaded area indicates years with no GSI sampling, in which case Natural-origin stock ID is not possible. Red shading indicates 2023 results are incomplete.', eval=F}
+
+# Region rollup stock comp --------------------
+
+# AREA 20
+ggplotly(
+  ggplot() +
+    geom_ribbon(data=area20REGION.BDWR %>%
+                  filter(AREA=="20", YEAR%in%c(2017:2019)),
+                aes(ymin="Unknown SWVI", ymax="Natural (assumed) California", x=factor(MONTH, levels=month.name)), 
+                fill="gray60", colour="gray60", alpha=0.1, size=100) +
+    geom_ribbon(data=area20REGION.BDWR %>%
+                  filter(AREA=="20", YEAR==2023),
+                aes(ymin="Unknown SWVI", ymax="Hatchery California", x=factor(MONTH, levels=month.name)), 
+                fill="red", colour="red", alpha=0.1, size=100) +
+    geom_point(data=area20REGION.BDWR%>%filter(AREA=="20"),
+               aes(x=factor(MONTH, levels=month.name), y=`(R) RESOLVED ORIGIN-REGION ID`,  fill=AreaPropnMonthlySamples, text=paste0("n=",n)),
+               shape=22, size=3.5, colour="transparent") +
+    scale_fill_viridis_b(breaks=seq(0,1,by=0.1), labels=scales::percent) +
+    labs(x="", y="", fill="Proportion of biosamples \nby month for Area 20") +
+    facet_wrap(~YEAR, nrow=1) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle=45, hjust=1),
+          legend.title =  element_text(face="bold")),
+  tooltip = c("MONTH", "(R) RESOLVED ORIGIN-REGION ID", "AreaPropnMonthlySamples", "text")) 
+```
+
+
+<br>
+
+### Area 20: Sub-area, stock IDs
+
+```{r a20SAcomp, out.width='1300px', out.height='500px', fig.align='left', fig.cap='', eval=F}
+
+# Region rollup stock comp --------------------
+
+# AREA 21
+ggplotly(
+  ggplot() +
+    # geom_ribbon(data=a20catchComp %>%
+    #               filter(AREA=="20", YEAR%in%c(2017:2019)),
+    #             aes(ymin=-Inf, ymax=Inf, 
+    #                 x=factor(MONTH, levels=month.name)), 
+    #             fill="gray60", colour="gray60", alpha=0.1, size=100) +
+    # geom_ribbon(data=a20catchComp %>%
+    #               filter(AREA=="20", YEAR==2023),
+    #             aes(ymin="Unknown Non-Nitinat", ymax="Hatchery Nitinat River", x=factor(MONTH, levels=month.name)), 
+    #             fill="red", colour="red", alpha=0.1, size=100) +
+    geom_point(data=a20catchComp%>%filter(SUBAREA=="20E"),
+               aes(x=factor(MONTH, levels=month.name), y=isSJ, fill=estKeptByID, text=paste0("n=",n)),
+               shape=22, size=3.5, colour="transparent") +
+    scale_fill_viridis_b(breaks=seq(0,1000,by=100)) +
+    labs(x="", y="", fill="Kept, legal Chinook \nby stock ID group for Area 20") +
+    facet_wrap(~YEAR, nrow=1) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle=45, hjust=1),
+          legend.title =  element_text(face="bold")),
+  tooltip = c("MONTH", "isSJ", "estKeptByID", "text")) 
+```
+
+<br>
+
+
+
+
+
+
+

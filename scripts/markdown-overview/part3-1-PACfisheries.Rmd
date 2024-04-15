@@ -1,6 +1,6 @@
 
 
-```{r fisheriessetup, include=FALSE}
+```{r PACfisheriessetup, include=FALSE}
 knitr::opts_chunk$set(echo=F, warning=F, echo=F, message=F)
 
 # Load libraries ------------------------------------
@@ -9,16 +9,18 @@ library(readxl)
 library(kableExtra)
 library(bookdown)
 library(here)
-#library(ggpubr)       # for ggarrange()
+#library(ggpubr)                # for ggarrange()
 library(saaWeb)
-library(sf)                   # for mapping
-#library(ggspatial)            # for mapping
-library(rnaturalearth)        # for mapping ne_states()
-#library(rnaturalearthdata)    # for mapping
-#library(rnaturalearthhires)   # for mapping
-library(rgdal)                # for mapping readOGR()
-#library(scatterpie)           # for scatterplot mapping
-library(leaflet)
+library(sf)                     # for mapping
+library(sp)                     # for merge()
+#library(ggspatial)             # for mapping
+library(rnaturalearth)          # for mapping ne_states()
+#library(rnaturalearthdata)     # for mapping
+#library(rnaturalearthhires)    # for mapping
+#library(scatterpie)            # for scatterplot mapping
+library(leaflet)                # for leaflet()
+library(plotly)                 # for ggplotly()
+
 
 
 # Helpers ------------------------------------
@@ -38,7 +40,6 @@ a20cwtRcvy <- readxl::read_excel(here("outputs", "R_OUT - Area 20 CWT Recoveries
 # Fishery mapping ------------------------------------
 FisheryGearMapping <- readxl::read_excel(here("data", "fisheries", "MRP-RMPC - Fishery Gear Mapping.xlsx"), sheet=1)
 
-intersect(colnames(a20cwtRcvy), colnames(FisheryGearMapping))
 
 
 # ================================= Spatial data =================================
@@ -46,43 +47,13 @@ intersect(colnames(a20cwtRcvy), colnames(FisheryGearMapping))
 # DFO PFMA spatial files -----------------------
 DFOcentroids <- read.csv(here("data", "fisheries", "spatial", "MRP_PFMA_spatial.csv")) %>%
   rename(`R (RC) Recovery PSC Location-L4`=PFMA_resolved)
+
 pfmaPOLY <- rgdal::readOGR(dsn=here("data", "fisheries", "spatial"), layer="pfma1", verbose=F)
+wcviPFMApoly <- pfmaPOLY[pfmaPOLY@data$STATAREA%in%c(20:27,121:127),]
+pfma_sf <- sf::st_read(dsn=here("data", "fisheries", "spatial"), layer="pfma1")
 
-
-# AMERICA District spatial files -----------------------
-ADFGcook <- rgdal::readOGR(dsn=here("data", "fisheries", "spatial"), 
-                           layer="Commercial_Fisheries_Upper_Cook_Inlet_Salmon_Districts", verbose=F)
-ADFGcook_cent <- as.data.frame(cbind(st_point_on_surface(st_as_sf(ADFGcook)), 
-                                     do.call(rbind, st_point_on_surface(st_as_sf(ADFGcook))$geometry)))
-
-ADFGpws <- rgdal::readOGR(dsn=here("data", "fisheries", "spatial"), 
-                          layer="PVB_PWS_Districts_2018_Present_GCS_WGS1984", verbose=F)
-ADFGpws_cent <- as.data.frame(cbind(st_point_on_surface(st_as_sf(ADFGpws)), 
-                                    do.call(rbind, st_point_on_surface(st_as_sf(ADFGpws))$geometry)) )
-
-ADFGseak <- rgdal::readOGR(dsn=here("data", "fisheries", "spatial"), 
-                           layer="Southeast_Salmon_Districts_GCS_WGS1984", verbose=F)
-ADFGseak_cent <- as.data.frame(cbind(st_point_on_surface(st_as_sf(ADFGseak)), 
-                                     do.call(rbind, st_point_on_surface(st_as_sf(ADFGseak))$geometry)) )
-
-UScentroidAux <- readxl::read_excel(here("data", "fisheries", "spatial", "Centroid auxiliary file US.xlsx"), sheet=1)
-
-
-# Join centroids, join to aux centroid file:  
-UScentroids <- full_join(ADFGcook_cent %>% 
-                             mutate(across(everything(), as.character)),
-                           ADFGpws_cent %>%
-                             mutate(across(everything(), as.character))) %>%
-  full_join(., 
-            ADFGseak_cent %>%
-              mutate(across(everything(), as.character))) %>% 
-  mutate(DISTRICT_C = case_when(DISTRICT_N == "District 15" & X1 == -135.292221133256 ~ "115",
-                                TRUE ~ DISTRICT_C),
-         `R (RC) Recovery PSC Location-L4` = DISTRICT_C) %>% 
-  full_join(., 
-            UScentroidAux %>% 
-              mutate(across(everything(), as.character)))
-
+# Lad "UScentroids" -----------------------
+source(here("scripts", "misc-helpers", "UScentroidCompile.R"))
 
 
 # ================================= JOIN MRP + FISHERY-GEAR + SPATIAL data =================================
@@ -115,6 +86,37 @@ a20cwtRcvy.spatial <- left_join(
             by=c( "(RC) Fishery PSC Code", "(RC) Gear PSC Code")) %>%
   print()
 
+
+# ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ Remove temp file clutter ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+rm(list = c('DFOcentroids', 'a20cwtRcvy', "FisheryGearMapping", "UScentroids"))
+
+
+
+
+# ================================= CREST data =================================
+
+# Biodata w results ----------------------
+crestBDWR <- readxl::read_excel(path=list.files(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/CRESTcompile_base-files/2-Export-from-R/",
+                                                pattern="R_OUT - Biological_Data_With_Results*.*xlsx", full.names = T),
+                                sheet="CREST Biodata Compiled") %>%
+  mutate(yday = lubridate::yday(COLLECTION_DATE),
+         LEGAL_STATUS = case_when(LENGTH_MM > 450 & LENGTH_MM < 800 ~ "LEGAL",
+                                  LENGTH_MM <= 450 ~ "SUBLEGAL",
+                                  LENGTH_MM >= 800 & yday%in%c(196:212) ~ "SUPERLEGAL",
+                                  LENGTH_MM >= 800 & yday%notin%c(196:212) ~ "LEGAL"),
+         isSJ1 = case_when(grepl("San Juan", `(R) RESOLVED ORIGIN-STOCK ID`) ~ `(R) RESOLVED ORIGIN-STOCK ID`,
+                          !grepl("San Juan", `(R) RESOLVED ORIGIN-STOCK ID`) & `(R) Origin`!="Unknown" ~ 
+                            paste0(`(R) Origin`, " ", "Non-San Juan"),
+                          !grepl("San Juan", `(R) RESOLVED ORIGIN-STOCK ID`) & `(R) Origin`=="Unknown" ~ 
+                            "Unknown Non-San Juan"),
+         isSJ2 = case_when(grepl("Non-San Juan", isSJ1) ~ "Other",
+                           TRUE ~ isSJ1)) %>% 
+  print()
+
+
+# Catch estimates ----------------------
+catEst <- readxl::read_excel(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/Salmon$/FMCR_Fishery_Monitoring_Catch_Reporting/Recreational_CM/Catch_Data/SC Sport Catch Creel Sub-area Disposition (Master Do No Edit).xlsx", sheet="YTD") %>%
+  filter(grepl("127|27|126|26|125|25|124|24|123|23|121|21|22|20", PFMA), YEAR%in%c(2017:2023), SPECIES=="CHINOOK SALMON")
 ```
 
 # **San Juan Chinook in Fisheries**
@@ -258,31 +260,31 @@ CWTrcvySummaryAllyrs <- a20cwtRcvy.spatial%>%
 # CWT recoveries plot function -------------------
 plotCWTrcvy <- function(year_start, year_end, plot_title){
   ggplot() +
-  geom_polygon(data=pfmaPOLY, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
-  geom_polygon(data=ADFGcook, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
-  geom_polygon(data=ADFGpws, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
-  geom_polygon(data=ADFGseak, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
-  geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), colour="transparent", fill="gray40") +
-  coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-160, -121), ylim=c(45, 61)) +
-  geom_jitter(data=CWTrcvySummaryAllyrs %>% 
-                filter(overallMeanFinescaleExp_gearPSC>0, `(RC) Recovery Year`%in%c(year_start:year_end)), 
-              aes(x=long, y=lat, colour=`Fishery PSC Code english`, fill=`Fishery PSC Code english`, 
-                  size=overallMeanFinescaleExp_gearPSC, shape=`Fishery Series`), alpha=0.5, width=0.2, height=0.2) +
-  scale_size(range=c(1,5)) +
-  scale_shape_manual(breaks=c("Sport", "Troll", "Net and Seine", "Aboriginal", "High Seas"), values=c(21,22,23,24,25)) +
-  labs(x="", y="", fill="Finescale fishery (PSC)", colour="Finescale fishery (PSC)", shape="Sector", size="Average Number of Chinook \n per Finescale Fishery (expanded CWTs)", title = plot_title) +
-  theme_bw() +
-  theme(legend.text = element_text(size=8),
-        legend.title = element_text(size=9, face="bold"),
-        legend.position = c(0.2,0.2),
-        legend.spacing.x = unit(1,"mm"),
-        legend.spacing.y = unit(1, "mm"),
-        legend.background = element_rect(fill=alpha("white", 0.7))
-        ) +
-  guides(fill=guide_legend(ncol=2, order=2),
-         colour=guide_legend(ncol=2, order=2),
-         shape=guide_legend(ncol=2, order=1), 
-         size=guide_legend(ncol=2, order=3))
+    geom_polygon(data=pfmaPOLY, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
+    geom_polygon(data=ADFGcook, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
+    geom_polygon(data=ADFGpws, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
+    geom_polygon(data=ADFGseak, aes(x=long, y=lat, group=group), fill="transparent", colour="gray80", size=0.5, alpha=0.2) +
+    geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), colour="transparent", fill="gray40") +
+    coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-160, -121), ylim=c(45, 61)) +
+    geom_jitter(data=CWTrcvySummaryAllyrs %>% 
+                  filter(overallMeanFinescaleExp_gearPSC>0, `(RC) Recovery Year`%in%c(year_start:year_end)), 
+                aes(x=long, y=lat, colour=`Fishery PSC Code english`, fill=`Fishery PSC Code english`, 
+                    size=overallMeanFinescaleExp_gearPSC, shape=`Fishery Series`), alpha=0.5, width=0.2, height=0.2) +
+    scale_size(range=c(1,5)) +
+    scale_shape_manual(breaks=c("Sport", "Troll", "Net and Seine", "Aboriginal", "High Seas"), values=c(21,22,23,24,25)) +
+    labs(x="", y="", fill="Finescale fishery (PSC)", colour="Finescale fishery (PSC)", shape="Sector", size="Average Number of Chinook \n per Finescale Fishery (expanded CWTs)", title = plot_title) +
+    theme_bw() +
+    theme(legend.text = element_text(size=8),
+          legend.title = element_text(size=9, face="bold"),
+          legend.position = c(0.2,0.2),
+          legend.spacing.x = unit(1,"mm"),
+          legend.spacing.y = unit(1, "mm"),
+          legend.background = element_rect(fill=alpha("white", 0.7))
+    ) +
+    guides(fill=guide_legend(ncol=2, order=2),
+           colour=guide_legend(ncol=2, order=2),
+           shape=guide_legend(ncol=2, order=1), 
+           size=guide_legend(ncol=2, order=3))
 }
 ```
 
@@ -349,13 +351,17 @@ plotCWTrcvy(year_start=2019, year_end=2028, plot_title="PST 19 (2019-2028)")
 
 # save plot
 dev.off()
+
+
+# ============= Remove unneccessary temp files =============  
+rm(list = c('ADFGcook','ADFGcook_cent', "ADFGpws", "ADFGpws_cent", "ADFGseak", "ADFGseak_cent", "UScentroidAux"))
 ```
 
 <br> 
 
 ### **Temporal recoveries by finescale fishery**
 
-```{r tempCWT, fig.cap='Expanded CWT recoveries of San Juan chinook in PSC fisheries over time. Fisheries along y axis are ordered from north to south within each Sector. Dashed gray lines indicate Pacific Salmon Treaty periods for reference. Data from MRP.'}
+```{r tempCWT, fig.cap='Expanded CWT recoveries of San Juan chinook in PSC fisheries over time. Fisheries along y axis are ordered from north to south within each Sector. Dashed gray lines indicate Pacific Salmon Treaty periods for reference. Data from MRP.', out.width='3000px', dpi=300}
 ggplot() +
   geom_point(data=CWTrcvySummaryAllyrs %>% 
                group_by(`(RC) Recovery Year`, `Gear PSC Code english`, `Fishery PSC Code english`, `Fishery Series`) %>% 
@@ -377,21 +383,13 @@ ggplot() +
         legend.title = element_text(face="bold"),
         legend.position = c(0.1,0.9),
         legend.background = element_rect(fill=alpha("white", 0.8)),
-        axis.text = element_text(size=11),
-        axis.title = element_text(size=13, face="bold")) +
+        axis.text = element_text(size=9),
+        axis.title = element_text(size=11, face="bold")) +
   guides(fill="none",
          colour="none")
 ```
 
-
 <br>
 
-## **BC Sport Fishery Data** 
-
-
-
-
-- CREST data   NEXT DAY!! 
-
-
+<br>
 
