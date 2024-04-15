@@ -166,11 +166,14 @@ WCVIcrestBDWR.catEst.sj <- left_join(WCVIcrestBDWR %>%
                                        filter(SAMPLE_TYPE=="Sport", SPECIES==124, DISPOSITION=="Kept", LEGAL_STATUS=="LEGAL",
                                               #SUBAREA%notin%c("20C", "20D", "20DO", "20DI", "20DB")
                                        ) %>% 
-                                       group_by(YEAR, MONTH, AREA, isSJ3) %>% 
-                                       summarize(n = n())  %>%
-                                       group_by(YEAR, MONTH, AREA) %>%
-                                       mutate(AreaMonthSampleTotal = sum(n),
-                                              AreaPropnMonthlySamples=n/AreaMonthSampleTotal),
+                                       group_by(YEAR, MONTH, AREA, isSJ2, isSJ3) %>% 
+                                       summarize(n3 = n())  %>%
+                                       group_by(YEAR, MONTH, AREA, isSJ2) %>%
+                                       mutate(n2 = n(),
+                                              AreaMonthSampleTotal2 = sum(n2),
+                                              AreaPropnMonthlySamples2 = n2/AreaMonthSampleTotal2,
+                                              AreaMonthSampleTotal3 = sum(n3),
+                                              AreaPropnMonthlySamples3 = n3/AreaMonthSampleTotal3),
                                      
                                      catEst %>% 
                                        rename(AREA=PFMA) %>% 
@@ -184,8 +187,10 @@ WCVIcrestBDWR.catEst.sj <- left_join(WCVIcrestBDWR %>%
                                               `Est_Released Sub-legal`, `SE_Released Sub-legal`),
                                      
                                      by=c("YEAR", "MONTH", "AREA")) %>%
-  mutate(estKeptByID = AreaPropnMonthlySamples*Est_Kept,
-         seKeptByID = AreaPropnMonthlySamples*SE_Kept)  %>% 
+  mutate(estKeptByID3 = AreaPropnMonthlySamples3*Est_Kept,
+         seKeptByID3 = AreaPropnMonthlySamples3*SE_Kept,
+         estKeptByID2 = AreaPropnMonthlySamples2*Est_Kept,
+         seKeptByID2 = AreaPropnMonthlySamples2*SE_Kept)  %>% 
   full_join(data.frame(AREA=c("127", "27", "126", "26", "125", "25", "124", "24", "123", "23", "121", "22", "21", "20")),
             .,
             by="AREA")
@@ -419,37 +424,41 @@ leaflet() %>%
 
 Proportion of legal sized biosamples that return as San Juan in each Area applied to kept, legal catch estimates for 2017-2023 (note 2023 biodata still incomplete). 
 
+<br>
+
+#### Annual monthly maps 
+
 ```{r wcvi22}
 ggplotly(
-ggplot() +
-  geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2022"), 
-          aes(fill=round(estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour="gray80", alpha=0.8, stroke=0.1) +
-  scale_fill_viridis_b(na.value = NA) +
-  geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
-          colour="transparent", fill="gray60") +
-  coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
-  theme_bw() +
-  facet_wrap(~MONTH),
-tooltip = c("text", "estKeptByID")
+  ggplot() +
+    geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2022"), 
+            aes(fill=round(estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour="gray80", alpha=0.8, stroke=0.1) +
+    scale_fill_viridis_b(na.value = NA) +
+    geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
+            colour="transparent", fill="gray60") +
+    coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
+    theme_bw() +
+    facet_wrap(~factor(MONTH, levels=c("May", "June", "July", "August", ordered=T))),
+  tooltip = c("text", "estKeptByID")
 )
 ```
 
-```{r wcvi21}
+```{r wcvi21, eval=F}
 ggplotly(
-ggplot() +
-  geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2021"), 
-          aes(fill=round(estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour="gray80", alpha=0.8, stroke=0.1) +
-  scale_fill_viridis_b(na.value = NA) +
-  geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
-          colour="transparent", fill="gray60") +
-  coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
-  theme_bw() +
-  facet_wrap(~MONTH),
-tooltip = c("text", "estKeptByID")
+  ggplot() +
+    geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2021"), 
+            aes(fill=round(estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour="gray80", alpha=0.8, stroke=0.1) +
+    scale_fill_viridis_b(na.value = NA) +
+    geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
+            colour="transparent", fill="gray60") +
+    coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
+    theme_bw() +
+    facet_wrap(~factor(MONTH, levels=c("May", "June", "July", "August", ordered=T))),
+  tooltip = c("text", "estKeptByID")
 )
 ```
 
-```{r wcvi20}
+```{r wcvi20, eval=F}
 ggplotly(
 ggplot() +
   geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2020"), 
@@ -459,12 +468,12 @@ ggplot() +
           colour="transparent", fill="gray60") +
   coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
   theme_bw() +
-  facet_wrap(~MONTH),
+    facet_wrap(~factor(MONTH, levels=c("May", "June", "July", "August", ordered=T))),
 tooltip = c("text", "estKeptByID")
 )
 ```
 
-```{r wcvi19}
+```{r wcvi19, eval=F}
 ggplotly(
   ggplot() +
     geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2019"), 
@@ -474,7 +483,7 @@ ggplotly(
             colour="transparent", fill="gray60") +
     coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
     theme_bw() +
-    facet_wrap(~MONTH),
+    facet_wrap(~factor(MONTH, levels=c("May", "June", "July", "August", ordered=T))),
   tooltip = c("text", "estKeptByID")
 )
 ```
