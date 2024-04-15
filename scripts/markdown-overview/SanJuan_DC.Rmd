@@ -47,7 +47,17 @@ library(ggpubr)       # for ggarrange()
 
 <br>
 
-```{r child=here::here("scripts","markdown-overview", "part3-fisheries.Rmd")}
+```{r child=here::here("scripts","markdown-overview", "part3-1-PACfisheries.Rmd")}
+
+```
+
+<br>
+
+-----------------------------
+
+<br>
+
+```{r child=here::here("scripts","markdown-overview", "part3-1-WCVIfisheries.Rmd")}
 
 ```
 
@@ -58,6 +68,16 @@ library(ggpubr)       # for ggarrange()
 <br>
 
 ```{r child=here::here("scripts","markdown-overview", "part4-juvi.Rmd")}
+
+```
+
+<br>
+
+-----------------------------
+
+<br>
+
+```{r child=here::here("scripts","markdown-overview", "part4-1-marineJuvi.Rmd")}
 
 ```
 
