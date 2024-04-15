@@ -1,0 +1,66 @@
+---
+title: "Area 20/San Juan marine juvenile summary (DRAFT)"
+author: "South Coast StA"
+date: 'Last update: `r format(Sys.time(), sep="_", "%Y-%m-%d %H:%M")`'
+output: 
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+    toc_collapsed: false 
+    toc_depth: 5
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=F, warning=F, echo=F, message=F)
+
+# Load libraries ------------------------------------
+library(tidyverse)
+library(readxl)
+library(kableExtra)
+library(bookdown)
+library(here)
+library(scales)       # for label_percent()
+library(ggpubr)       # for ggarrange()
+library(plotly)       # for ggplotly()
+
+
+
+# Helpers ------------------------------------
+"%notin%" <- Negate("%in%")
+
+
+
+# ===================== LOAD DATA =====================
+
+# J. King WCVI Trawl Data ------------------------------------
+swvi.trawl <- read.csv(here("data", "juvenile", "marine", "juvenile_chinook_AOI_20240412.csv")) %>%
+  mutate(stock_group = case_when(above_stock_prob_limit_yn=="Y" & grepl("NITINAT", stock_final) ~ "SWVI",
+                                 above_stock_prob_limit_yn=="Y" & grepl("JUAN", stock_final) ~ "San Juan",
+                                 above_stock_prob_limit_yn=="Y" & grepl("NECHAKO|CLEARWATER|CHILLIWACK|CHEHALIS|THOMPSON", stock_final) ~ "Fraser",
+                                 above_stock_prob_limit_yn=="Y" & grepl("WENATCHEE|SOOS|ABERNATHY|NOOKSACK", stock_final) ~ "Southern US",
+                                 TRUE ~ "Not grouped"))
+```
+
+
+## First marine winter (trawl/microtrolling)
+
+```{r}
+ggplotly(
+  ggplot() +
+    geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
+            colour="transparent", fill="gray60") +
+    geom_jitter(data=swvi.trawl%>%filter(above_stock_prob_limit_yn=="Y"), 
+                aes(x=longitude, y=latitude, fill=stock_group, colour=stock_group, 
+                    text=paste0("Stock:", stock_final)), 
+                position=position_jitter(width=0.1), shape=21, size=3, alpha=0.5, stroke=0.1) +
+    geom_jitter(data=swvi.trawl%>%filter(above_stock_prob_limit_yn!="Y"), 
+                aes(x=longitude, y=latitude, text=paste0("Stock:", stock_final), fill=stock_group, colour=stock_group), 
+                position=position_jitter(width=0.1), shape=21, size=3, alpha=0.2, stroke=0.1) +
+    coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-125.5, -123.5), ylim=c(48.8, 48.2)) +
+    theme_bw() ,
+  tooltip = c("text")
+)
+
+
+```
