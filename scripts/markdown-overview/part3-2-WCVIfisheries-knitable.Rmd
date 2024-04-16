@@ -232,22 +232,22 @@ WCVIcrestBDWR.catEst.sj <- left_join(WCVIcrestBDWR %>%
 
 
 # Join to PFMA spatial data ------------------
-# wcviPFMA_sjCatEst <- left_join(pfma_sf ,
-#                                WCVIcrestBDWR.catEst.sj %>%
-#                                  # filter(isSJ3!="Other") %>%
-#                                  # group_by(YEAR, AREA, MONTH) %>%
-#                                  # summarize(n=sum(n),
-#                                  #           strata_n = sum(AreaMonthSampleTotal,na.rm=T),
-#                                  #           propn=n/strata_n,
-#                                  #           Est_Kept = unique(Est_Kept),
-#                                  #           estKeptByID=propn*Est_Kept) %>%
-#                                  rename(STATAREA=AREA) %>% 
-#                                  ungroup() %>%
-#                                  mutate_at("STATAREA", as.character) %>%
-#                                  mutate_at("STATAREA", as.integer), #%>%
-#                                #select(STATAREA, MONTH, AreaPropnMonthlySamples, estKeptByID) %>%
-#                                #pivot_wider(names_from = MONTH, values_from = c(AreaPropnMonthlySamples, estKeptByID)),
-#                                by="STATAREA")
+wcviPFMA_sjCatEst <- left_join(pfma_sf ,
+                               WCVIcrestBDWR.catEst.sj %>%
+                                 # filter(isSJ3!="Other") %>%
+                                 # group_by(YEAR, AREA, MONTH) %>%
+                                 # summarize(n=sum(n),
+                                 #           strata_n = sum(AreaMonthSampleTotal,na.rm=T),
+                                 #           propn=n/strata_n,
+                                 #           Est_Kept = unique(Est_Kept),
+                                 #           estKeptByID=propn*Est_Kept) %>%
+                                 rename(STATAREA=AREA) %>%
+                                 ungroup() %>%
+                                 mutate_at("STATAREA", as.character) %>%
+                                 mutate_at("STATAREA", as.integer), #%>%
+                               #select(STATAREA, MONTH, AreaPropnMonthlySamples, estKeptByID) %>%
+                               #pivot_wider(names_from = MONTH, values_from = c(AreaPropnMonthlySamples, estKeptByID)),
+                               by="STATAREA")
 ```
 
 
@@ -475,16 +475,16 @@ Applying stock comp %s from creel biosamples to estimated catch by Month/Area/Ye
 
 ```{r}
 # Helpers for graphing ------------------
-WCVIcrestBDWR.catEst.sj$AREA <- factor(WCVIcrestBDWR.catEst.sj$AREA, levels=c("127", "27", "126", "26", "125", "25", "124", "24", "123", "23", "121", "22", "21", "20", ordered=T))
-WCVIcrestBDWR.catEst.sj$MONTH <- factor(WCVIcrestBDWR.catEst.sj$MONTH, levels=month.name)
+# WCVIcrestBDWR.catEst.sj$AREA <- factor(WCVIcrestBDWR.catEst.sj$AREA, levels=c("127", "27", "126", "26", "125", "25", "124", "24", "123", "23", "121", "22", "21", "20", ordered=T))
+# WCVIcrestBDWR.catEst.sj$MONTH <- factor(WCVIcrestBDWR.catEst.sj$MONTH, levels=month.name)
+# 
+# ggplot(data = WCVIcrestBDWR.catEst.sj %>% filter(isSJ3!="Other")) +
+#   geom_point(aes(x=AREA, y=MONTH, fill=AreaPropnMonthlySamples, colour=AreaPropnMonthlySamples), shape=22, size=5) +
+#   theme_bw() +
+#   facet_wrap(~YEAR, ncol=1, strip.position = "right")  
 
-ggplot(data = WCVIcrestBDWR.catEst.sj %>% filter(isSJ3!="Other")) +
-  geom_point(aes(x=AREA, y=MONTH, fill=AreaPropnMonthlySamples, colour=AreaPropnMonthlySamples), shape=22, size=5) +
-  theme_bw() +
-  facet_wrap(~YEAR, ncol=1, strip.position = "right")  
 
-
-# Heatmap of all WCVI San Juan catch estimates all years, to lvl3
+# Heatmap of all WCVI San Juan catch estimates all years, to lvl3 ------------------
 ggplotly(
   ggplot(data = WCVIcrestBDWR.catEst.sj %>% 
            group_by(YEAR, MONTH, AREA, isSJ3) %>% 
@@ -512,11 +512,11 @@ ggplotly(
     geom_ribbon(data = WCVIcrestBDWR.catEst.sj %>% 
                   filter(YEAR%in%c(2017:2019)),
                 aes(ymin="127", ymax="20", x=factor(MONTH, levels=month.name)),
-                fill="gray80", colour="gray80", alpha=0.2, size=1000) +
+                fill="gray80", colour="gray80", alpha=0.2, size=40) +
     geom_ribbon(data = WCVIcrestBDWR.catEst.sj %>% 
                   filter(YEAR%in%c(2023)),
                 aes(ymin="127", ymax="20", x=factor(MONTH, levels=month.name)),
-                fill="red", colour="red", alpha=0.1, size=100) +
+                fill="red", colour="red", alpha=0.1, size=40) +
     geom_point(aes(y=AREA, x=MONTH, fill=inverse_estKeptByID, colour=inverse_estKeptByID, 
                    text=paste("Estimated # kept=", round(estKeptByID,0), "\nBased on # confirmed biosamples, n=", n_lvl3)), 
                shape=22, size=2.5, alpha=0.8) +
@@ -534,6 +534,10 @@ ggplotly(
   tooltip = c("AREA", "MONTH", "text")
 )
 ```
+
+<br>
+
+<br>
 
 #### Annual monthly maps 
 
