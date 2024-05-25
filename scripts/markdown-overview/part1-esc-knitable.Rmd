@@ -28,6 +28,7 @@ library(bookdown)
 library(scales)       # for label_percent()
 library(ggpubr)       # for ggarrange()
 
+
 # Helpers/functions ------------------------
 "%notin%" <- Negate("%in%")
 analysis_year <- 2023
@@ -174,6 +175,7 @@ sj.FULL.age <- full_join(
            `Date Sample End` = `Sample End Date`,
            `Container Id` = `Container Label`) %>% 
     mutate_at("Sample Year", as.numeric),
+
     
   #allPADS %>%
   readxl::read_excel(here("data", "biosamples", "PADS_MRP_SanJuan_2022.xlsx"), sheet="Age Scale Read") %>%
@@ -209,8 +211,15 @@ sj.fence$stat_week <- factor(sj.fence$stat_week,
 
 
 # ============================== BIODATA ==============================
-sj.biodata <- read_excel(here("data", "biosamples", "R_OUT - Escapement biodata interim join DEC 2023.xlsx"), sheet="Sheet 1", guess_max=20000) %>% 
-  filter(`Fishery / River` == "San Juan River")
+sj.biodata <- readxl::read_excel(path=here("data", "biosamples", 
+                                           list.files(path=here("data", "biosamples"), 
+                                                      pattern="R_OUT - WCVI_Escapement-FSC_BioData_*.*xlsx")), 
+                                 sheet="Esc biodata w RESULTS", guess_max=20000) %>% 
+  filter(`Fishery / River` == "San Juan River") %>%
+  mutate(Sex = case_when(Sex=="J" ~ "Jack",
+                         Sex=="M" ~ "Male",
+                         Sex=="F" ~ "Female",
+                         TRUE ~ Sex))
 
 sj.fecund <- read_excel(here("data", "biosamples", "San Juan misc biodata all years.xlsx"), sheet="fecundity")
 
@@ -460,6 +469,11 @@ sj.FULL.age %>%
 <br>
 
 ```{r age-fig, echo=F, warning=F, message=F, fig.cap='Annual age structure of San Juan Chinook. Numbers above bars indicate the number of samples contributing age data each year. Data from PADS (NuSEDS and MRPIS).'}
+
+pdf(file = here("outputs", "figures", "San Juan chinook age composition 1990-present.pdf"),   
+    width = 11, # The width of the plot in inches
+    height = 8.5) # The height of the plot in inches
+
 # FIGURE: AGE ~ TIME ----------------------- 
 ggplot() +
   geom_bar(data=sj.FULL.age %>% 
@@ -470,14 +484,17 @@ ggplot() +
          mutate(sample_size = sum(n),
                 propn=n/sum(n)),
        aes(x=`Sample Year`, y=propn, fill=as.factor(`(R) RESOLVED TOTAL AGE`), colour=as.factor(`(R) RESOLVED TOTAL AGE`)), 
-       stat="identity", position="stack", alpha=0.8, size=1) +
-  geom_text(data=sj.FULL.age %>% filter(!is.na(`(R) RESOLVED TOTAL AGE`)) %>% group_by(`Sample Year`) %>% summarize(sample_size = n()), 
-            aes(x=`Sample Year`, y=1.04, label=sample_size), size=3, angle=45) +
+       stat="identity", position="stack", alpha=0.8, size=0.5, width=0.8) +
+  geom_text(data=sj.FULL.age %>% 
+              filter(!is.na(`(R) RESOLVED TOTAL AGE`)) %>% 
+              group_by(`Sample Year`) %>% 
+              summarize(sample_size = n()), 
+            aes(x=`Sample Year`, y=1.07, label=paste0("n=",sample_size)), size=3, angle=45, vjust=1, hjust=0.5) +
   labs(y="Proportion of all annual biosamples", fill="Age:", colour="Age:") +
-  scale_x_continuous(breaks=seq(1990,2050,by=2)) +
+  scale_x_continuous(breaks=seq(1990,2050,by=1)) +
   scale_y_continuous(breaks=seq(0,1.1,by=0.25), limits=c(0,1.1), labels=scales::label_percent()) +
   theme_bw() +
-  theme(axis.text = element_text(colour="black", size=11),
+  theme(axis.text = element_text(colour="black", size=10),
         axis.text.x = element_text(angle=45, hjust=1),
         axis.title = element_text(face="bold", size=13),
         axis.title.x = element_blank(),
@@ -485,7 +502,51 @@ ggplot() +
         legend.direction = "horizontal",
         legend.title = element_text(face="bold"),
         plot.caption = element_text(face="italic", hjust=0))
+
+dev.off()
 ```
+
+```{r}
+pdf(file = here("outputs", "figures", "San Juan chinook age composition 2012-present.pdf"),   
+    width = 11, # The width of the plot in inches
+    height = 8.5) # The height of the plot in inches
+
+ggplot() +
+  geom_bar(data=sj.biodata %>%
+             filter(!is.na(`(R) RESOLVED TOTAL AGE`), Sex%in%c("Male","Female","Jack")) %>%
+             group_by(Sex, `(R) SAMPLE YEAR`, `(R) RESOLVED TOTAL AGE`) %>%
+             summarize(n=n()) %>%
+             group_by(`(R) SAMPLE YEAR`, Sex) %>%
+             mutate(total_n = sum(n),
+                    propn = n/total_n), 
+           aes(x=`(R) SAMPLE YEAR`, y=propn, fill=as.factor(`(R) RESOLVED TOTAL AGE`), 
+               colour=as.factor(`(R) RESOLVED TOTAL AGE`)), 
+           stat="identity", position="dodge", alpha=0.7, width=0.5) +
+  geom_text(data=sj.biodata %>%
+             filter(!is.na(`(R) RESOLVED TOTAL AGE`), Sex%in%c("Male","Female","Jack")) %>%
+             group_by(`(R) SAMPLE YEAR`, Sex) %>%
+             summarize(total_n = n()), 
+            aes(x=`(R) SAMPLE YEAR`, y=1.04, label=paste0("n=",total_n)), size=3) +
+  labs(x="Brood year", y="% of annual biosamples", fill="Age:", colour="Age:") +
+  scale_y_continuous(labels=scales::label_percent()) +
+  theme_bw() +
+  theme(axis.title = element_text(face="bold"),
+        legend.position = "bottom",
+        legend.direction = "horizontal",
+        legend.title = element_text(face="bold")) +
+  facet_wrap(~Sex, nrow=3)
+
+dev.off()
+```
+
+
+
+
+
+
+
+
+
 
 <br>
 
