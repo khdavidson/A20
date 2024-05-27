@@ -37,16 +37,17 @@ analysis_year <- 2023
 
 
 # ====================== ENUMERATION data ====================== 
-nuseds_SJ_yrs <- 
-  #getNuSEDS(here("scripts", "json", "nuseds_esc_query_A20.json"), password=NULL)%>%
-  lapply(list.files(path=here("data", "escapement"), pattern = "NuSEDS_Area20_escapement.*\\.xlsx$", full.names = TRUE), 
-         readxl::read_excel, sheet="Data") %>% 
-  do.call("cbind",.) %>%
+# 1. Load function ------------------------
+source(here("scripts", "functions", "pullNusedsData.R"))
+
+
+# 2. Extract years published to NuSEDS ------------------------
+nuseds_SJ_yrs <- runNuSEDSQuery(query_doc=here("scripts", "json", "nuseds_esc_query_A20.json"), 
+                                config_file=here("saaWeb.config")) %>%
   filter(!grepl("GEORGIA STRAIT", `Conservation Unit Name`),
-         `Waterbody Name` %notin% c("DE MAMIEL CREEK", "ROCKY CREEK", "AYUM CREEK", "SOOKE RIVER", "MAIDENHAIR CREEK", "MUIR CREEK", "FALLS CREEK", "UGLOW CREEK"), 
-         !grepl("Charters|Jordan", `Waterbody Name`, ignore.case = T),
-         #Species=="Chinook"
-         ) %>%
+         `Waterbody Name` %notin% c("DE MAMIEL CREEK", "ROCKY CREEK", "AYUM CREEK", "SOOKE RIVER", "MAIDENHAIR CREEK", 
+                                    "MUIR CREEK", "FALLS CREEK", "UGLOW CREEK"), 
+         !grepl("Charters|Jordan", `Waterbody Name`, ignore.case = T)) %>%
   mutate(SJ_watershed_group = case_when(grepl("Harris|Lens|Renfrew|San Juan", `Waterbody Name`) ~ "core SJ watershed",
                                         TRUE ~ "other")) %>%
   arrange(`Analysis Year`) %>%
@@ -57,14 +58,12 @@ nuseds_SJ_yrs <-
 # Long-term time series (merge NuSEDS and Esc Index for complete time series) ----------------------- 
 sj.esc <- full_join(
   
-  #getNuSEDS(here("scripts", "json", "nuseds_esc_query_A20.json"), password=NULL) %>% 
-  lapply(list.files(path=here("data", "escapement"), pattern = "NuSEDS_Area20_escapement.*\\.xlsx$", full.names = TRUE), 
-         readxl::read_excel, sheet="Data") %>% 
-    do.call("cbind",.) %>%
-    
+  runNuSEDSQuery(query_doc=here("scripts", "json", "nuseds_esc_query_A20.json"), 
+                 config_file=here("saaWeb.config")) %>%
     filter(!grepl("GEORGIA STRAIT", `Conservation Unit Name`),
-           `Waterbody Name` %notin% c("DE MAMIEL CREEK", "ROCKY CREEK", "AYUM CREEK", "SOOKE RIVER", "MAIDENHAIR CREEK", "MUIR CREEK", "FALLS CREEK", "UGLOW CREEK"), 
-           !grepl("Charters|Jordan", `Waterbody Name`, ignore.case = T)) %>% 
+           `Waterbody Name` %notin% c("DE MAMIEL CREEK", "ROCKY CREEK", "AYUM CREEK", "SOOKE RIVER", "MAIDENHAIR CREEK", 
+                                      "MUIR CREEK", "FALLS CREEK", "UGLOW CREEK"), 
+           !grepl("Charters|Jordan", `Waterbody Name`, ignore.case = T)) %>%
     mutate(across(c(`Analysis Year`, `Max Estimate`:`Natural Adult Spawners`, 
                     `Other Adults Removals`:`Total Jack Return River`), as.numeric)) %>%
     mutate(`Total Adult Return River` = case_when(is.na(`Total Adult Return River`) ~ `Max Estimate`,
@@ -183,16 +182,34 @@ sj.fence$stat_week <- factor(sj.fence$stat_week,
 
 # Option 2: Load pre-dumped age data ------------------
 SJ_allAgesMaster <- readxl::read_excel(here("outputs", "R_OUT - SanJuan_Ages_allSpp-allYrs 1990-2023.xlsx"),
-                                       sheet="Sheet1")
+                                       sheet="Sheet1") %>% 
+  mutate(`(R) RESOLVED TOTAL AGE` = case_when(PADS_GrAge == "0M" ~ "1",
+                                              grepl("chinook", PADS_Species, ignore.case=T) & PADS_GrAge == "1M" ~ "2",
+                                              grepl("chinook", PADS_Species, ignore.case=T) & PADS_GrAge == "2M" ~ "3",
+                                              grepl("chinook", PADS_Species, ignore.case=T) & PADS_GrAge == "3M" ~ "4",
+                                              grepl("chinook", PADS_Species, ignore.case=T) & PADS_GrAge == "4M" ~ "5",
+                                              grepl("chinook", PADS_Species, ignore.case=T) & PADS_GrAge == "5M" ~ "6",
+                                              grepl("chinook", PADS_Species, ignore.case=T) & PADS_GrAge == "6M" ~ "7",
+                                              PADS_GrAge %in% c("10","11") ~ "1",
+                                              PADS_GrAge %in% c("20","21","22") ~ "2",
+                                              PADS_GrAge %in% c("30","31","32","33") ~ "3",
+                                              PADS_GrAge %in% c("40","41","42","43","44") ~ "4",
+                                              PADS_GrAge %in% c("50","51","52","53","54","55") ~ "5",
+                                              PADS_GrAge %in% c("60","61","62","63","64","65") ~ "6",
+                                              PADS_GrAge %in% c("70","71","72","73","74","75","76","77") ~ "7",
+                                              TRUE ~ PADS_GrAge),
+         Species = case_when(grepl("chinook", PADS_Species, ignore.case=T) ~ "Chinook",
+                             grepl("Coho", PADS_Species, ignore.case=T) ~ "Coho",
+                             TRUE ~ "FLAG"))
 
 
 
 
 
 # ============================== LINKED BIODATA ==============================
-sj.biodata <- readxl::read_excel(path=
+sj.biodata <- readxl::read_excel(path=paste0("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/SC_BioData_Management/2-Escapement/",
                                    list.files(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/SC_BioData_Management/2-Escapement/",
-                                              pattern="^R_OUT - WCVI_Escapement-FSC_BioData_*.*xlsx"),
+                                              pattern="^R_OUT - WCVI_Escapement-FSC_BioData_*.*xlsx")),
                                   sheet="Esc biodata w RESULTS", guess_max=20000) %>% 
   filter(`Fishery / River` == "San Juan River") %>%
   mutate(Sex = case_when(Sex=="J" ~ "Jack",
@@ -216,18 +233,18 @@ sj.SR <- read_excel(here("data", "biosamples", "San Juan misc biodata all years.
 
 # ==============================
 # Age comp each year
-sj_age_summary <- sj.FULL.age %>%
+sj_age_summary <- SJ_allAgesMaster %>%
   filter(!is.na(`(R) RESOLVED TOTAL AGE`)) %>%
-  group_by(`Sample Year`, `(R) RESOLVED TOTAL AGE`) %>%
+  group_by(`(R) SAMPLE YEAR`, Species, `(R) RESOLVED TOTAL AGE`) %>%
   summarize(count = n()) %>%
-  group_by(`Sample Year`) %>%
+  group_by(`(R) SAMPLE YEAR`, Species) %>%
   mutate(year_total = sum(count),
          propn = count/year_total) %>%
   print()
 
 # Entire time series average age comp
 sj_LT_avgs <- sj_age_summary %>%
-  group_by(`(R) RESOLVED TOTAL AGE`) %>%
+  group_by(Species, `(R) RESOLVED TOTAL AGE`) %>%
   summarize(avg_propn = round(mean(propn),3),
             sd_propn = round(sd(propn),3)) %>%
   rename(res_age = `(R) RESOLVED TOTAL AGE`) %>%
