@@ -154,16 +154,6 @@ SJRelSEP <- lapply(list.files(path=here("data", "enhancement-PNI"),
 
 
 
-# ====================== AGE data ======================   
-# Option 1: Re-dump source code for updates ------------------
-# source(here("scripts", "functions", "pullSanJuanAgeData.R"))
-  # saves as SJ_allAgesMaster
-
-
-# Option 2: Load pre-dumped age data ------------------
-SJ_allAgesMaster <- readxl::read_excel(here("outputs", "R_OUT - SanJuan_Ages_allSpp-allYrs 1990-2023.xlsx"),
-                                       sheet="Sheet1")
-
 
 
 
@@ -181,23 +171,47 @@ sj.fence$stat_week <- factor(sj.fence$stat_week,
                                         "121","122","123","124", ordered=T))
 
 
-# ============================== BIODATA ==============================
-sj.biodata <- readxl::read_excel(path=here("data", "biosamples", 
-                                           list.files(path=here("data", "biosamples"), 
-                                                      pattern="R_OUT - WCVI_Escapement-FSC_BioData_*.*xlsx")), 
-                                 sheet="Esc biodata w RESULTS", guess_max=20000) %>% 
+
+
+
+
+# ====================== AGE data ======================   (all species, all years - not linked to individual fish)
+# Option 1: Re-dump source code for updates ------------------
+# source(here("scripts", "functions", "pullSanJuanAgeData.R"))
+  # saves as SJ_allAgesMaster
+
+
+# Option 2: Load pre-dumped age data ------------------
+SJ_allAgesMaster <- readxl::read_excel(here("outputs", "R_OUT - SanJuan_Ages_allSpp-allYrs 1990-2023.xlsx"),
+                                       sheet="Sheet1")
+
+
+
+
+
+# ============================== LINKED BIODATA ==============================
+sj.biodata <- readxl::read_excel(path=
+                                   list.files(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/SC_BioData_Management/2-Escapement/",
+                                              pattern="^R_OUT - WCVI_Escapement-FSC_BioData_*.*xlsx"),
+                                  sheet="Esc biodata w RESULTS", guess_max=20000) %>% 
   filter(`Fishery / River` == "San Juan River") %>%
   mutate(Sex = case_when(Sex=="J" ~ "Jack",
                          Sex=="M" ~ "Male",
                          Sex=="F" ~ "Female",
                          TRUE ~ Sex))
 
+
+
+# ============================== MISC BIODATA ==============================
+# Fecundity data --------------
 sj.fecund <- read_excel(here("data", "biosamples", "San Juan misc biodata all years.xlsx"), sheet="fecundity")
 
+# Sex ratio data --------------
 sj.SR <- read_excel(here("data", "biosamples", "San Juan misc biodata all years.xlsx"), sheet="SexRatio")
 
 
 
+# ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
 
 # ==============================
