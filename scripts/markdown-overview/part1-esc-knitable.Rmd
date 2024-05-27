@@ -234,7 +234,7 @@ sj.SR <- read_excel(here("data", "biosamples", "San Juan misc biodata all years.
 # ==============================
 # Age comp each year
 sj_age_summary <- SJ_allAgesMaster %>%
-  filter(!is.na(`(R) RESOLVED TOTAL AGE`)) %>%
+  filter(!is.na(`(R) RESOLVED TOTAL AGE`), `(R) RESOLVED TOTAL AGE` %in% c("1","2","3","4","5","6","7")) %>%
   group_by(`(R) SAMPLE YEAR`, Species, `(R) RESOLVED TOTAL AGE`) %>%
   summarize(count = n()) %>%
   group_by(`(R) SAMPLE YEAR`, Species) %>%
@@ -252,7 +252,7 @@ sj_LT_avgs <- sj_age_summary %>%
 
 # Recent 12-year average age comp
 sj_12Y_avgs <- sj_age_summary %>%
-  filter(`Sample Year`>=analysis_year-12) %>%
+  filter(`(R) SAMPLE YEAR`>=analysis_year-12) %>%
   group_by(`(R) RESOLVED TOTAL AGE`) %>%
   summarize(avg_propn = round(mean(propn),3),
             sd_propn = round(sd(propn),3)) %>%
@@ -285,9 +285,9 @@ Status snapshot:
 
     -   Range: `r sj.esc %>% filter(est_type=="Total Adult Return River", SJ_watershed_group=="core SJ watershed", Species=="Chinook", year>=(analysis_year-4)) %>% group_by(year) %>% summarize(esc_total=sum(estimate,na.rm=T)) %>% summarize(min=min(esc_total)) %>% pull(min)` - `r sj.esc %>% filter(est_type=="Total Adult Return River", SJ_watershed_group=="core SJ watershed", Species=="Chinook", year>=(analysis_year-4)) %>% group_by(year) %>% summarize(esc_total=sum(estimate,na.rm=T)) %>% summarize(max=max(esc_total)) %>% pull(max)`
 
--   Long-term dominant age structure (entire time series): `r sj_LT_avgs %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(res_age[1])` year olds (`r sj_LT_avgs %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(avg_propn[1])*100` +/- `r sj_LT_avgs %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(sd_propn[1])*100`%) followed by `r sj_LT_avgs %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(res_age[1])` year olds (`r sj_LT_avgs %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(avg_propn[1])*100` +/- `r sj_LT_avgs %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(sd_propn[1])*100`%)
+-   Long-term age structure (entire time series): `r sj_LT_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(res_age[1])` year olds (`r sj_LT_avgs %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(avg_propn[1])*100` +/- `r sj_LT_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(sd_propn[1])*100`%) followed by `r sj_LT_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(res_age[1])` year olds (`r sj_LT_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(avg_propn[1])*100` +/- `r sj_LT_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(sd_propn[1])*100`%)
 
--   Recent (12yr) dominant age structure: `r sj_12Y_avgs %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(res_age[1])` year olds (`r sj_12Y_avgs %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(avg_propn[1])*100` +/- `r sj_12Y_avgs %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(sd_propn[1])*100`%) followed by `r sj_12Y_avgs %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(res_age[1])` year olds (`r sj_12Y_avgs %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(avg_propn[1])*100` +/- `r sj_12Y_avgs %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(sd_propn[1])*100`%)
+-   Recent (12yr) dominant age structure: `r sj_12Y_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(res_age[1])` year olds (`r sj_12Y_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(avg_propn[1])*100` +/- `r sj_12Y_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(sd_propn[1])*100`%) followed by `r sj_12Y_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(res_age[1])` year olds (`r sj_12Y_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(avg_propn[1])*100` +/- `r sj_12Y_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(sd_propn[1])*100`%)
 
 -   Hatchery vs wild: uncertain due to historical marking/tagging process. Mostly unclipped with no thermal mark (but historical TM process highly unreliable)
 
@@ -309,28 +309,32 @@ ggplot() +
   
   # Escapement goal and average escapements: 
   geom_hline(data=RPs%>%filter(RP=="SMSY"), aes(yintercept=Value), size=1, linetype="dashed") +
-  geom_hline(data=sj.esc %>% filter(year>=(max(analysis_year-10)), est_type=="Natural Adult Spawners") %>% 
+    geom_hline(aes(yintercept=10000), size=1, linetype="dashed", colour="gray50") +
+  geom_hline(data=sj.esc %>% filter(Species=="Chinook", year>=(max(analysis_year-10)), est_type=="Natural Adult Spawners") %>% 
                summarize(mean=round(mean(n,na.rm=T),0)),
              aes(yintercept=mean), size=1, linetype="solid", colour="black") +
+
   
   # Plot NuSEDS escapement data:
-  geom_bar(data=sj.esc %>% filter(source=="NuSEDS", est_type %in% c("Unspecified Return", "Natural Adult Spawners", "Adult Broodstock Removals"),
-                                  !is.na(estimate), Species=="Chinook") %>% 
+  geom_bar(data=sj.esc %>% filter(Species=="Chinook", source=="NuSEDS",
+                                  est_type %in% c("Unspecified Return", "Natural Adult Spawners", "Adult Broodstock Removals"),
+                                  !is.na(estimate), Species=="Chinook") %>%
              group_by(year, est_type, SJ_watershed_group)%>%summarize(estimate=sum(estimate))%>%
              filter(SJ_watershed_group=="core SJ watershed"),
-           
-           
-           aes(x=year, y=as.numeric(estimate), fill=est_type, colour=est_type), stat="identity", alpha=0.8, width=0.9, size=0.3) +
+           aes(x=year, y=as.numeric(estimate), fill=est_type, colour=est_type),
+           stat="identity", alpha=0.8, width=0.9, size=0.3) +
   
   # Add in any prelim estimates from NEW ESCAPEMENT INDEX (depends on time of year):
-  geom_bar(data=sj.esc%>%filter(est_type%in%c("Natural Adult Spawners", "Adult Broodstock Removals"), source=="New Esc Index", Species=="Chinook", 
-                                SJ_watershed_group=="core SJ watershed"), 
+  geom_bar(data=sj.esc %>%
+             filter(Species=="Chinook", est_type%in%c("Natural Adult Spawners", "Adult Broodstock Removals"),
+                    source=="New Esc Index", Species=="Chinook", SJ_watershed_group=="core SJ watershed"),
            aes(x=year, y=estimate, fill=est_type, colour=est_type), stat="identity", alpha=0.7, width=0.9, size=0.5) +
-  
+
   # Highlight the prelim NEW ESCAPEMENT INDEX estimates in red to indicate preliminary data: 
-  geom_bar(data=sj.esc%>%filter(est_type%in%c("Natural Adult Spawners", "Adult Broodstock Removals"), source=="New Esc Index", Species=="Chinook",
-                                SJ_watershed_group=="core SJ watershed")%>%
-             group_by(year,Species)%>%summarize(total=sum(estimate)), 
+  geom_bar(data=sj.esc %>%
+             filter(Species=="Chinook", est_type%in%c("Natural Adult Spawners", "Adult Broodstock Removals"),
+                    source=="New Esc Index", Species=="Chinook", SJ_watershed_group=="core SJ watershed")%>%
+             group_by(year,Species)%>%summarize(total=sum(estimate)),
            aes(x=year, y=total), stat="identity", width=0.9, size=0.7, fill="transparent", colour="red") +
   
   scale_x_continuous(breaks=seq(min(sj.esc$year), max(sj.esc$year), by=3)) +
@@ -368,7 +372,7 @@ Additional benchmarks for use:
 
 -   Fish Stock Provisions Rebuilding goal (Sgen * 1.5) = `r RPs %>% filter(RP=="SGEN") %>% pull(Value)*1.5`
 
--   Pacheedaht/Burt habitat capacity estimate = 10,000 spawning pairs (or individuals?? Need to confirm!)
+-   Pacheedaht/Burt habitat capacity estimate = 10,000 spawning pairs  
 
 -   Pacheedaht Rebuilding Goal: 5,000
 
