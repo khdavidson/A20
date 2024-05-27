@@ -33,9 +33,7 @@ library(ggpubr)       # for ggarrange()
 "%notin%" <- Negate("%in%")
 analysis_year <- 2023
 
-#source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/functions/getExtractorData.R", local = knitr::knit_global())
-#source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/functions/getMrpPadsData.R", local = knitr::knit_global())
-#source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/functions/getNusedsData.R", local = knitr::knit_global())
+
 
 
 # ====================== ENUMERATION data ====================== 
@@ -157,44 +155,17 @@ SJRelSEP <- lapply(list.files(path=here("data", "enhancement-PNI"),
 
 
 # ====================== AGE data ======================   
-sj.FULL.age <- full_join(
-  #getNuSEDS("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/json/nuseds_padsCU_query_A20.json", password=NULL) %>%
-  readxl::read_excel(here("data", "biosamples", "PADS_NuSEDS_SanJuan_1990-2021.xlsx"), sheet="Data") %>% 
-    mutate(across(everything(), ~str_to_title(.)),
-           Project = str_replace(Project, "Wcvi", "WCVI"),
-           Species = str_replace(Species, " Salmon", ""),
-           across(c(`Part Age Code`, `Age Unit Of Measure`, `GR Age`), ~str_to_upper(.)),
-           data_source = "NuSEDS") %>%
-    rename(`Scale Condition Description` = `Part Age Code`,
-           `Specimen Type` = `Reading Method`,
-           `Specimen Number` = `Container Address`,
-           `Sample Year` = `Fiscal Year`,
-           Fishery = `Sample Source`,
-           `Life Stage` = `Life History Stage`,
-           `Date Sample Start` = `Sample Start Date`,
-           `Date Sample End` = `Sample End Date`,
-           `Container Id` = `Container Label`) %>% 
-    mutate_at("Sample Year", as.numeric),
+# Option 1: Re-dump source code for updates ------------------
+# source(here("scripts", "functions", "pullSanJuanAgeData.R"))
+  # saves as SJ_allAgesMaster
 
-    
-  #allPADS %>%
-  readxl::read_excel(here("data", "biosamples", "PADS_MRP_SanJuan_2022.xlsx"), sheet="Age Scale Read") %>%
-    rename_all(stringr::str_to_title) %>% 
-    rename(`GR Age` = `Gr Age`,
-           `EU Age` = `Eu Age`) %>%
-    mutate(data_source = "MRP") %>%
-    mutate_at("Specimen Number", as.character)
-) %>%
-  mutate(`(R) SCALE BOOK NUM` = `Container Id`,
-         `(R) SCALE CELL NUM` = `Specimen Number`,
-         `(R) SCALE BOOK-CELL CONCAT` = case_when(!is.na(`Container Id`) & !is.na(`Specimen Number`) ~ paste0(`Container Id`, sep="-", `Specimen Number`)),
-         `(R) RESOLVED TOTAL AGE` = case_when(`GR Age` %in% c(10,11, "0M") ~ 1,
-                                              `GR Age` %in% c(20,21,22,"1M") ~ 2,
-                                              `GR Age` %in% c(30,31,32,33,"2M") ~ 3,
-                                              `GR Age` %in% c(40,41,42,43,44,"3M") ~ 4,
-                                              `GR Age` %in% c(50,51,52,53,54,55,"4M") ~ 5,
-                                              `GR Age` %in% c(60,61,62,63,64,65,66,"5M") ~ 6)) %>%
-  print()
+
+# Option 2: Load pre-dumped age data ------------------
+SJ_allAgesMaster <- readxl::read_excel(here("outputs", "R_OUT - SanJuan_Ages_allSpp-allYrs 1990-2023.xlsx"),
+                                       sheet="Sheet1")
+
+
+
 
 # ============================== FENCE ==============================
 sj.fence <- readxl::read_excel(here("data", "escapement", "San_Juan_Fence_2020-present.xlsx"), sheet="Sheet1") %>%
