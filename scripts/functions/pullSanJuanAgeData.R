@@ -19,14 +19,13 @@ library(here)
 # 1.1. Dump MRP age batch metadata ------------------------
   # This output has broad metadata like river etc., but no results
 SJ_ageBatchMeta.MRP <- getAgeBatchList() %>% 
-  filter(Sector=="SC", Location=="San Juan River", Species=="Chinook") %>% 
+  filter(Sector=="SC", Location=="San Juan River") %>% 
   mutate_at("Id", as.character)
 
 
 # 1.2. Dump MRP age results ------------------------ (slow)
   # This output has the age results, but can't be traced back to specific river etc. without joining to dataframe above
 SJ_scaleAges.MRP <- getAgeBatchScaleResults(c(SJ_ageBatchMeta.MRP$Id)) %>% 
-  filter(Species=="Chinook") %>%
   rename(SampleYear=RecoveryYear) %>% 
   mutate_at("SampleYear", as.numeric) %>% 
   filter_all(any_vars(!is.na(.)))
