@@ -25,6 +25,8 @@ library(ggpubr)       # for ggarrange()
 
 <br>
 
+The focus of this data compendium is on Chinook, with non-chinook information included in the appendix. 
+
 <br>
 
 ```{r child=here::here("scripts","markdown-overview", "part1-esc.Rmd")}

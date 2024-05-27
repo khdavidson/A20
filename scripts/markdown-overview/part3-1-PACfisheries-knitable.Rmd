@@ -104,6 +104,36 @@ rm(list = c('DFOcentroids', 'a20cwtRcvy', "FisheryGearMapping", "UScentroids"))
 
 
 
+
+
+# ================================= Summarize recoveries by finescale fishery =================================
+CWTrcvySummaryAllyrs <- a20cwtRcvy.spatial%>%
+  filter(!is.na(lat))%>%
+  
+  group_by(`(RC) Recovery Year`, lat, long, `Gear PSC Code english`, `Fishery PSC Code english`, `Fishery Series`) %>% 
+  summarize(finescaleExp_gearPSC = sum(`(RC) Expanded Number`,  na.rm=T),
+            finescaleEst_gearPSC = sum(`(RC) Estimated Number`, na.rm=T),
+            finescaleObs_gearPSC = sum(`(RC) Observed Number`,  na.rm=T)) %>%
+  
+  group_by(`(RC) Recovery Year`, lat, long,  `Fishery PSC Code english`, `Fishery Series`) %>% 
+  mutate(finescaleExp_FisheryPSC = sum(finescaleExp_gearPSC,  na.rm=T),
+         finescaleEst_FisheryPSC = sum(finescaleEst_gearPSC,  na.rm=T),
+         finescaleObs_FisheryPSC = sum(finescaleObs_gearPSC,  na.rm=T)) %>%
+  
+  group_by(`(RC) Recovery Year`, lat, long, `Fishery Series`) %>%
+  mutate(finescaleExp_Series = sum(finescaleExp_FisheryPSC,  na.rm=T),
+         finescaleEst_Series = sum(finescaleEst_FisheryPSC,  na.rm=T),
+         finescaleObs_Series = sum(finescaleObs_FisheryPSC,  na.rm=T)) %>%
+  
+  group_by(lat, long, `Gear PSC Code english`, `Fishery PSC Code english`, `Fishery Series`) %>%
+  mutate(overallMeanFinescaleExp_gearPSC = mean(finescaleExp_gearPSC,na.rm=T),
+         overallMeanFinescaleEst_gearPSC = mean(finescaleEst_gearPSC, na.rm=T),
+         overallMeanFinescaleObs_gearPSC = mean(finescaleObs_gearPSC, na.rm=T)) %>% 
+  
+  arrange(`(RC) Recovery Year`, `Fishery Series`, `Fishery PSC Code english`) %>% 
+  
+  print()
+
 # ================================= CREST data =================================
 
 # Biodata w results ---------------------- (REMOVE SOON)
@@ -246,28 +276,6 @@ The two maps below showcase the two time periods. Note that symbol size is scale
 - PST 19 (2019-2028): https://github.com/khdavidson/A20/blob/main/outputs/figures/SJ%20CWT%20recoveries%20coastwide%20-%20PST19.pdf
 
 ```{r include=F}
-# Summarize recoveries by finescale fishery -------------------
-CWTrcvySummaryAllyrs <- a20cwtRcvy.spatial%>%
-  filter(!is.na(lat))%>%
-  
-  group_by(`(RC) Recovery Year`, lat, long, `Gear PSC Code english`, `Fishery PSC Code english`, `Fishery Series`) %>% 
-  summarize(finescaleExp_gearPSC = sum(`(RC) Expanded Number`,  na.rm=T)) %>%
-  
-  group_by(`(RC) Recovery Year`, lat, long,  `Fishery PSC Code english`, `Fishery Series`) %>% 
-  mutate(finescaleExp_FisheryPSC = sum(finescaleExp_gearPSC,  na.rm=T)) %>%
-  
-  group_by(`(RC) Recovery Year`, lat, long, `Fishery Series`) %>%
-  mutate(finescaleExp_Series = sum(finescaleExp_FisheryPSC,  na.rm=T)) %>%
-  
-  group_by(lat, long, `Gear PSC Code english`, `Fishery PSC Code english`, `Fishery Series`) %>%
-  mutate(overallMeanFinescaleExp_gearPSC = mean(finescaleExp_gearPSC,na.rm=T)) %>% 
-  
-  arrange(`(RC) Recovery Year`, `Fishery Series`, `Fishery PSC Code english`) %>% 
-  
-  print()
-
-
-
 # CWT recoveries plot function -------------------
 plotCWTrcvy <- function(year_start, year_end, plot_title){
   ggplot() +
@@ -299,7 +307,10 @@ plotCWTrcvy <- function(year_start, year_end, plot_title){
 }
 ```
 
-```{r CWTrcvy-allyrs, out.width='3000px', dpi=300, include=F}
+```{r CWTrcvy-allyrs, out.width='3000px', dpi=300, include=F, eval=F}
+# ** TOGGLE eval T/F if want to update maps. Will not update unless eval=T ** 
+
+
 # EARLY PST PLOT ('85-92) ----------------------------
 # open PDF to save
 pdf(file = here("outputs", "figures", "SJ CWT recoveries coastwide - early PST.pdf"),   
@@ -380,9 +391,9 @@ ggplot() +
                filter(annaulGearExp>0), 
              aes(x=`(RC) Recovery Year`, y=fct_reorder(`Gear PSC Code english`, meanLat), 
                  size=annaulGearExp, fill=`Fishery Series`, colour=`Fishery Series`), 
-             shape=21) +
+             shape=21, alpha=0.8) +
   geom_vline(xintercept = c(1992,1998,2009,2018), colour="gray70", linetype="dotted", size=1) +
-  scale_size_binned(range=c(2,10)) +
+  scale_size_binned(range=c(1,7)) +
   scale_x_continuous(breaks=seq(1982,2030, by=3)) +
   labs(x="Recovery Year", y="", size="Expanded CWT Recoveries") +
   theme_bw() +
@@ -391,16 +402,38 @@ ggplot() +
         strip.placement = "outside",                     
         strip.background = element_rect(fill = "white", colour="white"),
         strip.text.y = element_text(angle=90, colour="black", face="bold", size=11),
-        legend.title = element_text(face="bold"),
-        legend.position = c(0.1,0.9),
+        legend.title = element_text(face="bold", size=7),
+        legend.text = element_text(size=8),
+        legend.position = c(0.15,0.85),
         legend.background = element_rect(fill=alpha("white", 0.8)),
         axis.text = element_text(size=9),
         axis.title = element_text(size=11, face="bold")) +
   guides(fill="none",
-         colour="none")
+         colour="none",
+         size=guide_legend(ncol=2))
 ```
 
 <br>
 
 <br>
+
+### WCVI Recoveries
+
+```{r eval=F}
+ggplotly(
+  ggplot() +
+    geom_point(data=CWTrcvySummaryAllyrs %>% 
+                 group_by(`(RC) Recovery Year`, lat, long, `Fishery Series`) %>% 
+                 summarize(total=sum(finescaleExp_Series)) %>%
+                 filter(total>0, `(RC) Recovery Year`>=2019, lat>=48 & lat <= 51),
+               aes(x=long, y=lat, size=total, fill=`Fishery Series`, colour=`Fishery Series`, text=paste0("Exp Rcvy= ", total)), 
+               shape=21, alpha=0.6, position=position_jitter(width = 0.1)) +
+    geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
+            colour="transparent", fill="gray60") +
+    coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-128.5, -123.5), ylim=c(51, 48.2)) +
+    theme_bw() +
+    facet_wrap(~`(RC) Recovery Year`),
+  tooltip = c("text")
+)
+```
 
