@@ -68,11 +68,8 @@ runNuSEDSQuery <- function (query_doc, config_file = "saaWeb.config", user_name 
 }
 
 
-# 3.2. Dump NuSEDS ages ------------------------   
-ages.NuSEDS <- 
 
-
-# 3.3. Load historical NuSEDS data dump (slow) ------------------------
+# 3.2. Dump NuSEDS ages & reformat ------------------------
 SJ_ages.NuSEDS <- runNuSEDSQuery(here("scripts", "json", "nuseds_ages_SanJuan_allSpp-allYrs.json")) %>%
   select(`Fiscal Year`, Project, Location, Species, `Sample Source`, `Gear Code`, `Container Label`, `Container Address`, `Sample Number`, 
          `Sample Start Date`, `Sample End Date`, `Part Age Code`, `GR Age`, `EU Age`) %>%
