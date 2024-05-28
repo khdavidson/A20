@@ -137,11 +137,15 @@ SJotoRef <- full_join(
 
 # ============================== BIODATA ==============================
 # Full biodata ------------------------
-sj.cn.biodat <- readxl::read_excel(
-  path=here("data", "biosamples", "R_OUT - Escapement biodata interim join DEC 2023.xlsx"), 
-  sheet="Sheet 1", guess_max=10000) %>%
-  filter(`Fishery / River`=="San Juan River") %>%
-  print()
+sj.biodata <- readxl::read_excel(path=paste0("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/SC_BioData_Management/2-Escapement/",
+                                   list.files(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/SC_BioData_Management/2-Escapement/",
+                                              pattern="^R_OUT - WCVI_Escapement-FSC_BioData_*.*xlsx")),
+                                  sheet="Esc biodata w RESULTS", guess_max=20000) %>% 
+  filter(`Fishery / River` == "San Juan River") %>%
+  mutate(Sex = case_when(Sex=="J" ~ "Jack",
+                         Sex=="M" ~ "Male",
+                         Sex=="F" ~ "Female",
+                         TRUE ~ Sex))
 
 
 # PNI (otos only) ------------------------
@@ -158,7 +162,7 @@ The 4 Mile Hatchery operates out of Port Renfrew, BC and currently only enhances
 
 * Egg target: 515,000
 
-* Releases: 500,000 smolts
+* Releases: ~500,000 smolts
 
   + Sea pen: 40,000
 
@@ -332,7 +336,7 @@ SJ_mark_history_BYrollup <- full_join(
 
 
 # EXPORT ----------------------
-writexl::write_xlsx(SJ_mark_history_BYrollup, here("outputs", "R_OUT - San Juan mark history by BROOD YEAR.xlsx"))
+#writexl::write_xlsx(SJ_mark_history_BYrollup, here("outputs", "R_OUT - San Juan mark history by BROOD YEAR.xlsx"))
 ```
 
 ```{r}
@@ -510,7 +514,7 @@ Using recent-year data since 2012 and considering otolith thermal marks, CWTs an
 
 ggarrange(
   ggplot() +
-    geom_bar(data=sj.cn.biodat%>%
+    geom_bar(data=sj.biodata%>%
                filter(`Sample Type`!="FSC")%>%
                group_by(`(R) SAMPLE YEAR`, `(R) ORIGIN`) %>% 
                summarize(n=n()) %>% 
@@ -518,7 +522,7 @@ ggarrange(
                mutate(total=sum(n), perc = n/sum(n)), 
              aes(x=`(R) SAMPLE YEAR`, y=perc, fill=`(R) ORIGIN`, colour=`(R) ORIGIN`), 
              stat="identity", position="stack", alpha=0.8, size=1) +
-    geom_text(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%group_by(`(R) SAMPLE YEAR`) %>% summarize(total=n()), 
+    geom_text(data=sj.biodata%>%filter(`Sample Type`!="FSC")%>%group_by(`(R) SAMPLE YEAR`) %>% summarize(total=n()), 
               aes(x=`(R) SAMPLE YEAR`, y=1.02, label=total), size=3) +
     scale_y_continuous(labels = scales::label_percent()) +
     scale_colour_manual(values=c("Hatchery" = "black", "Natural" = "transparent", "Unknown" = "transparent"), guide=F) +
@@ -529,26 +533,27 @@ ggarrange(
   
   
   ggplot() +
-    geom_bar(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%
+    geom_bar(data=sj.biodata%>%filter(`Sample Type`!="FSC")%>%
                group_by(`(R) SAMPLE YEAR`, `(R) ORIGIN`, `(R) RESOLVED STOCK-ORIGIN`) %>% 
                summarize(n=n()) %>% 
                group_by(`(R) SAMPLE YEAR`) %>% 
                mutate(total=sum(n), perc = n/sum(n)), 
              aes(x=`(R) SAMPLE YEAR`, y=perc, fill=`(R) RESOLVED STOCK-ORIGIN`), 
              stat="identity", position="stack", alpha=0.8, size=1, colour="transparent") +    
-    geom_bar(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%
+    geom_bar(data=sj.biodata%>%filter(`Sample Type`!="FSC")%>%
                group_by(`(R) SAMPLE YEAR`, `(R) ORIGIN`) %>% 
                summarize(n=n()) %>% 
                group_by(`(R) SAMPLE YEAR`) %>% 
                mutate(total=sum(n), perc = n/sum(n)), 
              aes(x=`(R) SAMPLE YEAR`, y=perc, colour=`(R) ORIGIN`), 
              stat="identity", position="stack", alpha=0, size=1, fill="transparent") + 
-    geom_text(data=sj.cn.biodat%>%filter(`Sample Type`!="FSC")%>%group_by(`(R) SAMPLE YEAR`) %>% summarize(total=n()), 
+    geom_text(data=sj.biodata%>%filter(`Sample Type`!="FSC")%>%group_by(`(R) SAMPLE YEAR`) %>% summarize(total=n()), 
               aes(x=`(R) SAMPLE YEAR`, y=1.02, label=total), size=3) +
     scale_y_continuous(labels = scales::label_percent()) +
     scale_colour_manual(values=c("Hatchery" = "black", "Natural" = "transparent", "Unknown" = "transparent"), guide=F) +
     scale_fill_manual(breaks=waiver(), 
-                      values=c("purple", "dodger blue4", "dodger blue",  "deep sky blue", "sky blue1", "slate gray2", "#EE7733", "gray50")) +
+                      values=c("purple", "pink", "royal blue", "dodger blue4", "dodger blue",  "deep sky blue", 
+                               "sky blue1", "slate gray2", "#EE7733", "gray50")) +
     labs(x="Return year", y="Origin of broodstock biosamples (total)", fill="Origin") +
     theme_bw() +
     theme(axis.title = element_text(face="bold")),
