@@ -27,6 +27,7 @@ library(kableExtra)
 library(bookdown)  
 library(scales)       # for label_percent()
 library(ggpubr)       # for ggarrange()
+library(saaWeb)
 
 
 # Helpers/functions ------------------------
@@ -37,70 +38,51 @@ analysis_year <- 2023
 
 
 # ====================== ENUMERATION data ====================== 
-# 1. Load function ------------------------
-source(here("scripts", "functions", "pullNusedsData.R"))
+# Option 1. Re-run source (not in knitr) for annual updates ------------------------
+# source(here("scripts", "functions", "pullNusedsData.R"))
+  # saves as a20_nuseds_escapement
 
-
-# 2. Extract years published to NuSEDS ------------------------
-nuseds_SJ_yrs <- runNuSEDSQuery(query_doc=here("scripts", "json", "nuseds_esc_query_A20.json"), 
-                                config_file=here("saaWeb.config")) %>%
-  filter(!grepl("GEORGIA STRAIT", `Conservation Unit Name`),
-         `Waterbody Name` %notin% c("DE MAMIEL CREEK", "ROCKY CREEK", "AYUM CREEK", "SOOKE RIVER", "MAIDENHAIR CREEK", 
-                                    "MUIR CREEK", "FALLS CREEK", "UGLOW CREEK"), 
-         !grepl("Charters|Jordan", `Waterbody Name`, ignore.case = T)) %>%
-  mutate(SJ_watershed_group = case_when(grepl("Harris|Lens|Renfrew|San Juan", `Waterbody Name`) ~ "core SJ watershed",
-                                        TRUE ~ "other")) %>%
-  arrange(`Analysis Year`) %>%
-  pull(`Analysis Year`)
+# Option 2. Load dumped data ------------------------
+a20_nuseds_escapement <- readxl::read_excel(path=here("outputs", 
+                                                      list.files(path=here("outputs"), 
+                                                                 pattern="R_OUT - Area20WCVI_Escapement_allSpp-allYrs*")),
+                                            sheet="Sheet1")
 
 
 
 # Long-term time series (merge NuSEDS and Esc Index for complete time series) ----------------------- 
-sj.esc <- full_join(
-  
-  runNuSEDSQuery(query_doc=here("scripts", "json", "nuseds_esc_query_A20.json"), 
-                 config_file=here("saaWeb.config")) %>%
-    filter(!grepl("GEORGIA STRAIT", `Conservation Unit Name`),
-           `Waterbody Name` %notin% c("DE MAMIEL CREEK", "ROCKY CREEK", "AYUM CREEK", "SOOKE RIVER", "MAIDENHAIR CREEK", 
-                                      "MUIR CREEK", "FALLS CREEK", "UGLOW CREEK"), 
-           !grepl("Charters|Jordan", `Waterbody Name`, ignore.case = T)) %>%
-    mutate(across(c(`Analysis Year`, `Max Estimate`:`Natural Adult Spawners`, 
-                    `Other Adults Removals`:`Total Jack Return River`), as.numeric)) %>%
-    mutate(`Total Adult Return River` = case_when(is.na(`Total Adult Return River`) ~ `Max Estimate`,
-                                                  TRUE ~ `Total Adult Return River`),
-           `Adult Broodstock Removals` = case_when(is.na(`Adult Broodstock Removals`) ~ `Total Broodstock Removals`,
-                                                   TRUE ~ `Adult Broodstock Removals`)) %>% 
-    pivot_longer(cols=c("Max Estimate":"Unspecified Return", "Other Removals":"Natural Adult Spawners", 
-                        "Other Adults Removals":"Total Jack Return River"), 
-                 names_to = "est_type", values_to = "estimate") %>% 
-    rename(waterbody_name=`Waterbody Name`,
-           year=`Analysis Year`) %>% 
-    mutate(source="NuSEDS"),
-  
-  read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/NEW ESCAPEMENT INDEX.xls", sheet="EscData", skip=4) %>%
-    select(-c(`...17`)) %>% 
-    filter(Area==20, (Year %notin% nuseds_SJ_yrs | Year==2004)) %>%
-    mutate(across(c("Ck Escape":"Brd Rem Cm"), ~ifelse(. %in% c("AP", "NO", "t"), NA, as.numeric(.)))) %>%
-    select(c(Area:`Brd Rem Cm`)) %>%
-    mutate(Ck_spawners=`Ck Escape`-`Brd Rem Ck`,
-           Co_spawners=`Coho Esc`-`Brd Rem Co`,
-           Cm_spawners=`Chum Esc`-`Brd Rem Cm`) %>%
-    pivot_longer(cols=c(`Ck Escape`:Cm_spawners), names_to = "est_type", values_to="estimate") %>%
-    mutate(Species = case_when(grepl("Ck|Chinook", est_type) ~ "Chinook",
-                               grepl("Co|Coho", est_type) ~ "Coho",
-                               grepl("Cm|Chum", est_type) ~ "Chum",
-                               TRUE ~ "FLAG"),
-           est_type = case_when(grepl("Brd Rem", est_type) ~ "Adult Broodstock Removals",
-                                grepl("Esc", est_type) ~ "Total Adult Return River",
-                                grepl("spawners", est_type) ~ "Natural Adult Spawners")) %>%     
-    rename(year=Year,
-           waterbody_name=System) %>% 
-    mutate(source="New Esc Index") %>%
-    mutate_at("Area", as.character)
-) %>% 
-  mutate(SJ_watershed_group = case_when(grepl("Harris|Lens|Renfrew|San Juan", waterbody_name, ignore.case=T) ~ "core SJ watershed",
+sj.esc <- full_join(a20_nuseds_escapement,
+                    readxl::read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/NEW ESCAPEMENT INDEX.xls", 
+                               sheet="EscData", skip=4) %>%
+                      select(-c(`...17`)) %>% 
+                      filter(Area==20, (Year %notin% unique(a20_nuseds_escapement$year) | Year==2004)) %>%
+                      mutate(across(c("Ck Escape":"Brd Rem Cm"), ~ifelse(. %in% c("AP", "NO", "t"), NA, as.numeric(.)))) %>%
+                      select(c(Area:`Brd Rem Cm`)) %>%
+                      mutate(Ck_spawners=`Ck Escape`-`Brd Rem Ck`,
+                             Co_spawners=`Coho Esc`-`Brd Rem Co`,
+                             Cm_spawners=`Chum Esc`-`Brd Rem Cm`) %>%
+                      pivot_longer(cols=c(`Ck Escape`:Cm_spawners), names_to = "est_type", values_to="estimate") %>%
+                      mutate(Species = case_when(grepl("Ck|Chinook", est_type) ~ "Chinook",
+                                                 grepl("Co|Coho", est_type) ~ "Coho",
+                                                 grepl("Cm|Chum", est_type) ~ "Chum",
+                                                 TRUE ~ "FLAG"),
+                             est_type = case_when(grepl("Brd Rem", est_type) ~ "Adult Broodstock Removals",
+                                                  grepl("Esc", est_type) ~ "Total Adult Return River",
+                                                  grepl("spawners", est_type) ~ "Natural Adult Spawners")) %>%     
+                      rename(year=Year,
+                             waterbody_name=System) %>% 
+                      mutate(source="New Esc Index") %>%
+                      mutate_at("Area", as.character)) %>% 
+  mutate(SJ_watershed_group = case_when(grepl("Harris|Lens|Renfrew|San Juan", waterbody_name, ignore.case=T) ~ 
+                                          "core SJ watershed",
                                         TRUE ~ "other")) %>%
   print()
+
+
+# Remove Nuseds dataframe to avoid confusion ----------------------- 
+remove(a20_nuseds_escapement)
+
+
 
 
 # Habitat model benchmarks ----------------------- 
@@ -253,7 +235,7 @@ sj_LT_avgs <- sj_age_summary %>%
 # Recent 12-year average age comp
 sj_12Y_avgs <- sj_age_summary %>%
   filter(`(R) SAMPLE YEAR`>=analysis_year-12) %>%
-  group_by(`(R) RESOLVED TOTAL AGE`) %>%
+  group_by(Species, `(R) RESOLVED TOTAL AGE`) %>%
   summarize(avg_propn = round(mean(propn),3),
             sd_propn = round(sd(propn),3)) %>%
   rename(res_age = `(R) RESOLVED TOTAL AGE`) %>%
@@ -285,7 +267,7 @@ Status snapshot:
 
     -   Range: `r sj.esc %>% filter(est_type=="Total Adult Return River", SJ_watershed_group=="core SJ watershed", Species=="Chinook", year>=(analysis_year-4)) %>% group_by(year) %>% summarize(esc_total=sum(estimate,na.rm=T)) %>% summarize(min=min(esc_total)) %>% pull(min)` - `r sj.esc %>% filter(est_type=="Total Adult Return River", SJ_watershed_group=="core SJ watershed", Species=="Chinook", year>=(analysis_year-4)) %>% group_by(year) %>% summarize(esc_total=sum(estimate,na.rm=T)) %>% summarize(max=max(esc_total)) %>% pull(max)`
 
--   Long-term age structure (entire time series): `r sj_LT_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(res_age[1])` year olds (`r sj_LT_avgs %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(avg_propn[1])*100` +/- `r sj_LT_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(sd_propn[1])*100`%) followed by `r sj_LT_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(res_age[1])` year olds (`r sj_LT_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(avg_propn[1])*100` +/- `r sj_LT_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(sd_propn[1])*100`%)
+-   Long-term age structure (entire time series): `r sj_LT_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(res_age[1])` year olds (`r sj_LT_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(avg_propn[1])*100` +/- `r sj_LT_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(sd_propn[1])*100`%) followed by `r sj_LT_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(res_age[1])` year olds (`r sj_LT_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(avg_propn[1])*100` +/- `r sj_LT_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(sd_propn[1])*100`%)
 
 -   Recent (12yr) dominant age structure: `r sj_12Y_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(res_age[1])` year olds (`r sj_12Y_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(avg_propn[1])*100` +/- `r sj_12Y_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(1) %>% pull(sd_propn[1])*100`%) followed by `r sj_12Y_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(res_age[1])` year olds (`r sj_12Y_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(avg_propn[1])*100` +/- `r sj_12Y_avgs %>% filter(Species=="Chinook") %>% arrange(desc(avg_propn)) %>% slice(2) %>% pull(sd_propn[1])*100`%)
 
@@ -457,17 +439,19 @@ The adult age structure is primarily 4 and 5 year olds. Jacks and 6 year olds co
 
 ```{r age-tab, echo=F, warning=F, message=F}
 # TABLE: Overall age structure -----------------------
-sj.FULL.age %>% 
-  filter(!is.na(`(R) RESOLVED TOTAL AGE`)) %>%
-  group_by(Fishery, `Sample Year`, `(R) RESOLVED TOTAL AGE`) %>% 
+SJ_allAgesMaster %>% 
+  filter(!is.na(`(R) RESOLVED TOTAL AGE`), `(R) RESOLVED TOTAL AGE`%in%c("1","2","3","4","5","6")) %>%
+  group_by(`PADS_Sample Source`, `(R) SAMPLE YEAR`, `(R) RESOLVED TOTAL AGE`) %>% 
   summarize(n=n()) %>% 
-  group_by(Fishery, `Sample Year`) %>% 
+  group_by(`PADS_Sample Source`, `(R) SAMPLE YEAR`) %>% 
   mutate(propn=n/sum(n)) %>%
-  group_by(Fishery, `(R) RESOLVED TOTAL AGE`) %>% 
+  group_by(`PADS_Sample Source`, `(R) RESOLVED TOTAL AGE`) %>% 
   summarize(avg_propn = mean(propn), sd_propn=sd(propn)) %>% 
   mutate(avg_propn=round(avg_propn,3)*100, sd_propn=round(sd_propn,3)*100) %>%
-  unite(col="Average (± SD) %", c(avg_propn, sd_propn), sep=" ± ") %>%
-  rename(Age=`(R) RESOLVED TOTAL AGE`) %>%
+  #unite(col="Average (± SD) %", c(avg_propn, sd_propn), sep=" ± ") %>%
+  rename(Age=`(R) RESOLVED TOTAL AGE`,
+         `Proportion (avg)` = avg_propn,
+         `+/- SD` = sd_propn) %>%
   kbl(align="c", caption="Age structure of San Juan Chinook. Data from PADS (NuSEDS and MRPIS).") %>%
   kable_paper("hover", full_width=T, position = "center") 
 ```
@@ -476,26 +460,25 @@ sj.FULL.age %>%
 
 ```{r age-fig, echo=F, warning=F, message=F, fig.cap='Annual age structure of San Juan Chinook. Numbers above bars indicate the number of samples contributing age data each year. Data from PADS (NuSEDS and MRPIS).'}
 
-pdf(file = here("outputs", "figures", "San Juan chinook age composition 1990-present.pdf"),   
-    width = 11, # The width of the plot in inches
-    height = 8.5) # The height of the plot in inches
+# FIGURE: AGE ~ TIME -----------------------
 
-# FIGURE: AGE ~ TIME ----------------------- 
-ggplot() +
-  geom_bar(data=sj.FULL.age %>% 
-         filter(!is.na(`(R) RESOLVED TOTAL AGE`)) %>%
-         group_by(`Sample Year`, `(R) RESOLVED TOTAL AGE`) %>% 
-         summarize(n=n()) %>% 
-         group_by(`Sample Year`) %>% 
-         mutate(sample_size = sum(n),
-                propn=n/sum(n)),
-       aes(x=`Sample Year`, y=propn, fill=as.factor(`(R) RESOLVED TOTAL AGE`), colour=as.factor(`(R) RESOLVED TOTAL AGE`)), 
-       stat="identity", position="stack", alpha=0.8, size=0.5, width=0.8) +
-  geom_text(data=sj.FULL.age %>% 
-              filter(!is.na(`(R) RESOLVED TOTAL AGE`)) %>% 
-              group_by(`Sample Year`) %>% 
+age.fig.allyrs <- 
+  ggplot() +
+  geom_bar(data=SJ_allAgesMaster %>% 
+             filter(!is.na(`(R) RESOLVED TOTAL AGE`), `(R) RESOLVED TOTAL AGE`%in%c("1","2","3","4","5","6")) %>%
+             group_by(`(R) SAMPLE YEAR`, `(R) RESOLVED TOTAL AGE`) %>% 
+             summarize(n=n()) %>% 
+             group_by(`(R) SAMPLE YEAR`) %>% 
+             mutate(sample_size = sum(n),
+                    propn=n/sum(n)),
+           aes(x=`(R) SAMPLE YEAR`, y=propn, fill=as.factor(`(R) RESOLVED TOTAL AGE`), 
+               colour=as.factor(`(R) RESOLVED TOTAL AGE`)), 
+           stat="identity", position="stack", alpha=0.8, size=0.5, width=0.8) +
+  geom_text(data=SJ_allAgesMaster %>% 
+              filter(!is.na(`(R) RESOLVED TOTAL AGE`), `(R) RESOLVED TOTAL AGE`%in%c("1","2","3","4","5","6")) %>% 
+              group_by(`(R) SAMPLE YEAR`) %>% 
               summarize(sample_size = n()), 
-            aes(x=`Sample Year`, y=1.07, label=paste0("n=",sample_size)), size=3, angle=45, vjust=1, hjust=0.5) +
+            aes(x=`(R) SAMPLE YEAR`, y=1.07, label=paste0("n=",sample_size)), size=3, angle=45, vjust=1, hjust=0.5) +
   labs(y="Proportion of all annual biosamples", fill="Age:", colour="Age:") +
   scale_x_continuous(breaks=seq(1990,2050,by=1)) +
   scale_y_continuous(breaks=seq(0,1.1,by=0.25), limits=c(0,1.1), labels=scales::label_percent()) +
@@ -508,16 +491,19 @@ ggplot() +
         legend.direction = "horizontal",
         legend.title = element_text(face="bold"),
         plot.caption = element_text(face="italic", hjust=0))
+age.fig.allyrs
+
+pdf(file = here("outputs", "figures", "San Juan chinook age composition 1990-present.pdf"),   
+    width = 11, # The width of the plot in inches
+    height = 8.5) # The height of the plot in inches
+
+age.fig.allyrs
 
 dev.off()
 ```
 
-```{r}
-pdf(file = here("outputs", "figures", "San Juan chinook age composition 2012-present.pdf"),   
-    width = 11, # The width of the plot in inches
-    height = 8.5) # The height of the plot in inches
-
-ggplot() +
+```{r age-sex-fig, echo=F, warning=F, message=F, fig.cap='Annual age structure of San Juan Chinook by sex. Numbers above bars indicate the number of samples contributing age data each year. Data from PADS (NuSEDS and MRPIS).'}
+age.fig.sex <- ggplot() +
   geom_bar(data=sj.biodata %>%
              filter(!is.na(`(R) RESOLVED TOTAL AGE`), Sex%in%c("Male","Female","Jack")) %>%
              group_by(Sex, `(R) SAMPLE YEAR`, `(R) RESOLVED TOTAL AGE`) %>%
@@ -529,9 +515,9 @@ ggplot() +
                colour=as.factor(`(R) RESOLVED TOTAL AGE`)), 
            stat="identity", position="dodge", alpha=0.7, width=0.5) +
   geom_text(data=sj.biodata %>%
-             filter(!is.na(`(R) RESOLVED TOTAL AGE`), Sex%in%c("Male","Female","Jack")) %>%
-             group_by(`(R) SAMPLE YEAR`, Sex) %>%
-             summarize(total_n = n()), 
+              filter(!is.na(`(R) RESOLVED TOTAL AGE`), Sex%in%c("Male","Female","Jack")) %>%
+              group_by(`(R) SAMPLE YEAR`, Sex) %>%
+              summarize(total_n = n()), 
             aes(x=`(R) SAMPLE YEAR`, y=1.04, label=paste0("n=",total_n)), size=3) +
   labs(x="Brood year", y="% of annual biosamples", fill="Age:", colour="Age:") +
   scale_y_continuous(labels=scales::label_percent()) +
@@ -541,18 +527,17 @@ ggplot() +
         legend.direction = "horizontal",
         legend.title = element_text(face="bold")) +
   facet_wrap(~Sex, nrow=3)
+age.fig.sex
+
+
+pdf(file = here("outputs", "figures", "San Juan chinook age composition 2012-present.pdf"),   
+    width = 11, # The width of the plot in inches
+    height = 8.5) # The height of the plot in inches
+
+age.fig.sex
 
 dev.off()
 ```
-
-
-
-
-
-
-
-
-
 
 <br>
 
