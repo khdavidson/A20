@@ -239,7 +239,7 @@ sj_12Y_avgs <- sj_age_summary %>%
 
 Status snapshot:
 
--   Chinook enhancement began ~1979
+-   Chinook enhancement began 1978
 
 -   Recent 12-yr average adult escapement (incl broodstock): `r sj.esc %>% filter(est_type=="Total Adult Return River", SJ_watershed_group=="core SJ watershed", Species=="Chinook", year>=(analysis_year-12)) %>% group_by(year) %>% summarize(esc_total=sum(estimate,na.rm=T)) %>% summarize(mean=round(mean(esc_total,na.rm=T),0)) %>% pull(mean)`
 
