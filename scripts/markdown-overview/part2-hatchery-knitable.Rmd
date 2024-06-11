@@ -563,7 +563,7 @@ ggarrange(
 
 ```{r }
 # Origin by ID method
-perc_origin <- sj.cn.biodat %>% 
+perc_origin <- sj.biodata %>% 
   group_by(`(R) SAMPLE YEAR`, `Sample Type`, `(R) ORIGIN`, `(R) RESOLVED STOCK ID METHOD`)  %>%
   summarize(n=n()) %>%
   mutate(`(R) RESOLVED STOCK ID METHOD` = case_when(is.na(`(R) RESOLVED STOCK ID METHOD`) & `(R) ORIGIN`=="Natural" ~ "Otolith",
