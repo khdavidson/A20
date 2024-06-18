@@ -33,13 +33,88 @@ library(plotly)       # for ggplotly()
 
 # ===================== LOAD DATA =====================
 
+# San Juan juvi Field Database ------------------------------------
+juvi.meta <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="sample_event_metadata", trim_ws=T)
+juvi.enocgy <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="enviro_ocgy", trim_ws=T)
+juvi.totals <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="set_totals", trim_ws=T)
+juvi.bio <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="biosamples", trim_ws=T) 
+           
+
+# 2023 GSI ------------------------------------
+# Also links juvi.meta, juvi.bio and MGL outputs
+source(here("scripts","misc-helpers","gsiCompile.R")) 
+
+
+
+
+
 # J. King WCVI Trawl Data ------------------------------------
 swvi.trawl <- read.csv(here("data", "juvenile", "marine", "juvenile_chinook_AOI_20240412.csv")) %>%
   mutate(stock_group = case_when(above_stock_prob_limit_yn=="Y" & grepl("NITINAT", stock_final) ~ "SWVI",
                                  above_stock_prob_limit_yn=="Y" & grepl("JUAN", stock_final) ~ "San Juan",
-                                 above_stock_prob_limit_yn=="Y" & grepl("NECHAKO|CLEARWATER|CHILLIWACK|CHEHALIS|THOMPSON", stock_final) ~ "Fraser",
-                                 above_stock_prob_limit_yn=="Y" & grepl("WENATCHEE|SOOS|ABERNATHY|NOOKSACK", stock_final) ~ "Southern US",
-                                 TRUE ~ "Not grouped"))
+                                 above_stock_prob_limit_yn=="Y" & 
+                                   grepl("NECHAKO|CLEARWATER|CHILLIWACK|CHEHALIS|THOMPSON", stock_final) ~ "Fraser",
+                                 above_stock_prob_limit_yn=="Y" & grepl("WENATCHEE|SOOS|ABERNATHY|NOOKSACK", stock_final) |
+                                   reporting_agency=="WDFW" ~ "Washington",
+                                 TRUE ~ "No GSI/below limit"))
+
+
+
+
+
+# ===================== JOIN DATA =====================
+
+# Field catch totals + meta ------------------------------------
+juvi.totalMeta <- left_join(juvi.totals,
+                            juvi.meta,
+                            by="usid") %>% 
+  unite(spp_stage, c(species, life_stage), remove = F, na.rm = T, sep=" ") %>% 
+  mutate(spp_group = case_when(species%in%c("coho","chinook","chum","pink","sockeye") ~ "salmon",
+                             TRUE ~ "non-salmonid")) %>% 
+  print()
+
+
+
+
+
+
+
+
+# ===================== SUMMARIZE DATA =====================
+# GSI RESULTS SUMMARY ------------------------------------
+juvi_summary <- juvi.bioMeta %>% 
+  filter(!grepl("dip net|pole seine", gear), !is.na(DNA_vial), !is.na(`(R) STOCK ID`)) %>% 
+  group_by(date_start, gear, `(R) ORIGIN`, `(R) STOCK-ORIGIN`) %>% 
+  summarize(n=n()) %>% 
+  group_by(date_start, `(R) ORIGIN`) %>%
+  mutate(origin_total=sum(n)) %>% 
+  group_by(date_start) %>%
+  mutate(day_total=sum(n),
+         day_ID_propn = n/day_total,
+         day_origin_propn = origin_total/day_total) %>% 
+  print()
+
+
+# Catch summary ------------------------------------
+catch_summary <- juvi.totalMeta %>% 
+  filter(grepl("purse seine", gear)) %>% 
+  group_by(date_start, spp_group, spp_stage) %>% 
+  summarize(n = sum(total_caught)) %>% 
+  group_by(date_start) %>% 
+  mutate(daily_total = sum(n),
+         catch_propn = n/daily_total) %>%
+  print()
+
+
+# Chinook mark/unmarked ------------------------------------
+cn_mark_summary <- juvi.bioMeta %>% 
+  filter(grepl("purse seine", gear), species=="chinook") %>% 
+  group_by(date_start, ad_clip) %>% 
+  summarize(n=n()) %>% 
+  group_by (date_start) %>% 
+  mutate(daily_total = sum(n),
+         daily_propn = n/daily_total) %>% 
+  print()
 ```
 
 <br>
@@ -142,10 +217,62 @@ ggplot() +
   theme_bw()
 ```
 
+<br>
 
 <br>
 
-## !!!  Outstanding genetic samples 2023 !!! 
+## First marine winter (trawl/microtrolling)
+
+```{r fig.cap='Juvenile chinook GSI/CWT stock ID results for October 2021 and 2022 trawl surveys. Data from J. King, PBS. Do not distribute without permission.'}
+ggplotly(
+  ggplot() +
+    geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
+            colour="transparent", fill="gray60") +
+    geom_jitter(data=swvi.trawl%>%filter(above_stock_prob_limit_yn=="Y"), 
+                aes(x=longitude, y=latitude, fill=stock_group, colour=stock_group, 
+                    text=paste0("Stock:", stock_final)), 
+                position=position_jitter(width=0.1), shape=21, size=3, alpha=0.5, stroke=0.1) +
+    geom_jitter(data=swvi.trawl%>%filter(above_stock_prob_limit_yn!="Y"), 
+                aes(x=longitude, y=latitude, text=paste0("Stock:", stock_final), fill=stock_group, colour=stock_group), 
+                position=position_jitter(width=0.1), shape=21, size=3, alpha=0.2, stroke=0.1) +
+    coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-125.5, -123.5), ylim=c(48.8, 48.2)) +
+    theme_bw() ,
+  tooltip = c("text")
+)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<br>
+
+<br>
+
+-----------------------------
+
+Appendix: Outstanding genetic samples 2023 !!! 
 
 GSI results recently returned were only available for July 7th purse seining. Still waiting on the remaining days: 
 
@@ -172,30 +299,4 @@ writexl::write_xlsx(genetic.samples23, here("outputs", "San Juan DNA samples out
 
 genetic.samples23 %>%
   kbl()
-```
-
-<br>
-
-<br>
-
-## First marine winter (trawl/microtrolling)
-
-```{r}
-ggplotly(
-  ggplot() +
-    geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
-            colour="transparent", fill="gray60") +
-    geom_jitter(data=swvi.trawl%>%filter(above_stock_prob_limit_yn=="Y"), 
-                aes(x=longitude, y=latitude, fill=stock_group, colour=stock_group, 
-                    text=paste0("Stock:", stock_final)), 
-                position=position_jitter(width=0.1), shape=21, size=3, alpha=0.5, stroke=0.1) +
-    geom_jitter(data=swvi.trawl%>%filter(above_stock_prob_limit_yn!="Y"), 
-                aes(x=longitude, y=latitude, text=paste0("Stock:", stock_final), fill=stock_group, colour=stock_group), 
-                position=position_jitter(width=0.1), shape=21, size=3, alpha=0.2, stroke=0.1) +
-    coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-125.5, -123.5), ylim=c(48.8, 48.2)) +
-    theme_bw() ,
-  tooltip = c("text")
-)
-
-
 ```
