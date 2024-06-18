@@ -59,7 +59,7 @@ The focus of this data compendium is on Chinook, with non-chinook information in
 
 <br>
 
-```{r child=here::here("scripts","markdown-overview", "part3-1-WCVIfisheries.Rmd")}
+```{r child=here::here("scripts","markdown-overview", "part3-2-WCVIfisheries.Rmd")}
 
 ```
 
@@ -69,7 +69,17 @@ The focus of this data compendium is on Chinook, with non-chinook information in
 
 <br>
 
-```{r child=here::here("scripts","markdown-overview", "part4-juvi.Rmd")}
+```{r child=here::here("scripts","markdown-overview", "part4-1-FwEstuaryJuvi.Rmd")}
+
+```
+
+<br>
+
+-----------------------------
+
+<br>
+
+```{r child=here::here("scripts","markdown-overview", "part4-2-marineJuvi.Rmd")}
 
 ```
 
