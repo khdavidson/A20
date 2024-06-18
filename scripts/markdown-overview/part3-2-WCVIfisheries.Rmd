@@ -51,8 +51,16 @@ pfmaPOLY <- rgdal::readOGR(dsn=here("data", "fisheries", "spatial"), layer="pfma
 wcviPFMApoly <- pfmaPOLY[pfmaPOLY@data$STATAREA%in%c(20:27,121:127),]
 pfma_sf <- sf::st_read(dsn=here("data", "fisheries", "spatial"), layer="pfma1")
 
-# Lad "UScentroids" -----------------------
-source(here("scripts", "misc-helpers", "UScentroidCompile.R"))
+creelSubAreaPOLY <- rgdal::readOGR(dsn=here("data", "fisheries", "spatial"), layer="Creel_Survey_Areas", verbose=F)
+creelSubAreaPOLY_sf <- sf::st_read(dsn=here("data", "fisheries", "spatial"), layer="Creel_Survey_Areas")
+creelSubAreaPOLY_sf <- st_as_sf(x = creelSubAreaPOLY_sf,                         
+                  coords = c("longitude", "latitude"),
+                  crs = "+proj=utm +zone=10")
+sfc = st_transform(creelSubAreaPOLY_sf, crs = "+proj=longlat +datum=WGS84")
+creelSubAreaPOLY_sfdf <- as.data.frame(sfc)
+  
+# Load "UScentroids" -----------------------
+#source(here("scripts", "misc-helpers", "UScentroidCompile.R"))
 
 
 # ================================= JOIN MRP + FISHERY-GEAR + SPATIAL data =================================
@@ -95,9 +103,8 @@ source(here("scripts", "misc-helpers", "UScentroidCompile.R"))
 # ================================= CREST data =================================
 
 # Biodata w results ----------------------
-crestBDWR <- readxl::read_excel(path=list.files(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/CRESTcompile_base-files/2-Export-from-R/",
-                                                pattern="R_OUT - Biological_Data_With_Results*.*xlsx", full.names = T),
-                                sheet="CREST Biodata Compiled") %>%
+WCVIcrestBDWR <- read.csv(file=list.files(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/CRESTcompile_base-files/2-Export-from-R/",
+                                      pattern="R_OUT - Biological_Data_With_Results*.*csv", full.names=T), check.names=F) %>%
   mutate(yday = lubridate::yday(COLLECTION_DATE),
          LEGAL_STATUS = case_when(LENGTH_MM > 450 & LENGTH_MM < 800 ~ "LEGAL",
                                   LENGTH_MM <= 450 ~ "SUBLEGAL",
@@ -113,10 +120,140 @@ crestBDWR <- readxl::read_excel(path=list.files(path="//dcbcpbsna01a.ENT.dfo-mpo
   print()
 
 
+# NEW Network version! 
+# allCrestBDWR <- read.csv(file=list.files(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/SC_BioData_Management/12-Chinook_BioData_Compilation/",
+#                                          pattern="*Biological_Data_With_Results_Chinook_Only*.*csv", full.names=T),
+#                          check.names=F) %>%
+#   mutate(COLLECTION_DATE = lubridate::dmy(COLLECTION_DATE),
+#          yday = lubridate::yday(COLLECTION_DATE),
+#          LEGAL_STATUS = case_when(LENGTH_MM > 450 & LENGTH_MM < 800 ~ "LEGAL",
+#                                   LENGTH_MM <= 450 ~ "SUBLEGAL",
+#                                   LENGTH_MM >= 800 & yday%in%c(196:212) ~ "SUPERLEGAL",
+#                                   LENGTH_MM >= 800 & yday%notin%c(196:212) ~ "LEGAL"),
+#          `(R) Origin` = case_when(HATCHERY_ORIGIN=="Y" | PBT_BROOD_YEAR > 2000 ~ "Hatchery",
+#                                   THERMALMARK=="Not Marked" ~ "Natural (assumed)",
+#                                   TRUE ~ "Unknown"),
+#          `(R) RESOLVED ORIGIN-STOCK ID` = case_when(RESOLVED_STOCK_SOURCE=="DNA" & PROB_1 <0.75 ~ 
+#                                                       paste0(`(R) Origin`, sep=" ", "Unknown (<75% GSI assignment)"),
+#                                                     TRUE ~ 
+#                                                       paste0(`(R) Origin`, sep=" ", RESOLVED_STOCK_ORIGIN)),
+#          `(R) RESOLVED ORIGIN-REGION ID` = case_when(RESOLVED_STOCK_SOURCE=="DNA" & PROB_1 <0.75 ~ 
+#                                                        paste0(`(R) Origin`, sep=" ", "Unknown (<75% GSI assignment)"),
+#                                                      TRUE ~ 
+#                                                        paste0(`(R) Origin`, sep=" ", RESOLVED_STOCK_ROLLUP)))
+#          isSJ1 = case_when(grepl("San Juan", `(R) RESOLVED ORIGIN-STOCK ID`) ~ `(R) RESOLVED ORIGIN-STOCK ID`,
+#                            !grepl("San Juan", `(R) RESOLVED ORIGIN-STOCK ID`) & `(R) Origin`!="Unknown" ~ 
+#                              paste0(`(R) Origin`, " ", "Non-San Juan"),
+#                            !grepl("San Juan", `(R) RESOLVED ORIGIN-STOCK ID`) & `(R) Origin`=="Unknown" ~ 
+#                              "Unknown Non-San Juan"),
+#          isSJ2 = case_when(grepl("Non-San Juan", isSJ1) ~ "Other",
+#                            TRUE ~ isSJ1)) %>% 
+#   print()
+
+
+
 # Catch estimates ----------------------
 catEst <- readxl::read_excel(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/Salmon$/FMCR_Fishery_Monitoring_Catch_Reporting/Recreational_CM/Catch_Data/SC Sport Catch Creel Sub-area Disposition (Master Do No Edit).xlsx", sheet="YTD") %>%
-  filter(grepl("127|27|126|26|125|25|124|24|123|23|121|21|22|20", PFMA), YEAR%in%c(2017:2023), SPECIES=="CHINOOK SALMON")
+  filter(grepl("127|27|126|26|125|25|124|24|123|23|121|21|22|20", PFMA), YEAR%in%c(2017:2023), SPECIES=="CHINOOK SALMON") 
+
+
+
+
+# CREST biodata joined to catch ------------------------
+WCVIcrestBDWR.catEst.sj <- left_join(WCVIcrestBDWR %>% 
+                                       mutate_at("AREA", as.character) %>% 
+                                       mutate(SUBAREAfocal = case_when(AREA=="20" ~ SUBAREA,
+                                                                       TRUE ~ AREA)) %>% 
+                                       filter(SAMPLE_TYPE=="Sport", SPECIES==124, DISPOSITION=="Kept", LEGAL_STATUS=="LEGAL",
+                                              #SUBAREA%notin%c("20C", "20D", "20DO", "20DI", "20DB")
+                                       ) %>% 
+                                       group_by(YEAR, MONTH, AREA, isSJ2) %>% 
+                                       summarize(n = n()) %>%
+                                       mutate(isSJ3 = case_when(isSJ2=="Other" ~ isSJ2,
+                                                                TRUE ~ "San Juan origin")), #%>%
+                                       # group_by(YEAR, MONTH, AREA, isSJ3) %>%
+                                       # mutate(n_lvl3 = sum(n_lvl2,na.rm=T)) %>% 
+                                      # group_by(YEAR, MONTH, AREA) %>%
+                                      # mutate(AreaMonthSampleTotal = sum(n_lvl2, na.rm=T),
+                                      #        AreaPropnMonthlySamples_lvl2 = n_lvl2/AreaMonthSampleTotal),
+                                     
+                                     catEst %>% 
+                                       rename(AREA=PFMA) %>% 
+                                       #filter(CREEL_SUB_AREA%notin%c("20C", "20D", "20DO", "20DI", "20DB")) %>%
+                                       mutate(AREA = str_sub(AREA, start=6, end=9)) %>%
+                                       group_by(YEAR, AREA, MONTH, DISPOSITION) %>% 
+                                       summarize(Est = sum(ESTIMATE,na.rm=T),
+                                                 SE = sum(STANDARD_ERROR,na.rm=T)) %>% 
+                                       pivot_wider(names_from=DISPOSITION, values_from=c(Est, SE)) %>%
+                                       select(YEAR, AREA, MONTH, Est_Kept, `Est_Released Legal`
+                                              #SE_Kept, `SE_Released Legal`,
+                                              #`Est_Released Sub-legal`, `SE_Released Sub-legal`
+                                              ),
+                                     
+                                     by=c("YEAR", "MONTH", "AREA")) %>%
+  #mutate(estKeptByID_lvl2 = AreaPropnMonthlySamples_lvl2*Est_Kept
+  #        #seKeptByID3 = AreaPropnMonthlySamples3*SE_Kept,
+  #        estKeptByID_lvl3 = AreaPropnMonthlySamples_lvl3*Est_Kept,
+  #        #seKeptByID2 = AreaPropnMonthlySamples2*SE_Kept
+  #        )  %>% 
+  full_join(data.frame(AREA=c("127", "27", "126", "26", "125", "25", "124", "24", "123", "23", "121", "22", "21", "20")),
+            .,
+            by="AREA")
+
+
+
+# Summarize average catch by stock ID of San Juan only fish ------------------
+# avg_catch_area <- WCVIcrestBDWR.catEst.sj %>%
+#   arrange(YEAR, AREA, MONTH) %>%
+#   filter(isSJ3!="Other") %>%
+#   group_by(MONTH, AREA, isSJ3) %>%
+#   summarize(meanLC = mean(estKeptByID3,na.rm=T),
+#             sdLC = sd(estKeptByID3,na.rm=T),
+#             meanpropn=mean(AreaPropnMonthlySamples3,na.rm=T),
+#             totaln=sum(n3,na.rm=T),
+#             meann=mean(n3,na.rm=T)) %>%
+# 
+#   print()
+
+
+
+# Join to PFMA spatial data ------------------
+wcviPFMA_sjCatEst <- left_join(pfma_sf ,
+                               WCVIcrestBDWR.catEst.sj %>% 
+                                 group_by(YEAR, MONTH, AREA, isSJ3) %>% 
+                                 summarize(n_lvl3 = sum(n, na.rm=T),
+                                           Est_Kept = unique(Est_Kept),
+                                           `Est_Released Legal` = unique(`Est_Released Legal`))  %>%
+                                 group_by(YEAR, MONTH, AREA) %>% 
+                                 mutate(AreaMonthTotalSamples = sum(n_lvl3, na.rm=T),
+                                        propn_AreaMonth = n_lvl3/AreaMonthTotalSamples,
+                                        estKeptByID = propn_AreaMonth*Est_Kept,
+                                        inverse_estKeptByID = case_when(isSJ3=="Other" ~ Est_Kept-estKeptByID,
+                                                                        TRUE ~ estKeptByID),
+                                        inverse_estKeptByID = case_when(inverse_estKeptByID==0 ~ NA,
+                                                                        TRUE ~ inverse_estKeptByID)) %>%
+                                 filter(!is.na(YEAR),
+                                        !(isSJ3=="Other" & propn_AreaMonth<1 & estKeptByID!=inverse_estKeptByID)) %>%
+                                 ungroup() %>%
+                                 full_join(data.frame(AREA=c("127", "27", "126", "26", "125", "25", "124", "24", 
+                                                             "123", "23", "121", "22", "21", "20")) %>%
+                                             mutate(YEAR=rep(2023, nrow(.)),
+                                                    MONTH=rep("May", nrow(.))),
+                                           .,
+                                           by=c("YEAR", "MONTH", "AREA")) %>%
+                                 complete(.,YEAR,MONTH,AREA) %>% 
+                                 rename(STATAREA=AREA) %>%
+                                 ungroup() %>%
+                                 mutate_at("STATAREA", as.character) %>%
+                                 mutate_at("STATAREA", as.integer), #%>%
+                               #select(STATAREA, MONTH, AreaPropnMonthlySamples, estKeptByID) %>%
+                               #pivot_wider(names_from = MONTH, values_from = c(AreaPropnMonthlySamples, estKeptByID)),
+                               by="STATAREA")
 ```
+
+
+
+
 
 ## **WCVI Sport Fishery**
 
@@ -156,59 +293,16 @@ The following caveats/assumptions must be taken into consideration when interpre
 <br>
 
 
-```{r include=F}
-# CREST biodata joined to catch ------------------------
-crestBDWR.catEst.sj <- left_join(crestBDWR %>% 
-                                   mutate(SUBAREAfocal = case_when(AREA=="20" ~ SUBAREA,
-                                                                   TRUE ~ AREA)) %>% 
-                                   filter(SAMPLE_TYPE=="Sport", SPECIES==124, DISPOSITION=="Kept", LEGAL_STATUS=="LEGAL",
-                                          SUBAREA%notin%c("20C", "20D", "20DO", "20DI", "20DB")) %>% 
-                                   group_by(YEAR, MONTH, AREA,  isSJ2) %>% 
-                                   summarize(n = n())  %>%
-                                   group_by(YEAR, MONTH, AREA) %>%
-                                   mutate(AreaMonthSampleTotal = sum(n),
-                                          AreaPropnMonthlySamples=n/AreaMonthSampleTotal),
-                                 
-                                 catEst %>% 
-                                   rename(AREA=PFMA) %>% 
-                                   filter(CREEL_SUB_AREA%notin%c("20C", "20D", "20DO", "20DI", "20DB")) %>%
-                                   mutate(AREA = str_sub(AREA, start=6, end=9)) %>%
-                                   group_by(YEAR, AREA, MONTH, DISPOSITION) %>% 
-                                   summarize(Est = sum(ESTIMATE,na.rm=T),
-                                             SE = sum(STANDARD_ERROR,na.rm=T)) %>% 
-                                   pivot_wider(names_from=DISPOSITION, values_from=c(Est, SE)) %>%
-                                   select(YEAR, AREA, MONTH, Est_Kept, SE_Kept, `Est_Released Legal`, `SE_Released Legal`, 
-                                          `Est_Released Sub-legal`, `SE_Released Sub-legal`),
-                                 
-                                 by=c("YEAR", "MONTH", "AREA")) %>%
-  mutate(estKeptByID = AreaPropnMonthlySamples*Est_Kept,
-         seKeptByID = AreaPropnMonthlySamples*SE_Kept)  
-    
-
-# Summarize average catch by stock ID of San Juan only fish ------------------
-avg_catch_area <- crestBDWR.catEst.sj %>%
-  arrange(YEAR, AREA, MONTH) %>%
-  filter(isSJ2!="Other") %>% 
-  group_by(MONTH, AREA, isSJ2) %>%
-  summarize(meanLC = mean(estKeptByID,na.rm=T),
-            sdLC = sd(estKeptByID,na.rm=T),
-            meanpropn=mean(AreaPropnMonthlySamples,na.rm=T),
-            totaln=sum(n,na.rm=T),
-            meann=mean(n,na.rm=T)) %>%
-
-  print()
-
-
-
+```{r include=F, eval=F}
 # Helpers for graphing ------------------
 avg_catch_area$AREA <- factor(avg_catch_area$AREA, levels=c("127", "27", "126", "26", "125", "25", "124", "24", "123", "23", "121", "22", "21", "20", ordered=T))
-crestBDWR.catEst.sj$AREA <- factor(crestBDWR.catEst.sj$AREA, levels=c("127", "27", "126", "26", "125", "25", "124", "24", "123", "23", "121", "22", "21", "20", ordered=T))
-crestBDWR.catEst.sj$MONTH <- factor(crestBDWR.catEst.sj$MONTH, levels=month.name)
-crestBDWR.catEst.sj$MONTH <- factor(crestBDWR.catEst.sj$MONTH, levels=month.name)
+WCVIcrestBDWR.catEst.sj$AREA <- factor(WCVIcrestBDWR.catEst.sj$AREA, levels=c("127", "27", "126", "26", "125", "25", "124", "24", "123", "23", "121", "22", "21", "20", ordered=T))
+WCVIcrestBDWR.catEst.sj$MONTH <- factor(WCVIcrestBDWR.catEst.sj$MONTH, levels=month.name)
+WCVIcrestBDWR.catEst.sj$MONTH <- factor(WCVIcrestBDWR.catEst.sj$MONTH, levels=month.name)
 
 
 ggplot() +
-  geom_boxplot(data=crestBDWR.catEst.sj%>%filter(isSJ2!="Other"),
+  geom_boxplot(data=WCVIcrestBDWR.catEst.sj%>%filter(isSJ2!="Other"),
                aes(x=MONTH, y=estKeptByID, group=interaction(MONTH,isSJ2), fill=isSJ2, colour=isSJ2), 
                position=position_dodge(width=0.75), width=0.7, size=1, alpha=0.6) +
   geom_text(data=avg_catch_area, 
@@ -246,31 +340,14 @@ ggplot() +
 
 
 # # Join to spatial
- # crestBDWR.catEst.sj.spatial <- sp::merge(x=pfmaPOLY, 
- #                                   y=crestBDWR.catEst.sj %>%
+ # WCVIcrestBDWR.catEst.sj.spatial <- sp::merge(x=pfmaPOLY, 
+ #                                   y=WCVIcrestBDWR.catEst.sj %>%
  #                                       filter(isSJ2!="Other", YEAR==2022, MONTH=="July") %>%
  #                                       ungroup() %>%
  #                                       select(AREA, AreaPropnMonthlySamples, estKeptByID),
  #                        by.x="STATAREA", by.y="AREA", duplicateGeoms=T)
 
 
-wcviPFMA_sjCatEst <- left_join(pfma_sf ,
-                   crestBDWR.catEst.sj %>%
-                     filter(isSJ2!="Other") %>%
-                     group_by(YEAR, AREA, MONTH) %>%
-                     summarize(n=sum(n),
-                               strata_n = sum(AreaMonthSampleTotal,na.rm=T),
-                               propn=n/strata_n,
-                               Est_Kept = unique(Est_Kept),
-                               estKeptByID=propn*Est_Kept
-                               ) %>%
-                     rename(STATAREA=AREA) %>% 
-                     ungroup() %>%
-                     mutate_at("STATAREA", as.character) %>%
-                     mutate_at("STATAREA", as.integer), #%>%
-                     #select(STATAREA, MONTH, AreaPropnMonthlySamples, estKeptByID) %>%
-                     #pivot_wider(names_from = MONTH, values_from = c(AreaPropnMonthlySamples, estKeptByID)),
-                   by="STATAREA")
 
 ```
 
@@ -327,39 +404,111 @@ leaflet() %>%
 
 Proportion of legal sized biosamples that return as San Juan in each Area applied to kept, legal catch estimates for 2017-2023 (note 2023 biodata still incomplete). 
 
+<br>
 
+#### All San Juan-origin across WCVI
+
+Applying stock comp %s from creel biosamples to estimated catch by Month/Area/Year. NOte 2023 is incomplete as of April 2024, and 2017-2019 lacked GSI sampling to resolve unmarked San Juan (i.e., if no thermal mark or CWT, San Juan fish would not have been detectable). 2020 onward stock ID includes otolith thermal marks, CWTs, PBT (complete BYs as of 2023 return year; PBT started BY2018), and GSI, although note not all BYs were marked completely, see https://github.com/khdavidson/A20/blob/main/outputs/R_OUT%20-%20San%20Juan%20mark%20history%20by%20BROOD%20YEAR.xlsx. 
+
+```{r}
+# Helpers for graphing ------------------
+# WCVIcrestBDWR.catEst.sj$AREA <- factor(WCVIcrestBDWR.catEst.sj$AREA, levels=c("127", "27", "126", "26", "125", "25", "124", "24", "123", "23", "121", "22", "21", "20", ordered=T))
+# WCVIcrestBDWR.catEst.sj$MONTH <- factor(WCVIcrestBDWR.catEst.sj$MONTH, levels=month.name)
+# 
+# ggplot(data = WCVIcrestBDWR.catEst.sj %>% filter(isSJ3!="Other")) +
+#   geom_point(aes(x=AREA, y=MONTH, fill=AreaPropnMonthlySamples, colour=AreaPropnMonthlySamples), shape=22, size=5) +
+#   theme_bw() +
+#   facet_wrap(~YEAR, ncol=1, strip.position = "right")  
+
+
+# Heatmap of all WCVI San Juan catch estimates all years, to lvl3 ------------------
+ggplotly(
+  ggplot(data = WCVIcrestBDWR.catEst.sj %>% 
+           group_by(YEAR, MONTH, AREA, isSJ3) %>% 
+           summarize(n_lvl3 = sum(n, na.rm=T),
+                     Est_Kept = unique(Est_Kept),
+                     `Est_Released Legal` = unique(`Est_Released Legal`))  %>%
+           group_by(YEAR, MONTH, AREA) %>% 
+           mutate(AreaMonthTotalSamples = sum(n_lvl3, na.rm=T),
+                  propn_AreaMonth = n_lvl3/AreaMonthTotalSamples,
+                  estKeptByID = propn_AreaMonth*Est_Kept,
+                  inverse_estKeptByID = case_when(isSJ3=="Other" ~ Est_Kept-estKeptByID,
+                                                  TRUE ~ estKeptByID),
+                  inverse_estKeptByID = case_when(inverse_estKeptByID==0 ~ NA,
+                                                  TRUE ~ inverse_estKeptByID)) %>%
+           filter(!is.na(YEAR),
+                  !(isSJ3=="Other" & propn_AreaMonth<1 & estKeptByID!=inverse_estKeptByID)) %>%
+           ungroup() %>%
+           full_join(data.frame(AREA=c("127", "27", "126", "26", "125", "25", "124", "24", "123", "23", "121", "22", "21",
+                                       "20")) %>%
+                       mutate(YEAR=rep(2023, nrow(.)),
+                              MONTH=rep("May", nrow(.))),
+                     .,
+                     by=c("YEAR", "MONTH", "AREA")) %>%
+           complete(.,YEAR,MONTH,AREA)) +
+    geom_ribbon(data = WCVIcrestBDWR.catEst.sj %>% 
+                  filter(YEAR%in%c(2017:2019)),
+                aes(ymin="127", ymax="20", x=factor(MONTH, levels=month.name)),
+                fill="gray80", colour="gray80", alpha=0.2, size=40) +
+    geom_ribbon(data = WCVIcrestBDWR.catEst.sj %>% 
+                  filter(YEAR%in%c(2023)),
+                aes(ymin="127", ymax="20", x=factor(MONTH, levels=month.name)),
+                fill="red", colour="red", alpha=0.1, size=40) +
+    geom_point(aes(y=AREA, x=MONTH, fill=inverse_estKeptByID, colour=inverse_estKeptByID, 
+                   text=paste("Estimated # kept=", round(estKeptByID,0), "\nBased on # confirmed biosamples, n=", n_lvl3)), 
+               shape=22, size=2.5, alpha=0.8) +
+    scale_fill_binned(breaks=seq(0,1000,by=100), type="viridis", na.value="transparent") +
+    scale_colour_binned(breaks=seq(0,1000,by=100), type="viridis", na.value="gray80") +
+    scale_x_discrete(limits = c("May", "June", "July", "August", "September")) +
+    scale_y_discrete(limits = rev(c("127", "27", "126", "26", "125", "25", "124", "24", "123", 
+                                    "23", "121", "22", "21", "20"))) +
+    labs(x="", y="Area", fill="Estimated # Legal, Kept \nSan Juan-origin Chinook", 
+         colour="Estimated # Legal, Kept \nSan Juan-origin Chinook") +
+    theme_bw() +
+    facet_wrap(~YEAR, ncol=2, strip.position = "right") + 
+    theme(axis.title = element_text(face="bold"),
+          legend.title = element_text(face="bold")),
+  tooltip = c("AREA", "MONTH", "text")
+)
+```
+
+<br>
+
+<br>
+
+#### Annual monthly maps 
 
 ```{r wcvi22}
-ggplotly(
-ggplot() +
-  geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2022"), 
-          aes(fill=round(estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour="gray80", alpha=0.8, stroke=0.1) +
-  scale_fill_viridis_b(na.value = NA) +
-  geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
-          colour="transparent", fill="gray60") +
-  coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
-  theme_bw() +
-  facet_wrap(~MONTH),
-tooltip = c("text", "estKeptByID")
-)
+#ggplotly(
+  ggplot() +
+    geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(YEAR=="2022"), 
+            aes(fill=round(inverse_estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour="gray80", alpha=0.8, stroke=0.1) +
+    scale_fill_viridis_b(na.value = NA) +
+    geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
+            colour="transparent", fill="gray60") +
+    coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
+    theme_bw() +
+    facet_wrap(~factor(MONTH, levels=c("May", "June", "July", "August", "September", ordered=T)))
+#  tooltip = c("text", "estKeptByID")
+#)
 ```
 
 ```{r wcvi21}
-ggplotly(
-ggplot() +
-  geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2021"), 
-          aes(fill=round(estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour="gray80", alpha=0.8, stroke=0.1) +
-  scale_fill_viridis_b(na.value = NA) +
-  geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
-          colour="transparent", fill="gray60") +
-  coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
-  theme_bw() +
-  facet_wrap(~MONTH),
-tooltip = c("text", "estKeptByID")
-)
+#ggplotly(
+  ggplot() +
+    geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2021"), 
+            aes(fill=round(estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour="gray80", alpha=0.8, stroke=0.1) +
+    scale_fill_viridis_b(na.value = NA) +
+    geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
+            colour="transparent", fill="gray60") +
+    coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
+    theme_bw() +
+    facet_wrap(~factor(MONTH, levels=c("May", "June", "July", "August", ordered=T))) #,
+#  tooltip = c("text", "estKeptByID")
+#)
 ```
 
-```{r wcvi20}
+```{r wcvi20, eval=F}
 ggplotly(
 ggplot() +
   geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2020"), 
@@ -369,98 +518,186 @@ ggplot() +
           colour="transparent", fill="gray60") +
   coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
   theme_bw() +
-  facet_wrap(~MONTH),
+    facet_wrap(~factor(MONTH, levels=c("May", "June", "July", "August", ordered=T))),
 tooltip = c("text", "estKeptByID")
 )
 ```
 
-```{r wcvi19}
+```{r wcvi19, eval=F}
 ggplotly(
-ggplot() +
-  geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2019"), 
-          aes(fill=round(estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour="gray80", alpha=0.8, stroke=0.1) +
-  scale_fill_viridis_b(na.value = NA) +
-  geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
-          colour="transparent", fill="gray60") +
-  coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
-  theme_bw() +
-  facet_wrap(~MONTH),
-tooltip = c("text", "estKeptByID")
+  ggplot() +
+    geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2019"), 
+            aes(fill=round(estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour="gray80", alpha=0.8, stroke=0.1) +
+    scale_fill_viridis_b(na.value = NA) +
+    geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
+            colour="transparent", fill="gray60") +
+    coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
+    theme_bw() +
+    facet_wrap(~factor(MONTH, levels=c("May", "June", "July", "August", ordered=T))),
+  tooltip = c("text", "estKeptByID")
 )
 ```
 
 <br>
 
 <br>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ### Area 20: Area, regional IDs
 
-```{r echo=T, message=F, warning=F, eval=F}
-# ================= Region-level monthly % composition =================
-area20REGION.BDWR <- crestBDWR %>% 
-  filter(AREA %in% c("20"), SAMPLE_TYPE=="Sport", SPECIES==124, DISPOSITION=="Kept", LEGAL_STATUS=="LEGAL", `(R) RESOLVED ORIGIN-REGION ID`%notin%c("Unknown NA", "Unknown Unknown (<75% GSI assignment)")) %>% 
-  group_by(YEAR, MONTH, AREA, `(R) RESOLVED ORIGIN-REGION ID`) %>% 
-  summarize(n = n()) %>% 
-  group_by(YEAR, MONTH, AREA) %>%
-  mutate(AreaMonthSampleTotal = sum(n),
-         AreaPropnMonthlySamples=n/AreaMonthSampleTotal) 
+```{r include+F}
+# CREST biodata joined to catch ------------------------
+# BY SUB-AREA 
+A20crestBDWR.catEst.sj <- left_join(WCVIcrestBDWR %>% 
+                                       mutate_at("AREA", as.character) %>% 
+                                       mutate(SUBAREAfocal = case_when(AREA=="20" ~ SUBAREA,
+                                                                       TRUE ~ AREA)) %>% 
+                                       filter(SAMPLE_TYPE=="Sport", SPECIES==124, DISPOSITION=="Kept", LEGAL_STATUS=="LEGAL",
+                                              AREA=="20") %>% 
+                                       group_by(YEAR, MONTH, SUBAREA, isSJ2) %>% 
+                                       summarize(n = n()) %>%
+                                       mutate(isSJ3 = case_when(isSJ2=="Other" ~ isSJ2,
+                                                                TRUE ~ "San Juan origin")), #%>%
+                                       # group_by(YEAR, MONTH, AREA, isSJ3) %>%
+                                       # mutate(n_lvl3 = sum(n_lvl2,na.rm=T)) %>% 
+                                      # group_by(YEAR, MONTH, AREA) %>%
+                                      # mutate(AreaMonthSampleTotal = sum(n_lvl2, na.rm=T),
+                                      #        AreaPropnMonthlySamples_lvl2 = n_lvl2/AreaMonthSampleTotal),
+                                     
+                                     catEst %>% 
+                                       rename(AREA=PFMA,
+                                              SUBAREA = CREEL_SUB_AREA) %>% 
+                                       mutate(AREA = str_sub(AREA, start=6, end=9)) %>%
+                                      filter(AREA=="20") %>%
+                                       group_by(YEAR, MONTH, SUBAREA, DISPOSITION) %>% 
+                                       summarize(Est = sum(ESTIMATE,na.rm=T),
+                                                 SE = sum(STANDARD_ERROR,na.rm=T)) %>% 
+                                       pivot_wider(names_from=DISPOSITION, values_from=c(Est, SE)) %>%
+                                       select(YEAR, MONTH, SUBAREA, Est_Kept, `Est_Released Legal`
+                                              #SE_Kept, `SE_Released Legal`,
+                                              #`Est_Released Sub-legal`, `SE_Released Sub-legal`
+                                              ),
+                                     
+                                     by=c("YEAR", "MONTH", "SUBAREA")) %>% 
+  complete()
+
+
+# Join to creel sub-areas --------------------
+A20subarea_sjCatEst <- left_join(creelSubAreaPOLY_sfdf %>%
+                                   mutate(CREELSUB = gsub(x=CREELSUB, pattern="-", replacement="")),
+                                 A20crestBDWR.catEst.sj %>%
+                                   group_by(YEAR, MONTH, SUBAREA, isSJ3) %>% 
+                                   summarize(n_lvl3 = sum(n, na.rm=T),
+                                             Est_Kept = unique(Est_Kept),
+                                             `Est_Released Legal` = unique(`Est_Released Legal`))  %>%
+                                   group_by(YEAR, MONTH, SUBAREA) %>% 
+                                   mutate(AreaMonthTotalSamples = sum(n_lvl3, na.rm=T),
+                                          propn_AreaMonth = n_lvl3/AreaMonthTotalSamples,
+                                          estKeptByID = propn_AreaMonth*Est_Kept,
+                                          inverse_estKeptByID = case_when(isSJ3=="Other" ~ Est_Kept-estKeptByID,
+                                                                          TRUE ~ estKeptByID),
+                                          inverse_estKeptByID = case_when(inverse_estKeptByID==0 ~ NA,
+                                                                          TRUE ~ inverse_estKeptByID)) %>%
+                                   filter(!is.na(YEAR),
+                                          !(isSJ3=="Other" & propn_AreaMonth<1 & estKeptByID!=inverse_estKeptByID)) %>%
+                                   ungroup() %>%
+                                   # full_join(data.frame(AREA=c("127", "27", "126", "26", "125", "25", "124", "24", 
+                                   #                             "123", "23", "121", "22", "21", "20")) %>%
+                                   #             mutate(YEAR=rep(2023, nrow(.)),
+                                   #                    MONTH=rep("May", nrow(.))),
+                                   #           .,
+                                   #           by=c("YEAR", "MONTH", "AREA")) %>%
+                                   complete(.,YEAR, MONTH, SUBAREA)  %>% 
+                                   rename(CREELSUB=SUBAREA)
+                                 ,
+                                 by="CREELSUB")
 
 
 
-# ================= Stock-level monthly % composition =================
-# FOCUS ON Area 20 sub-areas SPECIFICALLY
-# 1. Summarize biosampling results and group as Nitinat, Non-Nitinat, and Unknown -----------------
-area20STOCK.BDWR <- crestBDWR %>% 
-  filter(AREA %in% c("20"), SAMPLE_TYPE=="Sport", SPECIES==124, DISPOSITION=="Kept", LEGAL_STATUS=="LEGAL", `(R) RESOLVED ORIGIN-STOCK ID`%notin%c("Unknown NA", "Unknown Unknown (<75% GSI assignment)")) %>% 
-  group_by(YEAR, AREA, SUBAREA, MONTH, isSJ) %>% 
-  summarize(n = n()) %>% 
-  group_by(YEAR, MONTH, AREA, SUBAREA) %>%
-  mutate(AreaMonthSampleTotal = sum(n),
-         PropnMonthlySamplesSJ=n/AreaMonthSampleTotal)  
 
-# 2. Join Biodata composition to catch and calculate # caught by ID -----------------
-a20catchComp <- left_join(area20STOCK.BDWR,
-                          catEst %>% 
-                            rename(AREA=PFMA) %>% 
-                            mutate(AREA = str_sub(AREA, start=6, end=9)) %>%
-                            group_by(YEAR, AREA, CREEL_SUB_AREA, MONTH, DISPOSITION) %>% 
-                            summarize(Est = sum(ESTIMATE),
-                                      `%SE` = sum(PERCENT_STANDARD_ERROR)) %>% 
-                            pivot_wider(names_from=DISPOSITION, values_from=c(Est, `%SE`)) %>%
-                            select(YEAR, AREA, CREEL_SUB_AREA, MONTH, Est_Kept, `%SE_Kept`, `Est_Released Legal`, `%SE_Released Legal`, 
-                                   `Est_Released Sub-legal`, `%SE_Released Sub-legal`) %>% 
-                            rename(SUBAREA = CREEL_SUB_AREA),
-                          by=c("AREA", "YEAR", "MONTH", "SUBAREA")) %>% 
-  mutate(estKeptByID = PropnMonthlySamplesSJ*Est_Kept) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
+```{r}
+ggplot() +
+  geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
+          colour="transparent", fill="gray60",alpha=0.2) +
+  geom_sf(data=A20subarea_sjCatEst%>%filter(YEAR==2022) , aes(geometry=geometry, fill=inverse_estKeptByID), colour="black") + 
+  
+  coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", 
+           xlim=c(-125, -123.5), ylim=c(48.8, 48.2)) +
+  scale_fill_viridis_b(na.value = NA) +
+  theme_bw() +
+  facet_wrap(~factor(MONTH, levels=c("May", "June", "July", "August", "September", ordered=T)))
+
+ 
+
 ```
 
 
-```{r a20comp, out.width='1300px', out.height='500px', fig.align='left', fig.cap='Region-level ID of Chinook caught in Area 20. Data are expressed as a proportion of the number of biological samples collected each month. Results are from creel survey data and therefore only represent legal (<45cm, >80cm), kept catch. Gray shaded area indicates years with no GSI sampling, in which case Natural-origin stock ID is not possible. Red shading indicates 2023 results are incomplete.', eval=F}
 
-# Region rollup stock comp --------------------
 
-# AREA 20
-ggplotly(
-  ggplot() +
-    geom_ribbon(data=area20REGION.BDWR %>%
-                  filter(AREA=="20", YEAR%in%c(2017:2019)),
-                aes(ymin="Unknown SWVI", ymax="Natural (assumed) California", x=factor(MONTH, levels=month.name)), 
-                fill="gray60", colour="gray60", alpha=0.1, size=100) +
-    geom_ribbon(data=area20REGION.BDWR %>%
-                  filter(AREA=="20", YEAR==2023),
-                aes(ymin="Unknown SWVI", ymax="Hatchery California", x=factor(MONTH, levels=month.name)), 
-                fill="red", colour="red", alpha=0.1, size=100) +
-    geom_point(data=area20REGION.BDWR%>%filter(AREA=="20"),
-               aes(x=factor(MONTH, levels=month.name), y=`(R) RESOLVED ORIGIN-REGION ID`,  fill=AreaPropnMonthlySamples, text=paste0("n=",n)),
-               shape=22, size=3.5, colour="transparent") +
-    scale_fill_viridis_b(breaks=seq(0,1,by=0.1), labels=scales::percent) +
-    labs(x="", y="", fill="Proportion of biosamples \nby month for Area 20") +
-    facet_wrap(~YEAR, nrow=1) +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle=45, hjust=1),
-          legend.title =  element_text(face="bold")),
-  tooltip = c("MONTH", "(R) RESOLVED ORIGIN-REGION ID", "AreaPropnMonthlySamples", "text")) 
-```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 <br>
