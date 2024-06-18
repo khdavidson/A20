@@ -210,7 +210,7 @@ WCVIcrestBDWR.catEst.sj <- left_join(WCVIcrestBDWR %>%
 # Summarize average catch by stock ID of San Juan only fish ------------------
 # avg_catch_area <- WCVIcrestBDWR.catEst.sj %>%
 #   arrange(YEAR, AREA, MONTH) %>%
-#   filter(isSJ3!="Other") %>% 
+#   filter(isSJ3!="Other") %>%
 #   group_by(MONTH, AREA, isSJ3) %>%
 #   summarize(meanLC = mean(estKeptByID3,na.rm=T),
 #             sdLC = sd(estKeptByID3,na.rm=T),
@@ -298,7 +298,7 @@ The following caveats/assumptions must be taken into consideration when interpre
 <br>
 
 
-```{r include=F}
+```{r include=F, eval=F}
 # Helpers for graphing ------------------
 avg_catch_area$AREA <- factor(avg_catch_area$AREA, levels=c("127", "27", "126", "26", "125", "25", "124", "24", "123", "23", "121", "22", "21", "20", ordered=T))
 WCVIcrestBDWR.catEst.sj$AREA <- factor(WCVIcrestBDWR.catEst.sj$AREA, levels=c("127", "27", "126", "26", "125", "25", "124", "24", "123", "23", "121", "22", "21", "20", ordered=T))
