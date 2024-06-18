@@ -1,6 +1,5 @@
 ---
-title: "part1-esc-knitable"
-author: "South Coast StA"
+title: "Part 5: Environmental details"
 date: 'Last update: `r format(Sys.time(), sep="_", "%Y-%m-%d %H:%M")`'
 output: html_document
 params:
@@ -23,9 +22,11 @@ library(here)
 "%notin%" <- Negate("%in%")
 
 
-# Load data ---------------------
-# Environment Canada historical water data (1959-2022): 
-ec.hist <- read.csv(file.path(here() %>% dirname(), 'data', 'enviro', '08HA010_daily_20230817T1738_1959-2022.csv'), skip=1) %>% 
+# ====================== LOAD DATA ======================
+# Environment Canada historical water data (1959-2022): --------------------------
+ec.hist <- read.csv(file=paste0(here::here("data", "enviro","/"), 
+                                list.files(path=here::here("data", "enviro"), pattern="08HA010_daily*.*csv")), 
+                    skip=1) %>% 
   mutate(discharge_cms = case_when(PARAM==1 ~ Value),
          level_m = case_when(PARAM==2 ~ Value),
          year = lubridate::year(Date),
@@ -37,7 +38,7 @@ ec.hist <- read.csv(file.path(here() %>% dirname(), 'data', 'enviro', '08HA010_d
   print()
 
 
-# Environment Canada real-time water data (2023):
+# Environment Canada real-time water data (2023): --------------------------
 ec.rt <- read.csv(url("https://dd.weather.gc.ca/hydrometric/csv/BC/daily/BC_08HA010_daily_hydrometric.csv")) %>% 
   rename(level_m=`Water.Level...Niveau.d.eau..m.`,
          discharge_cms = `Discharge...Débit..cms.`) %>% 
@@ -45,8 +46,8 @@ ec.rt <- read.csv(url("https://dd.weather.gc.ca/hydrometric/csv/BC/daily/BC_08HA
   print()
 
 
-# Fence install dates: 
-sj.fence.dates <- read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/run timing tables (updated).xlsx", sheet="San Juan", range="A4:AD65") %>% 
+# Fence install dates -------------------------- 
+sj.fence.dates <- read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/run timing tables (updated).xlsx", sheet="San Juan", range="A4:AE65") %>% 
   rename(year=`...1`,
          system=`81`) %>%
   fill(year) %>%
@@ -59,8 +60,13 @@ sj.fence.dates <- read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPE
   print()
 ```
 
+## **4 Mile fence operations and flow**
 
-```{r}
+<br> 
+
+The fence operated by 4 Mile hatchery primarily functions to collect broodstock, and secondarily to count all species. Recent install dates are typically from Labour Day long weekend to Thanksgiving long weekend, as flow allows. It is typically removed just in time for the fall/winter floods (see \@ref(fig:fenceflowfig)), typically at approximately 
+
+```{r fenceflowfig, fig.cap='4 Mile fence operation periods (red segments) and observed discharge (dark blue, cms) and water level (light blue, m, where available). Data from 4 Mile hatchery and Environment Canada.'}
 # Fence dates ~ discharge
 
 ggplot() +
@@ -79,8 +85,6 @@ ggplot() +
   theme_bw() +
   theme(axis.text.x = element_text(angle=45, hjust=1)) +
   facet_wrap(~year)
-
-
 ```
 
 
