@@ -1,7 +1,13 @@
 ---
-title: "Part 5: Environmental details"
+title: "**Part 5: Environmental details**"
 date: 'Last update: `r format(Sys.time(), sep="_", "%Y-%m-%d %H:%M")`'
-output: html_document
+output: 
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+    toc_collapsed: false 
+    toc_depth: 5
+    number_sections: true
 params:
     password:
       label: "Enter computer password"
@@ -14,10 +20,10 @@ knitr::opts_chunk$set(echo=F, warning=F, message=F)
 
 #library(here)
 library(tidyverse)
-library(readxl)
-library(kableExtra)
+#library(readxl)
+#library(kableExtra)
 library(bookdown)
-library(here)
+#library(here)
 
 "%notin%" <- Negate("%in%")
 
@@ -47,7 +53,7 @@ ec.rt <- read.csv(url("https://dd.weather.gc.ca/hydrometric/csv/BC/daily/BC_08HA
 
 
 # Fence install dates -------------------------- 
-sj.fence.dates <- read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/run timing tables (updated).xlsx", sheet="San Juan", range="A4:AE65") %>% 
+sj.fence.dates <- readxl::read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/run timing tables (updated).xlsx", sheet="San Juan", range="A4:AE65") %>% 
   rename(year=`...1`,
          system=`81`) %>%
   fill(year) %>%
@@ -60,11 +66,15 @@ sj.fence.dates <- read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPE
   print()
 ```
 
+<br>
+
+<br>
+
 ## **4 Mile fence operations and flow**
 
 <br> 
 
-The fence operated by 4 Mile hatchery primarily functions to collect broodstock, and secondarily to count all species. Recent install dates are typically from Labour Day long weekend to Thanksgiving long weekend, as flow allows. It is typically removed just in time for the fall/winter floods (see \@ref(fig:fenceflowfig)), typically at approximately 
+The fence operated by 4 Mile hatchery primarily functions to collect broodstock, and secondarily to count all species through. In recent yeras, the operation period is typically from Labour Day long weekend to Thanksgiving long weekend, as flow allows. It is usually removed just in time for the fall/winter floods (see Fig \@ref(fig:fenceflowfig)), around approximately 5 cms or 2 m, but can be as high as 35 cms (see Table \@ref(tab:removalvalstab)). 
 
 ```{r fenceflowfig, fig.cap='4 Mile fence operation periods (red segments) and observed discharge (dark blue, cms) and water level (light blue, m, where available). Data from 4 Mile hatchery and Environment Canada.'}
 # Fence dates ~ discharge
@@ -87,14 +97,27 @@ ggplot() +
   facet_wrap(~year)
 ```
 
+<br>
 
-```{r}
-# Fence removal date vs. water ------------------------
+```{r removalvalstab}
 ec.hist %>% 
-  filter(Date %in% sj.fence.dates$`Fence out`, !is.na(Value)) %>%
-  group_by(PARAM) %>% 
-  summarize(min = min(Value), median = median(Value), max = max(Value))
+  filter(Date %in% sj.fence.dates$`Fence out`) %>% 
+    group_by(PARAM) %>% 
+    summarize(min_val = min(Value, na.rm=T),
+              max_val = max(Value, na.rm=T),
+              med_val = median(Value, na.rm=T)) %>% 
+  relocate(med_val, .before=max_val) %>%
+  rename(Parameter=PARAM,
+         `Minimum value` = min_val,
+         `Maximum value` = max_val,
+         `Median value` = med_val)  %>%
+  kableExtra::kbl(align="c", caption="Range and median river discharge (cms) and/or level (m) for known fence removal dates illustrated in Figure 1 above.") %>% 
+  kableExtra::kable_paper("hover", full_width=T, position = "center")
 
+# figure below - probably not required. 
+```
+```{r include=F, eval=F}
+# Fence removal date vs. water fig - same as table above, probably not needed
 ggplot() +
   geom_point(data=ec.hist %>% filter(Date %in% sj.fence.dates$`Fence out`),
              aes(x=year, y=discharge_cms), colour="navy blue", fill="navy blue", size=3, shape=21) +
@@ -104,8 +127,6 @@ ggplot() +
   scale_y_continuous(sec.axis = sec_axis(~ . /5, name = "Level (m)")) +
   labs(y="Discharge (cms)", x="") +
   theme_bw()
-
-
 ```
 
 

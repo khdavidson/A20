@@ -524,9 +524,16 @@ ggarrange(
              stat="identity", position="stack", alpha=0.8, size=1) +
     geom_text(data=sj.biodata%>%filter(`Sample Type`!="FSC")%>%group_by(`(R) SAMPLE YEAR`) %>% summarize(total=n()), 
               aes(x=`(R) SAMPLE YEAR`, y=1.02, label=total), size=3) +
+    # FLAG BYs with incomplete marking: 
+    # geom_bar(data = data.frame(`(R) SAMPLE YEAR` = c(2016,2017,2018,2019,2020,2021),
+    #                            perc = c(1,1,1,1,1,1)),
+    #          aes(x=X.R..SAMPLE.YEAR, y=perc, fill="red", alpha=0.8), stat="identity") +
     scale_y_continuous(labels = scales::label_percent()) +
-    scale_colour_manual(values=c("Hatchery" = "black", "Natural" = "transparent", "Unknown" = "transparent"), guide=F) +
-    scale_fill_manual(breaks=waiver(), values=c("#33BBEE", "#EE7733", "gray50"), labels=c("Hatchery (pHOB)", "Natural (pNOB)", "Unknown")) +
+    scale_colour_manual(values=c("Hatchery"="black", "Natural (assumed)"="transparent", 
+                                 "Natural (PBT)"="transparent", "Unknown"="transparent"), 
+                        guide=F) +
+    scale_fill_manual(breaks=waiver(), values=c("#33BBEE", "#EE7733", "#EE7733", "gray50"), 
+                      labels=c("Hatchery (pHOB)", "Natural (pNOB)", "Natural (pNOB)", "Unknown")) +
     labs(x="Return year", y="Origin of broodstock biosamples (total)", fill="Origin") +
     theme_bw() +
     theme(axis.title = element_text(face="bold")),
@@ -549,11 +556,17 @@ ggarrange(
              stat="identity", position="stack", alpha=0, size=1, fill="transparent") + 
     geom_text(data=sj.biodata%>%filter(`Sample Type`!="FSC")%>%group_by(`(R) SAMPLE YEAR`) %>% summarize(total=n()), 
               aes(x=`(R) SAMPLE YEAR`, y=1.02, label=total), size=3) +
+    # FLAG BYs with incomplete marking: 
+    # geom_bar(data = data.frame(`(R) SAMPLE YEAR` = c(2016,2017,2018,2019,2020,2021),
+    #                            perc = c(1,1,1,1,1,1)),
+    #          aes(x=X.R..SAMPLE.YEAR, y=perc, fill="red", alpha=0.8), stat="identity") +
     scale_y_continuous(labels = scales::label_percent()) +
-    scale_colour_manual(values=c("Hatchery" = "black", "Natural" = "transparent", "Unknown" = "transparent"), guide=F) +
+    scale_colour_manual(values=c("Hatchery"="black", "Natural (assumed)"="transparent", 
+                                 "Natural (PBT)"="transparent", "Unknown"="transparent"), 
+                        guide=F) +
     scale_fill_manual(breaks=waiver(), 
-                      values=c("purple", "pink", "royal blue", "dodger blue4", "dodger blue",  "deep sky blue", 
-                               "sky blue1", "slate gray2", "#EE7733", "gray50")) +
+                      values=c("purple", "pink", "royal blue", "dodger blue4", "dodger blue", "deep sky blue", 
+                               "sky blue1", "slate gray2", "#EE7733", "gold", "gray50")) +
     labs(x="Return year", y="Origin of broodstock biosamples (total)", fill="Origin") +
     theme_bw() +
     theme(axis.title = element_text(face="bold")),

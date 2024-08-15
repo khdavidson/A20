@@ -34,8 +34,10 @@ library(plotly)       # for ggplotly()
 # ===================== LOAD DATA =====================
 
 # San Juan juvi Field Database ------------------------------------
-juvi.meta <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="sample_event_metadata", trim_ws=T)
-juvi.enocgy <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="enviro_ocgy", trim_ws=T)
+juvi.meta <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), 
+                                sheet="sample_event_metadata", trim_ws=T)
+juvi.enocgy <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), 
+                                  sheet="enviro_ocgy", trim_ws=T)
 juvi.totals <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="set_totals", trim_ws=T)
 juvi.bio <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="biosamples", trim_ws=T) 
            

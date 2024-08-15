@@ -413,7 +413,7 @@ Proportion of legal sized biosamples that return as San Juan in each Area applie
 
 #### All San Juan-origin across WCVI
 
-Applying stock comp %s from creel biosamples to estimated catch by Month/Area/Year. NOte 2023 is incomplete as of April 2024, and 2017-2019 lacked GSI sampling to resolve unmarked San Juan (i.e., if no thermal mark or CWT, San Juan fish would not have been detectable). 2020 onward stock ID includes otolith thermal marks, CWTs, PBT (complete BYs as of 2023 return year; PBT started BY2018), and GSI, although note not all BYs were marked completely, see https://github.com/khdavidson/A20/blob/main/outputs/R_OUT%20-%20San%20Juan%20mark%20history%20by%20BROOD%20YEAR.xlsx. 
+Applying stock comp %s from creel biosamples to estimated catch by Month/Area/Year. Note 2023 is incomplete as of April 2024, and 2017-2019 lacked GSI sampling to resolve unmarked San Juan (i.e., if no thermal mark or CWT, San Juan fish would not have been detectable). 2020 onward stock ID includes otolith thermal marks, CWTs, PBT (complete BYs as of 2023 return year; PBT started BY2018), and GSI, although note not all BYs were marked completely, see https://github.com/khdavidson/A20/blob/main/outputs/R_OUT%20-%20San%20Juan%20mark%20history%20by%20BROOD%20YEAR.xlsx. 
 
 ```{r}
 # Helpers for graphing ------------------

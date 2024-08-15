@@ -25,7 +25,7 @@ library(ggpubr)       # for ggarrange()
 
 <br>
 
-The focus of this data compendium is on Chinook, with non-chinook information included in the appendix. 
+The focus of this data compendium is on Chinook, with non-chinook information included intermittently. 
 
 <br>
 
