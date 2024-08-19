@@ -31,24 +31,29 @@ library(plotly)       # for ggplotly()
 
 
 
-# ===================== LOAD DATA =====================
+# ===================== LOAD 2023 DATA =====================
 
-# San Juan juvi Field Database ------------------------------------
-juvi.meta <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), 
-                                sheet="sample_event_metadata", trim_ws=T)
+# 2023 Set totals and environmentals ------------------------------------
 juvi.enocgy <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), 
                                   sheet="enviro_ocgy", trim_ws=T)
 juvi.totals <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="set_totals", trim_ws=T)
-juvi.bio <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="biosamples", trim_ws=T) 
-           
-
-# 2023 GSI ------------------------------------
-# Also links juvi.meta, juvi.bio and MGL outputs
-source(here("scripts","misc-helpers","gsiCompile.R")) 
 
 
 
+# 2023 Biodata ------------------------------------
 
+# OPTION 1: Only need to do if new 2023 GSI after Aug 2024: 
+#juvi.bioMeta.GSI <- source(here("scripts","misc-helpers","gsiCompile.R")) 
+
+# OPTION 2: all other times
+juvi.bioMeta.GSI <- readxl::read_excel(path=here::here("outputs", list.files(path=here::here("outputs"),
+                                                      pattern = "^R_OUT - PFN_DFO_FTFjuvi_2023_verified_with-GSI-Results_")),
+                                       sheet="Sheet1")
+
+
+
+
+# ===================== LOAD OTHER DATA =====================
 
 # J. King WCVI Trawl Data ------------------------------------
 swvi.trawl <- read.csv(here("data", "juvenile", "marine", "juvenile_chinook_AOI_20240412.csv")) %>%
