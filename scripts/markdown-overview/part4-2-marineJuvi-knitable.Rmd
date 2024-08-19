@@ -34,9 +34,19 @@ library(plotly)       # for ggplotly()
 # ===================== LOAD 2023 DATA =====================
 
 # 2023 Set totals and environmentals ------------------------------------
-juvi.enocgy <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), 
-                                  sheet="enviro_ocgy", trim_ws=T)
-juvi.totals <- readxl::read_excel(here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="set_totals", trim_ws=T)
+juvi.enviroMeta <- left_join(readxl::read_excel(here::here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), 
+                                                sheet="enviro_ocgy", trim_ws=T),
+                             readxl::read_excel(here::here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"),
+                                                sheet="sample_event_metadata", trim_ws=T), 
+                             na_matches="never",
+                             by="usid")
+
+juvi.enumMeta <- left_join(readxl::read_excel(here::here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"),
+                                              sheet="set_totals", trim_ws=T),
+                           readxl::read_excel(here::here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"),
+                                              sheet="sample_event_metadata", trim_ws=T), 
+                           na_matches="never",
+                           by="usid")
 
 
 
@@ -68,17 +78,6 @@ swvi.trawl <- read.csv(here("data", "juvenile", "marine", "juvenile_chinook_AOI_
 
 
 
-
-# ===================== JOIN DATA =====================
-
-# Field catch totals + meta ------------------------------------
-juvi.totalMeta <- left_join(juvi.totals,
-                            juvi.meta,
-                            by="usid") %>% 
-  unite(spp_stage, c(species, life_stage), remove = F, na.rm = T, sep=" ") %>% 
-  mutate(spp_group = case_when(species%in%c("coho","chinook","chum","pink","sockeye") ~ "salmon",
-                             TRUE ~ "non-salmonid")) %>% 
-  print()
 
 
 
