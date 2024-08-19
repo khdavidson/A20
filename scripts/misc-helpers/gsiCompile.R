@@ -34,10 +34,6 @@ gsi.IDs <- full_join(
                 select(indiv, `Vial Number`:associated_collection_prob) %>%
                 rename(Vial=`Vial Number`))
   ) %>%
-  
-  
-  
-  
   left_join(.,
             readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20230066(4)_2023_WCVI_FTF_Juv_SS(23)_4_sc520_2024-01-15_new-format.xlsx"), 
                                sheet="species_ID")) %>%
@@ -68,27 +64,27 @@ juvi.bioMeta.GSI <- left_join(readxl::read_excel(here::here("data", "juvenile", 
   left_join(.,
             gsi.IDs,
             by="DNA_vial", na_matches="never") %>% 
-  mutate(`(R) ORIGIN` = case_when(ID_Source=="PBT" ~ "Hatchery",
-                                  ad_clip=="Y" ~ "Hatchery",
-                                  prob.1 >= 75 & grepl("HATCHERY", collection.1) ~ "Hatchery",
-                                  grepl("HAT", usid) ~ "Hatchery",
-                                  grepl("RST", gear) ~ "Natural",
-                                  ID_Source=="GSI" & ad_clip=="N" & !grepl("RST", gear) ~ "Natural (assumed)",
-                                  ID_Source=="Failed to amplify" ~ "Unknown",
-                                  
-                                  is.na(DNA_vial) | is.na(indiv) ~ NA,
-                                  
-                                  TRUE ~ "FLAG"),
-         `(R) STOCK ID` = case_when(prob.1 >= 75 ~ str_to_title(gsub(collection.1, pattern="_", replacement=" ")),
-                                    grepl("RST", gear) & is.na(collection.1) ~ "San Juan River",
-                                    grepl("HAT", usid) ~ "San Juan River",
-                                    ID_Source=="Failed to amplify" ~ "Unknown",
-                                    prob.1 < 75 & (repunit.1%in%c("SWVI", "NWVI") | repunit.1%in%c("SWVI", "NWVI") | repunit.1%in%c("SWVI", "NWVI")) ~ 
-                                      "Uncertain WCVI origin",
-                                    is.na(DNA_vial) | is.na(indiv) ~ NA,
-                                    TRUE ~ "FLAG")) %>%
-  unite(col=`(R) STOCK-ORIGIN`, c(`(R) ORIGIN`, `(R) STOCK ID`), sep=" ", remove=F, na.rm=T) %>% 
-  mutate(yday = lubridate::yday(date_end)) %>%
+  # mutate(`(R) ORIGIN` = case_when(ID_Source=="PBT" ~ "Hatchery",
+  #                                 ad_clip=="Y" ~ "Hatchery",
+  #                                 prob.1 >= 75 & grepl("HATCHERY", collection.1) ~ "Hatchery",
+  #                                 grepl("HAT", usid) ~ "Hatchery",
+  #                                 grepl("RST", gear) ~ "Natural",
+  #                                 ID_Source=="GSI" & ad_clip=="N" & !grepl("RST", gear) ~ "Natural (assumed)",
+  #                                 ID_Source=="Failed to amplify" ~ "Unknown",
+  #                                 
+  #                                 is.na(DNA_vial) | is.na(indiv) ~ NA,
+  #                                 
+  #                                 TRUE ~ "FLAG"),
+  #        # `(R) STOCK ID` = case_when(prob.1 >= 75 ~ str_to_title(gsub(collection.1, pattern="_", replacement=" ")),
+  #        #                            grepl("RST", gear) & is.na(collection.1) ~ "San Juan River",
+  #        #                            grepl("HAT", usid) ~ "San Juan River",
+  #        #                            ID_Source=="Failed to amplify" ~ "Unknown",
+  #        #                            prob.1 < 75 & (repunit.1%in%c("SWVI", "NWVI") | repunit.1%in%c("SWVI", "NWVI") | repunit.1%in%c("SWVI", "NWVI")) ~ 
+  #        #                              "Uncertain WCVI origin",
+  #        #                            is.na(DNA_vial) | is.na(indiv) ~ NA,
+  #        #                            TRUE ~ "FLAG")) %>%
+  # unite(col=`(R) STOCK-ORIGIN`, c(`(R) ORIGIN`, `(R) STOCK ID`), sep=" ", remove=F, na.rm=T) %>% 
+  #mutate(yday = lubridate::yday(date_end)) %>%
   print()
 
 
