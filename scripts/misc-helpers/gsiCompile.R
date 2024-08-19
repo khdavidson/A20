@@ -4,8 +4,8 @@
 
 # Load libraries ------------------------------------
 library(tidyverse)
-library(here)
-library(readxl)
+#library(here)
+#library(readxl)
 library(writexl)
 
 
@@ -13,31 +13,56 @@ library(writexl)
 
 # Load and join MGL files ------------------------------------
 gsi.IDs <- full_join(
-  readxl::read_excel(here("data", "juvenile", "GSI", "PID20230066(4)_2023_WCVI_FTF_Juv_SS(23)_4_sc520_2024-01-15.xlsx"), 
+  # GSI part 1: Read in extraction sheet which has Vial and individual ID and catch metadata
+  readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20230066(4)_2023_WCVI_FTF_Juv_SS(23)_4_sc520_2024-01-15_new-format.xlsx"), 
                      sheet="extraction_sheet") %>% 
     select(indiv, Vial, CatchJulDate, CatchYear),
+  # GSI part 1: Read in GSI table results
+  readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20230066(4)_2023_WCVI_FTF_Juv_SS(23)_4_sc520_2024-01-15_new-format.xlsx"), 
+                     sheet="repunits_table_ids") %>%
+    select(indiv, ID_Source:PBT_brood_group, repunit.1:associated_collection_prob)) %>% 
+
+  full_join(.,
+            full_join(
+              # GSI part 2: read in extraction sheet which has Vial and individual ID and catch metadata 
+              readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20240039(2)_WCVI_FTF(22-23)_sc578_2024-07-11_NF_JB -- 2023 SJ purse seine part 2.xlsx"),
+                                 sheet = "extraction_sheet") %>% 
+                select(indiv, CatchYear, CatchJulDate, Vial),
+              # GSI part 2: read in GSI table results
+              readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20240039(2)_WCVI_FTF(22-23)_sc578_2024-07-11_NF_JB -- 2023 SJ purse seine part 2.xlsx"),
+                                 sheet="repunits_table_ids") %>%
+                select(indiv, `Vial Number`:associated_collection_prob) %>%
+                rename(Vial=`Vial Number`))
+  ) %>%
   
-  readxl::read_excel(here("data", "juvenile", "GSI", "PID20230066(4)_2023_WCVI_FTF_Juv_SS(23)_4_sc520_2024-01-15.xlsx"), 
-                     sheet="collection_table_ids") 
-) %>% 
-  rename(DNA_vial = Vial) %>% 
+  
+  
+  
   left_join(.,
-            readxl::read_excel(here("data", "juvenile", "GSI", "PID20230066(4)_2023_WCVI_FTF_Juv_SS(23)_4_sc520_2024-01-15.xlsx"), 
-                               sheet="species_ID") %>%
-              select(indiv, species)) %>%
+            readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20230066(4)_2023_WCVI_FTF_Juv_SS(23)_4_sc520_2024-01-15_new-format.xlsx"), 
+                               sheet="species_ID")) %>%
   left_join(., 
-            readxl::read_excel(here("data", "juvenile", "GSI", "PID20230066(4)_2023_WCVI_FTF_Juv_SS(23)_4_sc520_2024-01-15.xlsx"), 
+            readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20230066(4)_2023_WCVI_FTF_Juv_SS(23)_4_sc520_2024-01-15.xlsx"), 
                                sheet="sex_ID") %>%
               select(indiv, sex_ID, notes)) %>% 
-  rename(genetic_species = species) %>% 
-  print()
 
+  left_join(.,
+            readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20240039(2)_WCVI_FTF(22-23)_sc578_2024-07-11_NF_JB -- 2023 SJ purse seine part 2.xlsx"),
+                               sheet = "species_ID")) %>%   
+  left_join(.,
+            readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20240039(2)_WCVI_FTF(22-23)_sc578_2024-07-11_NF_JB -- 2023 SJ purse seine part 2.xlsx"),
+                               sheet = "sex_ID") %>%
+              select(indiv, sex_ID, notes)) %>%  
+  setNames(paste0('MGL_', names(.))) %>%
+  rename(DNA_vial = MGL_Vial) %>% 
+  print()
+            
 
 
 
 # Link juvi biodata + metadata + MGL IDs ------------------------------------
-juvi.bioMeta <- left_join(juvi.bio,
-                          juvi.meta,
+juvi.bioMeta.GSI <- left_join(readxl::read_excel(here::here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="biosamples", trim_ws=T),
+                          readxl::read_excel(here::here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="sample_event_metadata", trim_ws=T),
                           na_matches="never",
                           by="usid") %>% 
   left_join(.,
@@ -71,7 +96,10 @@ juvi.bioMeta <- left_join(juvi.bio,
 
 # ================= EXPORT ================= 
 # To github ------------------------------------
-writexl::write_xlsx(juvi.bioMeta, 
-                    path = here("outputs", "R_OUT - PFN_DFO_FTFjuvi_2023_verified WITH RESULTS.xlsx"))
+writexl::write_xlsx(juvi.bioMeta.GSI, 
+                    path = here::here("outputs", 
+                                      paste0("R_OUT - PFN_DFO_FTFjuvi_2023_verified_with-GSI-Results_",
+                                             Sys.Date(),
+                                             ".xlsx")))
 
 
