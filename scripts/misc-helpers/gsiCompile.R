@@ -35,20 +35,19 @@ gsi.IDs <- full_join(
                 rename(Vial=`Vial Number`))
   ) %>%
   left_join(.,
-            readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20230066(4)_2023_WCVI_FTF_Juv_SS(23)_4_sc520_2024-01-15_new-format.xlsx"), 
-                               sheet="species_ID")) %>%
+            rbind(readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20230066(4)_2023_WCVI_FTF_Juv_SS(23)_4_sc520_2024-01-15_new-format.xlsx"), 
+                                     sheet="species_ID"),
+                  readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20240039(2)_WCVI_FTF(22-23)_sc578_2024-07-11_NF_JB -- 2023 SJ purse seine part 2.xlsx"),
+                                     sheet = "species_ID")),
+            by="indiv") %>%
   left_join(., 
-            readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20230066(4)_2023_WCVI_FTF_Juv_SS(23)_4_sc520_2024-01-15.xlsx"), 
-                               sheet="sex_ID") %>%
-              select(indiv, sex_ID, notes)) %>% 
-
-  left_join(.,
-            readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20240039(2)_WCVI_FTF(22-23)_sc578_2024-07-11_NF_JB -- 2023 SJ purse seine part 2.xlsx"),
-                               sheet = "species_ID")) %>%   
-  left_join(.,
-            readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20240039(2)_WCVI_FTF(22-23)_sc578_2024-07-11_NF_JB -- 2023 SJ purse seine part 2.xlsx"),
-                               sheet = "sex_ID") %>%
-              select(indiv, sex_ID, notes)) %>%  
+            rbind(readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20230066(4)_2023_WCVI_FTF_Juv_SS(23)_4_sc520_2024-01-15_new-format.xlsx"), 
+                                     sheet="sex_ID") %>%
+                    select(indiv, sex_ID, notes),
+                  readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20240039(2)_WCVI_FTF(22-23)_sc578_2024-07-11_NF_JB -- 2023 SJ purse seine part 2.xlsx"),
+                                     sheet = "sex_ID") %>%
+                    select(indiv, sex_ID, notes)),
+            by="indiv") %>% 
   setNames(paste0('MGL_', names(.))) %>%
   rename(DNA_vial = MGL_Vial) %>% 
   print()
