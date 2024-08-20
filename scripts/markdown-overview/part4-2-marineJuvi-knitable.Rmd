@@ -53,12 +53,46 @@ juvi.enumMeta <- left_join(readxl::read_excel(here::here("data", "juvenile", "PF
 # 2023 Biodata ------------------------------------
 
 # OPTION 1: Only need to do if new 2023 GSI after Aug 2024: 
-#juvi.bioMeta.GSI <- source(here("scripts","misc-helpers","gsiCompile.R")) 
+#juvi.bioMeta.GSI <- source(here("scripts","misc-helpers","gsiCompile.R")) %>% 
+  # mutate(`(R) ORIGIN` = case_when(ad_clip=="Y" ~ "Hatchery",
+  #                                 MGL_ID_Source=="PBT" ~ "Hatchery",
+  #                                 ad_clip=="N" & MGL_ID_Source=="GSI" ~ "Natural",
+  #                                 TRUE ~ "Unknown"))
 
 # OPTION 2: all other times
 juvi.bioMeta.GSI <- readxl::read_excel(path=here::here("outputs", list.files(path=here::here("outputs"),
                                                       pattern = "^R_OUT - PFN_DFO_FTFjuvi_2023_verified_with-GSI-Results_")),
-                                       sheet="Sheet1")
+                                       sheet="Sheet1", guess_max=1500) %>% 
+  mutate(`(R) ORIGIN` = case_when(species%in%c("chinook", "coho", "chum", "pink", "sockeye") & 
+                                    ad_clip=="Y" ~ "Hatchery",
+                                  species%in%c("chinook", "coho", "chum", "pink", "sockeye") & 
+                                    MGL_ID_Source=="PBT" ~ "Hatchery",
+                                  species%in%c("chinook", "coho", "chum", "pink", "sockeye") & 
+                                    grepl("hatchery", MGL_top_collection, ignore.case=T) ~ "Hatchery",
+                                  species%in%c("chinook", "coho", "chum", "pink", "sockeye") & 
+                                    ad_clip=="N" & MGL_ID_Source=="GSI" ~ "Natural",
+                                  species%in%c("chinook", "coho", "chum", "pink", "sockeye") & 
+                                    ad_clip=="N" & MGL_ID_Source%notin%c("GSI", "PBT") ~ "Unknown",
+                                  species%in%c("chinook", "coho", "chum", "pink", "sockeye") & 
+                                    ad_clip%notin%c("Y", "N") & MGL_ID_Source%notin%c("GSI", "PBT") ~ "Unknown",
+                                  TRUE ~ NA),
+         `(R) ORIGIN-ID` = case_when(!is.na(`(R) ORIGIN`) & !is.na(MGL_top_collection) & MGL_associated_collection_prob>=0.75 ~
+                                       paste0(`(R) ORIGIN`, sep=" ",
+                                              str_to_title(gsub(pattern="_",
+                                                                replacement=" ",
+                                                                MGL_top_collection))),
+                                     !is.na(`(R) ORIGIN`) & !is.na(MGL_top_collection) & MGL_associated_collection_prob<0.75 ~
+                                       "DNA did not amplify",
+                                     !is.na(`(R) ORIGIN`) & is.na(MGL_top_collection) ~ paste0(`(R) ORIGIN`, " Unknown")),
+         `(R) ORIGIN-ID-GROUP` = case_when(is.na(MGL_PBT_brood_group) ~ `(R) ORIGIN-ID`,
+                                           !is.na(MGL_PBT_brood_group) ~ paste0(`(R) ORIGIN-ID`, sep=" - ", 
+                                                                                str_to_title(gsub(pattern="_",
+                                                                                                  replacement=" ",
+                                                                                                  MGL_PBT_brood_group)))
+         ))
+
+
+
 
 
 
@@ -207,20 +241,43 @@ ggplot() +
 
 
 
-```{r stock-comp-fig, fig.cap='GSI stock comps only from the samples collected July 7. Reminaing samples still in process.'}
+```{r stock-comp-fig, fig.cap='2023 purse seine Chinook stock ID (> 75% GSI probability).'}
+ggplot(data=juvi.bioMeta.GSI %>% 
+         filter(species=="chinook", grepl("purse seine", gear), MGL_associated_collection_prob>0.75) %>%
+         group_by(date_start, `(R) ORIGIN-ID-GROUP`) %>% 
+         summarize(n=n()) %>%
+         group_by(date_start) %>%
+         mutate(propn=n/sum(n))) +
+  geom_bar(aes(x=as.Date(date_start), y=propn, fill=`(R) ORIGIN-ID-GROUP`, 
+               colour=`(R) ORIGIN-ID-GROUP`, label=n), stat="identity", alpha=0.6, size=1, width=3) +
+  geom_text(aes(x=as.Date(date_start), y=propn, label=n, colour=`(R) ORIGIN-ID-GROUP`), 
+            position=position_stack(vjust=0.5), show.legend = FALSE, face="bold") + 
+  labs(x="", y="Daily proportion", fill="Origin and stock ID", colour="Origin and stock ID") +
+  scale_x_date(date_breaks="7 day", date_labels="%b %d") +
+  theme_bw() +
+  theme(axis.text = element_text(colour="black"),
+        axis.text.x = element_text(angle=45, hjust=1),
+        axis.title = element_text(face="bold"),
+        legend.title = element_text(face="bold"))
 
-ggplot() +
-   geom_bar(data=juvi_summary%>%filter(grepl("purse seine", gear)), 
-            aes(x=as.Date(date_start), y=day_ID_propn, fill=`(R) STOCK-ORIGIN`), colour="transparent", stat="identity", size=2, alpha=0.6) +
-  geom_text(data=juvi_summary%>%filter(grepl("purse seine", gear))%>%arrange(desc(`(R) STOCK-ORIGIN`)), 
-            aes(x=as.Date(date_start), y=day_ID_propn, label=n), position = position_stack(vjust=0.5)) +
-  geom_bar(data=juvi_summary%>%filter(grepl("purse seine", gear)) %>% group_by(date_start, `(R) ORIGIN`) %>% summarize(day_origin_propn=unique(day_origin_propn)), 
-           aes(x=as.Date(date_start), y=day_origin_propn, colour=`(R) ORIGIN`), fill="transparent", stat="identity", size=2) +
-  scale_colour_manual(breaks=waiver(), values = c("black", "transparent")) +
-  scale_y_continuous(labels = scales::percent)  +
-  scale_x_date(date_labels = "%b %d") +
-  labs(x="", y="Daily stock composition") +
-  theme_bw()
+
+
+
+ggplot(data=juvi.bioMeta.GSI %>% 
+         filter(species=="chinook", grepl("purse seine", gear)) %>%
+         group_by(date_start, `(R) ORIGIN-ID-GROUP`) %>% 
+         summarize(n=n())) +
+  geom_bar(aes(x=as.Date(date_start), y=n, fill=`(R) ORIGIN-ID-GROUP`, 
+               colour=`(R) ORIGIN-ID-GROUP`, label=n), stat="identity", alpha=0.6, size=1, width=3) +
+  geom_text(aes(x=as.Date(date_start), y=n, label=n, colour=`(R) ORIGIN-ID-GROUP`), 
+            position=position_stack(vjust=0.5), show.legend = FALSE, face="bold") + 
+  labs(x="", y="Chinook catch", fill="Origin and stock ID", colour="Origin and stock ID") +
+  scale_x_date(date_breaks="7 day", date_labels="%b %d") +
+  theme_bw() +
+  theme(axis.text = element_text(colour="black"),
+        axis.text.x = element_text(angle=45, hjust=1),
+        axis.title = element_text(face="bold"),
+        legend.title = element_text(face="bold"))
 ```
 
 <br>
