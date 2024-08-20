@@ -68,28 +68,26 @@ juvi.bioMeta.GSI <- readxl::read_excel(path=here::here("outputs", list.files(pat
                                   species%in%c("chinook", "coho", "chum", "pink", "sockeye") & 
                                     MGL_ID_Source=="PBT" ~ "Hatchery",
                                   species%in%c("chinook", "coho", "chum", "pink", "sockeye") & 
-                                    grepl("hatchery", MGL_top_collection, ignore.case=T) ~ "Hatchery",
-                                  species%in%c("chinook", "coho", "chum", "pink", "sockeye") & 
-                                    ad_clip=="N" & MGL_ID_Source=="GSI" ~ "Natural",
+                                    ad_clip=="N" & MGL_ID_Source=="GSI" ~ "Natural (assumed)",
                                   species%in%c("chinook", "coho", "chum", "pink", "sockeye") & 
                                     ad_clip=="N" & MGL_ID_Source%notin%c("GSI", "PBT") ~ "Unknown",
                                   species%in%c("chinook", "coho", "chum", "pink", "sockeye") & 
                                     ad_clip%notin%c("Y", "N") & MGL_ID_Source%notin%c("GSI", "PBT") ~ "Unknown",
                                   TRUE ~ NA),
-         `(R) ORIGIN-ID` = case_when(!is.na(`(R) ORIGIN`) & !is.na(MGL_top_collection) & MGL_associated_collection_prob>=0.75 ~
-                                       paste0(`(R) ORIGIN`, sep=" ",
-                                              str_to_title(gsub(pattern="_",
-                                                                replacement=" ",
-                                                                MGL_top_collection))),
-                                     !is.na(`(R) ORIGIN`) & !is.na(MGL_top_collection) & MGL_associated_collection_prob<0.75 ~
-                                       "DNA did not amplify",
-                                     !is.na(`(R) ORIGIN`) & is.na(MGL_top_collection) ~ paste0(`(R) ORIGIN`, " Unknown")),
-         `(R) ORIGIN-ID-GROUP` = case_when(is.na(MGL_PBT_brood_group) ~ `(R) ORIGIN-ID`,
-                                           !is.na(MGL_PBT_brood_group) ~ paste0(`(R) ORIGIN-ID`, sep=" - ", 
-                                                                                str_to_title(gsub(pattern="_",
-                                                                                                  replacement=" ",
-                                                                                                  MGL_PBT_brood_group)))
-         ))
+         `(R) RESOLVED STOCK ID` = case_when(is.na(DNA_vial) ~ "Unknown (No DNA sample)",
+                                             !is.na(MGL_top_collection) & MGL_associated_collection_prob>=0.75 ~
+                                               str_to_title(gsub(pattern="_", replacement=" ", MGL_top_collection)),
+                                             grepl("failed|loci", MGL_ID_Source, ignore.case=T) |
+                                               MGL_associated_collection_prob<0.75 ~ "Unknown (DNA did not amplify)",
+                                             MGL_ID_Source=="non-target_species" ~ "Not chinook"),
+         `(R) ORIGIN-ID` = paste0(`(R) ORIGIN`, sep=" ", `(R) RESOLVED STOCK ID`),
+         `(R) ORIGIN-ID-GROUP` = case_when(`(R) RESOLVED STOCK ID`=="Not chinook" ~ `(R) RESOLVED STOCK ID`,
+                                           is.na(MGL_PBT_brood_group) ~ `(R) ORIGIN-ID`,
+                                           !is.na(MGL_PBT_brood_group) ~ 
+                                             paste0(`(R) ORIGIN-ID`, sep=" - ", 
+                                                    str_to_title(gsub(pattern="_",
+                                                                      replacement=" ",
+                                                                      MGL_PBT_brood_group)))))
 
 
 
