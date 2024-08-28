@@ -43,8 +43,8 @@ analysis_year <- 2023
   # saves as a20_nuseds_escapement
 
 # Option 2. Load dumped data ------------------------
-a20_nuseds_escapement <- readxl::read_excel(path=here("outputs", 
-                                                      list.files(path=here("outputs"), 
+a20_nuseds_escapement <- readxl::read_excel(path=here::here("outputs", 
+                                                      list.files(path=here::here("outputs"), 
                                                                  pattern="R_OUT - Area20WCVI_Escapement_allSpp-allYrs*")),
                                             sheet="Sheet1")
 
@@ -336,6 +336,90 @@ ggplot() +
         legend.background = element_blank(),
         strip.text = element_text(size=10)) +
   guides(colour = guide_legend(override.aes=list(colour=NA))) 
+```
+
+<br>
+
+```{r a20-fig, fig.cap='Population-level spawner estimates for salmon in Area 20 (WCVI). Data from NuSEDS.'}
+
+pdf(file = here::here("outputs", "figures", "Area 20 escapement - populations.pdf"),   
+    width = 14, # The width of the plot in inches
+    height = 8.5) # The height of the plot in inches
+
+# FIGURE: All populations Area 21 ----------------------- 
+ggplot() +
+  # --- Enhancement start vertical line:
+  #geom_vline(data=sj.releases.sep%>%group_by(SPECIES_NAME)%>%summarize(start=min(BROOD_YEAR))%>%rename(Species=SPECIES_NAME)%>%
+  #             mutate(n=7000),
+  #           aes(xintercept=start), colour="gray60", linetype="dashed", size=0.5) +
+  # --- Escapement goal and average escapements: 
+  #geom_hline(data=data.frame(Species="Chinook", Smsy=2200, Sgen=990, Srep=5200), aes(yintercept=Smsy), size=1, linetype="dashed") +
+  #geom_hline(data=sj.esc %>% filter(analysis_year>=(max(analysis_year-10)), est_type=="Natural Adult Spawners") %>% 
+  #             summarize(mean=round(mean(n,na.rm=T),0)),
+  #           aes(yintercept=mean), size=1, linetype="solid", colour="black") +
+  # --- Plot NuSEDS escapement data:
+  geom_bar(data=sj.esc %>% 
+             filter(est_type %in% c("Unspecified Return", "Natural Adult Spawners", "Adult Broodstock Removals"),
+                    !is.na(estimate), !is.na(Population)),
+           aes(x=year, y=as.numeric(estimate), fill=est_type, colour=est_type), stat="identity", alpha=0.8, width=0.9, size=0.3) +
+  scale_fill_manual(breaks = c("Natural Adult Spawners", "Adult Broodstock Removals", "Unspecified Return"), 
+                    values=c("dodger blue","orange", "gray")) +
+  scale_colour_manual(breaks = c("Natural Adult Spawners", "Adult Broodstock Removals", "Unspecified Return"), 
+                      values=c("dodger blue","orange", "gray")) +
+  scale_x_continuous(breaks=seq(0,3000, by=5)) +
+  labs(x="Return Year", y="Number of salmon in Area 21 populations") +
+  theme_bw() +
+  theme(axis.text = element_text(colour="black",size=11),
+        axis.text.x = element_text(angle=45,hjust=1, size=9),
+        axis.title = element_text(face="bold",size=13),
+        legend.title = element_blank(),
+        legend.text = element_text(size=10),
+        legend.position = "bottom",
+        legend.direction = "horizontal",
+        legend.background = element_blank(),
+        strip.text = element_text(size=8)) +
+  guides(colour = guide_legend(override.aes=list(colour=NA))) +
+  facet_wrap(~Population, scales="free_y")
+
+dev.off()
+```
+
+<br>
+
+```{r CU-fig, fig.cap='Conservation Unit (CU) level spawner estimates. Data from NuSEDS.'}
+
+pdf(file = here::here("outputs", "figures", "Area 20 escapement - CU.pdf"),   
+    width = 14, # The width of the plot in inches
+    height = 8.5) # The height of the plot in inches
+
+ggplot() +
+  geom_bar(data=sj.esc %>% 
+             filter(est_type %in% c("Unspecified Return", "Natural Adult Spawners", "Adult Broodstock Removals") &
+                    !is.na(estimate), !is.na(`Conservation Unit Name`)) %>% 
+             mutate(CUspp=paste0(`Conservation Unit Name`, sep=" - ", Species)) %>%
+             group_by(year, CUspp, est_type) %>% 
+             summarize(estimate=sum(estimate, na.rm=T)),
+           aes(x=year, y=as.numeric(estimate), fill=est_type, colour=est_type), stat="identity", alpha=0.8, width=0.9, size=0.3) +
+  scale_fill_manual(breaks = c("Natural Adult Spawners", "Adult Broodstock Removals", "Unspecified Return"), 
+                    values=c("dodger blue","orange", "gray")) +
+  scale_colour_manual(breaks = c("Natural Adult Spawners", "Adult Broodstock Removals", "Unspecified Return"), 
+                      values=c("dodger blue","orange", "gray")) +
+  scale_x_continuous(breaks=seq(0,3000,by=5)) +
+  labs(x="Return Year", y="Number of salmon in Area 20 CUs") +
+  theme_bw() +
+  theme(axis.text = element_text(colour="black",size=11),
+        axis.text.x = element_text(angle=45,hjust=1, size=9),
+        axis.title = element_text(face="bold",size=13),
+        legend.title = element_blank(),
+        legend.text = element_text(size=10),
+        legend.position = "bottom",
+        legend.direction = "horizontal",
+        legend.background = element_blank(),
+        strip.text = element_text(size=8)) +
+  guides(colour = guide_legend(override.aes=list(colour=NA))) +
+  facet_wrap(~CUspp, scales="free_y")
+
+dev.off()
 ```
 
 <br>
