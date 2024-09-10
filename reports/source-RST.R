@@ -12,7 +12,8 @@ library(tidyverse)
 # Form 1: Metadata/survey details -------------------
 rst24.1 <- readxl::read_excel(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/Data management/Epicollect Data Downloads/2024/RST/form-1_RSTmaster - verified.xlsx",
                               guess_max=20000) %>% 
-  mutate(R_date = lubridate::dmy(str_sub(title, start=1, end=10))) %>% 
+  mutate(R_date = lubridate::dmy(str_sub(title, start=1, end=10)),
+         R_time = str_sub()) %>% 
   rename(ec5_parent_uuid=ec5_uuid)
 
 
@@ -54,46 +55,97 @@ rst24.metaEnum <- left_join(rst24.1, rst24.2,
                            TRUE ~ "FLAG"),
          condition = case_when(grepl("mort|mrt", spp_stage_condition) ~ "Mort",
                                TRUE ~ "Live"),
-         tag_status = case_when(grepl("nobis|nobi", spp_stage_condition) ~ "Untagged",
+         tag_status = case_when(grepl("nobi", spp_stage_condition) ~ "Untagged",
                                 grepl("_bis", spp_stage_condition) ~ "Tag recovery",
                                 TRUE ~ "FLAG"),
-         clip_status = case_when(grepl("cl", spp_stage_condition) ~ "Ad-clipped",
+         clip_status = case_when(grepl("_cl_", spp_stage_condition) ~ "Ad-clipped",
                                  TRUE ~ "Unclipped"),
          count = case_when(is.na(count) ~ 0,
                            TRUE ~ as.numeric(count)))
 
-         
-         
+
+# export for use later
+writexl::write_xlsx(rst24.metaEnum, here::here("outputs", "R_OUT - RST 2024 metadata and catch totals.xlsx"))
+
+
+
+writexl::write_xlsx(left_join(rst24.2, rst24.1,
+                              by="ec5_parent_uuid"), here::here("outputs", "R_OUT - RST 2024 form 1+2.xlsx"))
+writexl::write_xlsx(left_join(rst24.3, rst24.1,
+                              by="ec5_parent_uuid"), here::here("outputs", "R_OUT - RST 2024 form 1+3.xlsx"))
+
+
+
+
+
+
          
 ############################################################################################################################################################
 
-# Exploration --- raw total catch (live + morts)
+#                                                                 Raw data exploration
 
-ggplot(data=rst24.metaEnum %>% 
-         group_by(DOY, species, stage) %>%
-         summarize(n=sum(count, na.rm=T)) %>%
-         filter(!is.na(species) & !is.na(stage) & n>0 & species%in%c("Chinook", "Chum", "Coho")), 
-       aes(x=DOY, y=n, group=interaction(species, stage, sep=" "), fill=interaction(species, stage, sep=" "))) +
-  geom_bar(stat="identity") +
-  theme_bw()
+# Salmon catch
+ggplot() +
+  geom_bar(data=rst24.metaEnum %>% 
+             group_by(DOY, species, stage) %>%
+             summarize(n=sum(count, na.rm=T)) %>%
+             filter(!is.na(species) & !is.na(stage) & n>0 & species%in%c("Chinook", "Chum", "Coho")), 
+           aes(x=as.Date(DOY, origin="2023-12-31"), y=n, 
+               group=interaction(species, stage, sep=" "), fill=interaction(species, stage, sep=" "), colour=interaction(species, stage, sep=" ")), 
+           stat="identity", alpha=0.7,
+           position=position_stack(vjust=0.5)) +
+  ggrepel::geom_text_repel(data=rst24.metaEnum %>% 
+                             group_by(DOY, species, stage) %>%
+                             summarize(n=sum(count, na.rm=T)) %>%
+                             filter(!is.na(species) & !is.na(stage) & n>0 & species=="Chinook" & stage=="Smolt"), 
+                           aes(label=str_to_title(paste0(species, " ", stage, " (", n, ")")), 
+                               x=as.Date(DOY, origin="2023-12-31"),
+                               y=n-30,
+                               group=interaction(species, stage, sep=" "),
+                               colour=interaction(species, stage, sep=" ")), 
+                           position=position_stack(vjust=1), 
+                           size=2.5,
+                           direction="y", 
+                           hjust=-0.5,
+                           segment.size=1, segment.curvature=-0.1, segment.ncp=3, segment.angle=45, min.segment.length=unit(0, 'lines'), 
+                           box.padding=2,
+                           force=0.5, force_pull=1,
+                           na.rm=T, show.legend=F) +
+  scale_x_date(date_labels="%b %d", date_breaks="3 day") +
+  labs(x="", y="Total catch (uncorrected)", group="Species/stage", fill="Species/stage", colour="Species/stage") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        axis.text = element_text(colour="black"),
+        axis.title = element_text(face="bold"),
+        legend.title = element_text(face="bold"),
+        legend.position = c(0.8,0.8),
+        legend.background = element_rect(colour="black"))
   
 
 
-# exploration -- morts 
+
+# ========================= MORTS =========================
+# Count of mortalities -------------------
 
 ggplot(data=rst24.metaEnum %>% 
          filter(condition=="Mort") %>% 
          group_by(DOY, species, stage) %>%
          summarize(n=sum(count, na.rm=T)) %>%
          filter(species%in%c("Chinook", "Chum", "Coho") & n>0), 
-       aes(x=DOY, y=n, group=interaction(species, stage, sep=" "), fill=interaction(species, stage, sep=" "), colour=interaction(species, stage, sep=" "))) +
+       aes(x=as.Date(DOY, origin="2023-12-31"), y=n, group=interaction(species, stage, sep=" "), fill=interaction(species, stage, sep=" "), colour=interaction(species, stage, sep=" "))) +
   geom_bar(stat="identity", width=1, alpha=0.6) +
-  labs(x="", y="Total catch (uncorrected)", group="Species/stage", fill="Species/stage", colour="Species/stage") +
-  theme_bw()
+  scale_x_date(date_labels="%b %d", date_breaks="3 day") +
+  labs(x="", y="Mortalities (count)", group="Species/stage", fill="Species/stage", colour="Species/stage") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        axis.text = element_text(colour="black"),
+        axis.title = element_text(face="bold"),
+        legend.title = element_text(face="bold"),
+        legend.position = c(0.8,0.8),
+        legend.background = element_rect(colour="black"))
 
 
-# mort rate 
-
+# Mort rate -------------------
 ggplot() +
   geom_bar(data=rst24.metaEnum %>% 
              filter(!is.na(species)) %>%
@@ -103,7 +155,7 @@ ggplot() +
              mutate(total=sum(n)) %>%
              filter(condition=="Mort" & total>0) %>% 
              mutate(mort_rate=n/total) %>%
-             filter(n>0),
+             filter(mort_rate>0),
            aes(x=DOY, y=mort_rate, 
                group=interaction(species, stage, sep=" "), fill=interaction(species, stage, sep=" "), colour=interaction(species, stage, sep=" ")), 
            stat="identity", width=1, alpha=0.5, position=position_stack(vjust=1)) +
@@ -111,18 +163,41 @@ ggplot() +
               filter(!is.na(species)) %>%
               group_by(DOY, species, stage, condition) %>%
               summarize(n=sum(count, na.rm=T)) %>%
-              
               group_by(DOY) %>% 
-              mutate(total=sum(n)) %>% 
-              ungroup() %>% 
-              filter(total>0 & condition=="Mort") %>%
-              mutate(mort_rate = n/total) %>% 
-              filter(n>0),
+              mutate(total=sum(n)) %>%
+              filter(condition=="Mort" & total>0) %>% 
+              mutate(mort_rate=n/total) %>%
+              filter(mort_rate>0),
             aes(x=DOY, y=mort_rate, 
                 group=interaction(species, stage, sep=" "), fill=interaction(species, stage, sep=" "), colour=interaction(species, stage, sep=" "),
                 label=n), position=position_stack(vjust=0.5)) +
   labs(x="", y="Mortality rate", group="Species/stage", fill="Species/stage", colour="Species/stage") +
-  theme_bw()
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        axis.text = element_text(colour="black"),
+        axis.title = element_text(face="bold"),
+        legend.title = element_text(face="bold"),
+        legend.position = c(0.8,0.8),
+        legend.background = element_rect(colour="black"))
+
+
+############################################################################################################################################################
+
+#                                                             Mark-recapture 
+
+# Create M-R dataframe -------------------
+rst24.mr <- left_join(rst24.metaEnum %>%
+                        filter(condition=="Live") %>% 
+                        select(R_date, DOY, ))
+
+
+
+
+
+
+
+
+
 
 
 
