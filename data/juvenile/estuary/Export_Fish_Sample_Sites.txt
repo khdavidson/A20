@@ -1,0 +1,53 @@
+FID,Id,Name,Type,Comment,Easting,Northing,WaterCours,Project
+0,0,BS10,Beach Seine,Central Arm at Island Road bridge,398090.675969999982044,5380759.216509999707341,Centre Arm San Juan,0
+1,0,BS02,Beach Seine,Opposite Port Renfrew Marina; dropped due to mud mortalities,396111.742734999977984,5382211.740790000185370,Brown's Slough,0
+2,0,BS03,Beach Seine,Pacheedah Shores boat ramp,396416.177885000011884,5382073.487619999796152,Brown's Slough,9
+3,0,BS04,Beach Seine,Gallaugher's,396629.938697999983560,5381867.758460000157356,North Arm San Juan,0
+4,0,BS07,Beach Seine,Butch's,395757.206232999975327,5381608.549220000393689,Gordon River,0
+5,0,BS08,Beach Seine,"S. Arm San Juan, old mill site",397995.780833000026178,5379982.237300000153482,South Arm San Juan,0
+6,0,BS01,Beach Seine,Smokies (Was BS12),396347.714957999996841,5382131.316229999996722,Brown's Slough,0
+7,0,BS05,Beach Seine,"Gordon R., left bank, adjacent to Site 4 salt marsh. Was Q01",396199.864409999980126,5381839.806680000387132,Gordon River,0
+8,0,PS6-1,Pole Seine,Site 6 channel just up from bridge,396415.956481000001077,5382139.853260000236332,Brown's Slough,6
+9,0,BS12,Beach Seine,u/s of Tanis's template site (was Q04),397513.975944000005256,5380395.356829999946058,Centre Arm San Juan,0
+10,0,BS09,Beach Seine,Central/South Arm confluence (was Q07),397435.233424999983981,5380102.698389999568462,South Arm San Juan,0
+11,0,BS06,Beach Seine,Jeff's boat launch. Was Q08,396221.944185999978799,5381665.969060000032187,North Arm San Juan,0
+12,0,BS13,Beach Seine,San Juan mouth (was Q09),396736.009197000006679,5379679.896099999547005,San Juan mouth,0
+13,0,BS11,Beach Seine,Top of Island Road (was Q Helen),398349.248910999973305,5381050.629859999753535,Centre Arm San Juan,0
+14,0,BS03b,Beach Seine,Was Q Jeff (right bank opposite N Arm,396410.584657000028528,5381925.610840000212193,Brown's Slough,9
+15,0,BS26a,Beach Seine,Project 13 slough just upstream of confluence with main channel,397990.433707999996841,5382053.283979999832809,North Arm San Juan,13
+16,0,BS15,Beach Seine,"Inside Project 7 inlet, south side",396486.554562999983318,5382048.509659999981523,Brown's Slough,0
+17,0,BS17,Beach Seine,On  point at confluence of N. Arm and Brown's Slough,396503.710563000000548,5381939.539379999972880,Brown's Slough,9
+18,0,BS25,Beach Seine,"Project 9 (AHRF), Brown's slough between Site 7 and N. Arm",396487.200529000023380,5382004.732830000109971,Brown's Slough,9
+19,0,BS21,Beach Seine,River left just upstream of San Juan bridge,396843.297888999979477,5379439.327290000393987,San Juan Estuary,11
+20,0,PS11-1,Pole Seine,Seine along margin of salt grass in Harris Cove,396719.753069999977015,5379399.918580000288785,San Juan Estuary,11
+21,0,BS20,Beach Seine,"Project 12, inside channel, pull in on bar",396862.007554000010714,5379852.576650000177324,San Juan Estuary,12
+22,0,BS22,Beach Seine,"Site 12, inside channel, pull in on right bank",396769.403223000001162,5379799.130739999935031,San Juan Estuary,12
+23,0,BS23,Beach Seine,"Site 15, mainstem side of bar",396876.295053999987431,5379772.672330000437796,Centre Arm San Juan,15
+24,0,PS6-2,Pole Seine,Straight channel,396442.351084999972954,5382294.661670000292361,Brown's Slough,6
+25,0,PS6-3,Pole Seine,At water monitoring station,396474.842214000003878,5382403.236990000121295,Brown's Slough,6
+26,0,MT10-1,Minnow Trap,In sink hole at outlet,396350.609302000026219,5382188.168229999952018,Brown's Slough,10
+27,0,MT10-2,Minnow Trap,In sink hole at top of Pacheedaht land,396324.466116999974474,5382251.187359999865294,Brown's Slough,10
+28,0,MT14-2,Minnow Trap," Project 14, high marsh channel above Island  Road (middle site)",397651.244415999972261,5380649.592600000090897,Centre Arm San Juan,14
+29,0,MT14-1,Minnow Trap," Project 14, high marsh channel above Island  Road (lower site)",397652.567359999986365,5380633.982119999825954,Centre Arm San Juan,14
+30,0,MT14-3,Minnow Trap," Project 14, high marsh channel above Island  Road (upper site)",397641.454824000014924,5380668.642579999752343,Centre Arm San Juan,14
+31,0,BS24,Beach Seine,At West Coast Trail ladder,395546.059784999990370,5381368.975879999808967,Gordon River,0
+32,0,PS13-1,Pole Seine,one or two-person seine depending on depth/width.,398217.459001999988686,5382110.895960000343621,North Arm San Juan,13
+33,0,MT13-1,Minnow Trap,"Project 13, marsh on north side of Pacific Marine Road, upper MT site",397975.987375000026077,5382096.356759999878705,North Arm San Juan,13
+34,0,MT13-2,Minnow Trap,"Project 13, marsh on north side of Pacific Marine Road, lower MT site",397848.987106000015046,5382071.485879999585450,North Arm San Juan,13
+35,0,BS14,Beach Seine,"Mouth of Project 7 inlet, north side",396486.441425000026356,5382062.088809999637306,Brown's Slough,9
+36,0,BS18,Beach Seine,Gravel bar on Gordon at Project 1,395526.458013000024948,5382296.834210000000894,Gordon River,1
+37,0,MT7-1,Minnow Trap,"Site 7 overland channel, note: was MT07",396676.450277999974787,5382043.291009999811649,Brown's Slough,7
+38,0,MT7-2,Minnow Trap,"Site 7 overland channel, note: was MT08",396724.598953999986406,5382037.259150000289083,Brown's Slough,7
+39,0,MT7-3,Minnow Trap,"Site 7 overland channel at creek inflow, note: was MT09",396734.397802999999840,5382013.432470000348985,Brown's Slough,7
+40,0,PS1-1,Pole Seine,"Gordon R. Site 1, Channel A at Gordon R.",395517.870905000017956,5382268.380810000002384,Gordon River,1
+41,0,PS1-2,Pole Seine,"Gordon R. Site 1, Channel B at Gordon R.",395520.244546999980230,5382139.777710000053048,Gordon River,1
+42,0,PS1-3,Pole Seine,"Gordon R. Site 1, Channel B 60 m in",395515.257465999980923,5381995.600170000456274,Gordon River,1
+43,0,PS1-4,Pole Seine,"Gordon R. Site 1, Channel A 250 m in",395442.047537999984343,5381860.242320000194013,Gordon River,1
+44,0,PS5-1,Pole Seine,Site 5 main channel close to mouth,396060.647538000019267,5382096.356300000101328,Gordon River,5
+45,0,PS5-2,Pole Seine,Site 5 main channel half way up,396099.274677000008523,5382116.576689999550581,Gordon River,5
+46,0,PS5-3,Pole Seine,Site 5 main channel where stump sland channel comes in,396148.595990000001621,5382120.699869999662042,Gordon River,5
+47,0,PS6-4,Pole Seine,"Site 6, at creek inflow (SE corner of marsh)",396530.141578999988269,5382343.990199999883771,Brown's Slough,6
+48,0,PS7-1,Pole Seine,Brown's Slough Site 7 inlet left tidal channel,396645.821811000001617,5382024.320720000192523,Brown's Slough,7
+49,0,PS7-2,Pole Seine,Brown's Slough Site 7 Inlet right tidal channel,396659.437918999989051,5382050.698769999668002,Brown's Slough,7
+50,0,PS7-3,Pole Seine,Brown's Slough Site 7 overland channel at Creek inflow,396732.772172999975737,5382035.419789999723434,Brown's Slough,7
+51,0,PS14-1,Pole Seine,Project 14 outlet channel at confluence with San Juan River Central Arm,397643.133091000025161,5380569.095010000281036, ,14
