@@ -44,11 +44,22 @@ tt12 <- left_join(form2,
                   form1 %>%
                     select(ec5_form1_uuid, X2_Date, X5_Survey_Location_ri),
                   by="ec5_form1_uuid") %>%
-  select(ec5_form1_uuid, ec5_form2_uuid, X2_Date, X5_Survey_Location_ri)
+  select(ec5_form1_uuid, ec5_form2_uuid, X2_Date, X5_Survey_Location_ri, UTM_Northing_99_Coordinates, UTM_Easting_99_Coordinates)
 
 tt123 <- left_join(form3,
                    tt12,
                    by="ec5_form2_uuid")
+
+
+tt123 <- sf::st_as_sf(tt123,
+             coords = c("UTM_Easting_99_Coordinates", "UTM_Northing_99_Coordinates"),
+             remove=F,
+             crs = "+proj=utm +zone=10 +north +datum=WGS84") %>%
+  sf::st_transform(., crs="+proj=longlat +datum=WGS84") %>% 
+  mutate(lat = sf::st_coordinates(.)[,2],
+         long = sf::st_coordinates(.)[,1])
+
+
 
 
 write.csv(file=paste0(here::here("outputs"), "/R_OUT - 2024 purse seine joined data (forms1+2+3).csv"), x=tt123, row.names=F)
