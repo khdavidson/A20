@@ -335,7 +335,7 @@ openxlsx::writeData(R_OUT_DNAsubsamp, sheet="PRS subsample", x=prs.subsamp)
     
 # Export to github repo --------------------
 openxlsx::saveWorkbook(R_OUT_DNAsubsamp,
-                       file=here::here("outputs", "2024 BS and PRS DNA subsample choice.xlsx"),
+                       file=here::here("outputs", "R_OUT - 2024 BS and PRS DNA subsample choice.xlsx"),
                        overwrite=T,
                        returnValue=T)
 
