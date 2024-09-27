@@ -298,6 +298,7 @@ bs.subsamp <- bs %>%
   print()
 
 
+
 # ======================= PURSE SEINE =======================
 # Dates/situations chosen for sub-sampling are: 
 # NOT CLIPPED
@@ -318,9 +319,25 @@ prs.subsamp <- full_join(
     slice_sample(n = 3)
 ) %>% 
   print()
-    
-    
 
+
+# EXPORT
+# Create workbook --------------------
+R_OUT_DNAsubsamp <- openxlsx::createWorkbook()
+
+# Add sheets to the workbook --------------------
+openxlsx::addWorksheet(R_OUT_DNAsubsamp, "BS subsample")
+openxlsx::addWorksheet(R_OUT_DNAsubsamp, "PRS subsample")
+
+# Write data to the sheets --------------------
+openxlsx::writeData(R_OUT_DNAsubsamp, sheet="BS subsample", x=bs.subsamp)
+openxlsx::writeData(R_OUT_DNAsubsamp, sheet="PRS subsample", x=prs.subsamp)
+    
+# Export to github repo --------------------
+openxlsx::saveWorkbook(R_OUT_DNAsubsamp,
+                       file=here::here("outputs", "2024 BS and PRS DNA subsample choice.xlsx"),
+                       overwrite=T,
+                       returnValue=T)
 
 
 
