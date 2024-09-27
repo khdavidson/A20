@@ -275,14 +275,14 @@ leaflet() %>%
 
 
 # ======================= BEACH SEINE =======================
-
-# Dates/situations chosen for subsampling are: 
+# Dates/situations chosen for sub-sampling are: 
 # NOT CLIPPED
 # NOT LETHAL 
 # June 17 BS09 --> n=3
 # July 17 BS21 --> n=3
 # July 2 BS09 --> n=3
 # July 2 BS13 --> n=3
+
 set.seed(1)
 
 bs.subsamp <- bs %>% 
@@ -298,8 +298,28 @@ bs.subsamp <- bs %>%
   print()
 
 
+# ======================= PURSE SEINE =======================
+# Dates/situations chosen for sub-sampling are: 
+# NOT CLIPPED
+# NOT LETHAL 
+# July 15 PRCD --> n=1
+# Sept 3 Offshore B --> n=3
 
+set.seed(2)
 
+prs.subsamp <- full_join(
+  prs.dna %>% 
+    filter(X242_Species=="Chinook", X248_Adipose_Clip_Sta=="Not clipped",  X266_Is_this_a_lethal=="No") %>%
+    filter(date=="7/15/2024" & grepl("PRCD", X5_Survey_Location_ri, ignore.case=T)) %>% 
+    slice_sample(n = 1),
+  prs.dna %>% 
+    filter(X242_Species=="Chinook", X248_Adipose_Clip_Sta=="Not clipped",  X266_Is_this_a_lethal=="No") %>%
+    filter(date=="9/3/2024" & grepl("Offshore B", X5_Survey_Location_ri, ignore.case=T)) %>% 
+    slice_sample(n = 3)
+) %>% 
+  print()
+    
+    
 
 
 
