@@ -267,3 +267,40 @@ leaflet() %>%
                    color=~ifelse(`AD Clipped (Y/N)`=="Y", "red",
                                  ifelse(`AD Clipped (Y/N)`=="N", "blue", "gray70")), stroke=F, fillOpacity=0.7)
 
+
+#########################################################################################################################################################
+
+
+# Random selection process 
+
+
+# ======================= BEACH SEINE =======================
+
+# Dates/situations chosen for subsampling are: 
+# NOT CLIPPED
+# NOT LETHAL 
+# June 17 BS09 --> n=3
+# July 17 BS21 --> n=3
+# July 2 BS09 --> n=3
+# July 2 BS13 --> n=3
+set.seed(1)
+
+bs.subsamp <- bs %>% 
+  filter((`Date (YY-MM-DD)`=="24-06-17" & `Site Name`%in%c("BS09", "BS21")) |  
+         (`Date (YY-MM-DD)`=="24-07-02" & `Site Name` %in% c("BS09", "BS13"))) %>% 
+  filter(`AD Clipped (Y/N)`=="N", `Lethal Sample (Y/N)`=="N") %>%
+  mutate(subsamp_group = case_when(`Date (YY-MM-DD)`=="24-06-17" & `Site Name`=="BS09" ~ "group1",
+                                   `Date (YY-MM-DD)`=="24-06-17" & `Site Name`=="BS21" ~ "group2",
+                                   `Date (YY-MM-DD)`=="24-07-02" & `Site Name`=="BS09" ~ "group3",
+                                   `Date (YY-MM-DD)`=="24-07-02" & `Site Name`=="BS13" ~ "group4")) %>%
+  group_by(subsamp_group) %>%
+  slice_sample(n = 3) %>%
+  print()
+
+
+
+
+
+
+
+
