@@ -64,7 +64,7 @@ tt123 <- sf::st_as_sf(tt123,
 
 write.csv(file=paste0(here::here("outputs"), "/R_OUT - 2024 purse seine joined data (forms1+2+3).csv"), x=tt123, row.names=F)
 
-
+prs.dna <- read.csv(file=here::here("outputs", "R_OUT - 2024 purse seine joined data (forms1+2+3) - DNA submission version.csv"))
 
 #########################################################################################################################################################
 
@@ -126,6 +126,35 @@ ggplot()+
              aes(x=X249_Fork_Length_mm, y=X250_Height_mm, fill=X248_Adipose_Clip_Sta, colour=X248_Adipose_Clip_Sta),
              size=3, shape=21, alpha=0.7) +
   theme_bw()
+
+
+
+# MAP
+leaflet() %>% 
+  # ---- 1. Structure BASEMAP: 
+  #addProviderTiles(providers$Stamen.TerrainBackground) %>%
+  #addProviderTiles(providers$CartoDB.VoyagerNoLabels) %>%
+  #addProviderTiles(providers$OpenStreetMap.HOT) %>%
+  #addProviderTiles(providers$Esri.WorldImagery) %>%
+  addProviderTiles(providers$Esri.OceanBasemap) %>%
+  addWMSTiles(
+    "https://gis.ngdc.noaa.gov/arcgis/services/graticule/MapServer/WMSServer/",
+    layers = c("1-degree grid", "5-degree grid"),
+    options = WMSTileOptions(format = "image/png8", transparent = TRUE),
+    attribution = NULL,group = 'Graticules') %>%
+  setView(lng=-124.445266, lat= 48.556015, zoom=13) %>%
+  hideGroup(c('Place names')) %>%
+  addCircleMarkers(data=prs.dna %>% 
+                     filter(X242_Species=="Chinook", X266_Is_this_a_lethal=="No", X248_Adipose_Clip_Sta=="Not clipped", DNA.submission.status=="") %>%
+                     group_by(X5_Survey_Location_ri, lat, long) %>%
+                     summarize(n_samples = n()),
+                   lat= ~lat,
+                   lng = ~long,
+                   radius= ~ifelse(n_samples%in%c(1:5), 3,
+                                   ifelse(n_samples%in%c(6:12), 5, 10))#,
+                   #color=~ifelse(X248_Adipose_Clip_Sta=="Clipped", "red",
+                    #             ifelse(X248_Adipose_Clip_Sta=="Not clipped", "blue", "gray70")), stroke=F, fillOpacity=0.7
+                  )
 
 
 
