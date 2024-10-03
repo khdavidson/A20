@@ -5,8 +5,8 @@
 # Load libraries ------------------------
 library(saaWeb)
 library(tidyverse)
-library(writexl)
-library(here)
+#library(writexl)
+#library(here)
 
 # Helper ------------------------
 "%notin%" <- Negate("%in%")
@@ -70,7 +70,7 @@ runNuSEDSQuery <- function (query_doc, config_file = "saaWeb.config", user_name 
 
 
 # 3.2. Dump NuSEDS ages & reformat ------------------------
-SJ_ages.NuSEDS <- runNuSEDSQuery(here("scripts", "json", "nuseds_ages_SanJuan_allSpp-allYrs.json")) %>%
+SJ_ages.NuSEDS <- runNuSEDSQuery(here::here("scripts", "json", "nuseds_ages_SanJuan_allSpp-allYrs.json")) %>%
   select(`Fiscal Year`, Project, Location, Species, `Sample Source`, `Gear Code`, `Container Label`, `Container Address`, `Sample Number`, 
          `Sample Start Date`, `Sample End Date`, `Part Age Code`, `GR Age`, `EU Age`) %>%
   setNames(paste0('PADS_', names(.))) %>%
@@ -121,7 +121,7 @@ SJ_allAgesMaster <- full_join(SJ_scaleAgesMeta.MRP %>%
 
 
 # 4.2. Export to github repo ------------------------
-writexl::write_xlsx(SJ_allAgesMaster, here("outputs", 
+writexl::write_xlsx(SJ_allAgesMaster, here::here("outputs", 
                                            paste0("R_OUT - SanJuan_Ages_allSpp-allYrs ", min(SJ_allAgesMaster$`(R) SAMPLE YEAR`), "-", max(SJ_allAgesMaster$`(R) SAMPLE YEAR`), ".xlsx")))
 
 
