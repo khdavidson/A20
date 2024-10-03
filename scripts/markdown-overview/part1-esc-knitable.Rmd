@@ -512,7 +512,7 @@ The `r lubridate::year(Sys.Date())` return will be composed of offspring from th
 ```{r by-table}
 study_design_year <- 2024
 
-sj.esc %>% 
+BYtables <- sj.esc %>% 
   mutate(BYtables = case_when(Species=="Chinook" & year %in% seq(study_design_year-6, study_design_year-2, by=1) ~ "use",
                               Species=="Coho" & year %in% seq(study_design_year-4, study_design_year-2, by=1) ~ "use",
                               Species=="Chum" & year %in% seq(study_design_year-5, study_design_year-4, by=1) ~ "use",
@@ -523,10 +523,17 @@ sj.esc %>%
   group_by(waterbody_name, Species, year) %>%
   summarize(`Escapement (spawners+broodstock)`=sum(estimate,na.rm=T)) %>%
   mutate(across(c(`Escapement (spawners+broodstock)`), ~ format(.x, big.mark = ","))) %>% 
-  rename(`Return year` = year) %>%
+  rename(`Return year` = year) 
+
+BYtables %>%
   kableExtra::kbl(align="c", caption="Brood year escapement (spawners+broodstock) contributing to the 2023 return. Data from NuSEDS.") %>%
   kableExtra::kable_paper("hover", full_width=T, position = "center") 
 ```
+
+```{r}
+writexl::write_xlsx(x=BYtables, path=here::here("outputs", "R_OUT - Area 20 Brood Year Tables.xlsx"))
+```
+
 
 <br>
 
