@@ -20,9 +20,9 @@ params:
 knitr::opts_chunk$set(echo=F, warning=F, message=F)
 
 # Load libraries ------------------------
-library(here)
+#library(here)
 library(tidyverse)
-library(readxl)
+#library(readxl)
 library(kableExtra)
 library(bookdown)  
 library(scales)       # for label_percent()
@@ -158,13 +158,14 @@ sj.fence$stat_week <- factor(sj.fence$stat_week,
 
 # ====================== AGE data ======================   (all species, all years - not linked to individual fish)
 # Option 1: Re-dump source code for updates ------------------
-# source(here("scripts", "functions", "pullSanJuanAgeData.R"))
+# source(here::here("scripts", "functions", "pullSanJuanAgeData.R"))
   # saves as SJ_allAgesMaster
 
 
 # Option 2: Load pre-dumped age data ------------------
-SJ_allAgesMaster <- readxl::read_excel(here("outputs", "R_OUT - SanJuan_Ages_allSpp-allYrs 1990-2023.xlsx"),
-                                       sheet="Sheet1") %>% 
+# Load SJ specific data -- old
+SJ_allAgesMaster <- readxl::read_excel(here::here("outputs", "R_OUT - SanJuan_Ages_allSpp-allYrs 1990-2023.xlsx"),
+                                       sheet="Sheet1") %>%
   mutate(`(R) RESOLVED TOTAL AGE` = case_when(PADS_GrAge == "0M" ~ "1",
                                               grepl("chinook", PADS_Species, ignore.case=T) & PADS_GrAge == "1M" ~ "2",
                                               grepl("chinook", PADS_Species, ignore.case=T) & PADS_GrAge == "2M" ~ "3",
@@ -184,6 +185,7 @@ SJ_allAgesMaster <- readxl::read_excel(here("outputs", "R_OUT - SanJuan_Ages_all
                              grepl("Coho", PADS_Species, ignore.case=T) ~ "Coho",
                              TRUE ~ "FLAG"))
 
+# SJ_allAgesMaster <- readxl::read_excel(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/CHINOOK/TERMINAL_RUN/Annual_data_summaries_for_RunRecons/")
 
 
 
@@ -383,6 +385,17 @@ ggplot() +
 
 dev.off()
 ```
+<br>
+
+```{r}
+# STUDY DESIGN TABLE 
+sj.esc %>% 
+  filter(est_type %in% c("Unspecified Return", "Natural Adult Spawners", "Adult Broodstock Removals"),
+         !is.na(estimate), !is.na(Population)) %>% 
+  group_by(year, Species, waterbody_name) %>% 
+  summarize()
+```
+
 
 <br>
 
@@ -497,19 +510,27 @@ Daily fence counts have not been historically supplied except for the last three
 The `r lubridate::year(Sys.Date())` return will be composed of offspring from the following brood years:
 
 ```{r by-table}
+study_design_year <- 2024
+
 sj.esc %>% 
-  filter(year %in% c(analysis_year-3, analysis_year-4, analysis_year-5), est_type%in%c("Natural Adult Spawners", "Adult Broodstock Removals"), Species=="Chinook", SJ_watershed_group=="core SJ watershed") %>%
-  group_by(year)%>%
+  mutate(BYtables = case_when(Species=="Chinook" & year %in% seq(study_design_year-6, study_design_year-2, by=1) ~ "use",
+                              Species=="Coho" & year %in% seq(study_design_year-4, study_design_year-2, by=1) ~ "use",
+                              Species=="Chum" & year %in% seq(study_design_year-5, study_design_year-4, by=1) ~ "use",
+                              Species=="Pink" & year %in% seq(study_design_year-2, study_design_year-2, by=1) ~ "use",
+                              Species=="Sockeye" & year %in% seq(study_design_year-5, study_design_year-4, by=1) ~ "use",
+                              TRUE ~ "FLAG")) %>%
+  filter(est_type%in%c("Natural Adult Spawners", "Adult Broodstock Removals"), BYtables=="use") %>%
+  group_by(waterbody_name, Species, year) %>%
   summarize(`Escapement (spawners+broodstock)`=sum(estimate,na.rm=T)) %>%
   mutate(across(c(`Escapement (spawners+broodstock)`), ~ format(.x, big.mark = ","))) %>% 
   rename(`Return year` = year) %>%
-  kbl(align="c", caption="Brood year escapement (spawners+broodstock) contributing to the 2023 return. Data from NuSEDS.") %>%
-  kable_paper("hover", full_width=T, position = "center") 
+  kableExtra::kbl(align="c", caption="Brood year escapement (spawners+broodstock) contributing to the 2023 return. Data from NuSEDS.") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") 
 ```
 
 <br>
 
-The 2023 Nitinat Chinook forecast is for 26,000 (18,000-34,000; 67% age-4). 
+See study design for forecast: [Area 20 Study Design](//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/Study_Designs/Adults/Area 20/2024 Area 20 adult assessment study design DRAFT.docx)
 
 <br>
 
@@ -577,7 +598,7 @@ age.fig.allyrs <-
         plot.caption = element_text(face="italic", hjust=0))
 age.fig.allyrs
 
-pdf(file = here("outputs", "figures", "San Juan chinook age composition 1990-present.pdf"),   
+pdf(file = here::here("outputs", "figures", "San Juan chinook age composition 1990-present.pdf"),   
     width = 11, # The width of the plot in inches
     height = 8.5) # The height of the plot in inches
 
@@ -622,6 +643,38 @@ age.fig.sex
 
 dev.off()
 ```
+
+<br>
+
+```{r}
+# STUDY DESIGN TABLE
+study_design_year <- 2024
+
+SJ_allAgesMaster %>% 
+  mutate(species = case_when(grepl("chinook", PADS_Species, ignore.case=T) ~ "Chinook",
+                             grepl("coho", PADS_Species, ignore.case=T) ~ "Coho",
+                             grepl("chum", PADS_Species, ignore.case=T) ~ "Chum")) %>%
+  # mutate(full_series = "group1",
+  #        recent_4yr = case_when(`(R) SAMPLE YEAR` %in% seq(study_design_year-4, study_design_year, by=1) ~ "recent_4yr",
+  #                           TRUE ~ NA),
+  #        recent_12yr = case_when(`(R) SAMPLE YEAR` %in% seq(study_design_year-12, study_design_year, by=1) ~ "recent_12yr",
+  #                           TRUE ~ NA)) %>% 
+
+  filter(!is.na(`(R) RESOLVED TOTAL AGE`), `(R) RESOLVED TOTAL AGE`%in%c("1","2","3","4","5","6"), !grepl("M", PADS_GrAge)) %>% 
+  group_by(species, `(R) SAMPLE YEAR`, `PADS_GrAge`) %>% 
+  summarize(n_age = n()) %>% 
+  group_by(species, `(R) SAMPLE YEAR`) %>% 
+  mutate(year_total = sum(n_age),
+         age_propn = n_age/year_total) %>% 
+  mutate(group = "1",
+         group = case_when(`(R) SAMPLE YEAR` %in% seq(study_design_year-12, study_design_year, by=1) ~ paste0(group, ", 2"),
+                           TRUE ~ group),
+         group = case_when(`(R) SAMPLE YEAR` %in% seq(study_design_year-4, study_design_year, by=1) ~ paste0(group, ", 3"),
+                           TRUE ~ group)) %>% 
+  group_by(species, group, `PADS_GrAge`) %>% 
+  summarize(avg_age_propn = mean(age_propn))
+```
+
 
 <br>
 
