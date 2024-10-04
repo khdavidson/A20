@@ -32,14 +32,14 @@ library(saaWeb)
 
 # Helpers/functions ------------------------
 "%notin%" <- Negate("%in%")
-analysis_year <- 2023
+analysis_year <- 2024
 
 
 
 
 # ====================== ENUMERATION data ====================== 
 # Option 1. Re-run source (not in knitr) for annual updates ------------------------
-# source(here("scripts", "functions", "pullNusedsData.R"))
+# source(here::here("scripts", "functions", "pullNusedsData.R"))
   # saves as a20_nuseds_escapement
 
 # Option 2. Load dumped data ------------------------
@@ -86,7 +86,7 @@ remove(a20_nuseds_escapement)
 
 
 # Habitat model benchmarks ----------------------- 
-RPs <- read.csv(here("data", "escapement", "wcviCK-BootstrappedRPs.csv")) %>%
+RPs <- read.csv(here::here("data", "escapement", "wcviCK-BootstrappedRPs.csv")) %>%
   filter(Stock=="San Juan")
 
 
@@ -101,18 +101,16 @@ RPs <- read.csv(here("data", "escapement", "wcviCK-BootstrappedRPs.csv")) %>%
 # sj.cn.timing$stat_week <- factor(sj.cn.timing$stat_week, levels=c("81","82","83","84","91","92","93","94","101","102","103","104","105",
 #                                                                   "111","112","113","114","115","121","122","123","124", ordered=T))
 
-SJ.rtStWk <- readxl::read_excel(here("data", "escapement", "run timing tables (updated).xlsx"), 
-                                    sheet="Nitinat", guess_max=10000, trim_ws=T, range=cell_limits(c(4, 1), c(NA, NA))) %>% 
-  select(-c(`...24`:`...75`)) %>%
-  rename(year=`...1`) %>% 
-  filter(if_any(everything(), ~ !is.na(.)), !grepl("Table", year), !grepl("Year", year), !is.na(year)) %>% 
-  mutate(species = c(rep("chinook", nrow(.)/3), rep("coho", nrow(.)/3), rep("chum", nrow(.)/3)),
-         `92` = case_when(`92`=="1000-2000" ~ as.numeric(1500),
-                          TRUE ~ as.numeric(`92`)),
-         across(c(`81`:`124`), ~as.numeric(.)),
-         plot_group = case_when(year==analysis_year ~ year,
-                                year!=analysis_year ~ paste0(min(year), sep="-", (analysis_year-1)))) %>%
+SJ.rtStWk <- readxl::read_excel(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/DATA/run timing tables (updated).xlsx",
+                                sheet="San Juan", guess_max=10000, trim_ws=T, range=cellranger::cell_limits(c(4, 1), c(NA, NA))) %>% 
+  select(-c(...25:NOTES,...34:...43)) %>%
+  rename(Year=`...1`) %>% 
+  filter(if_any(everything(), ~ !is.na(.)), !grepl("Observed|Year", Year), !is.na(Year)) %>% 
+  mutate(across(c(`81`:`124`), ~as.numeric(.)),
+         plot_group = case_when(Year==analysis_year ~ Year,
+                                Year!=analysis_year ~ paste0(min(Year), sep="-", (analysis_year-1)))) %>%
   pivot_longer(cols = c(`81`:`124`), names_to = "stat_week", values_to = "count") %>% 
+  rename(Species=species_R) %>%
   print()
 
 SJ.rtStWk$stat_week <- factor(SJ.rtStWk$stat_week,
@@ -125,7 +123,7 @@ SJ.rtStWk$stat_week <- factor(SJ.rtStWk$stat_week,
 
 
 # Hatchery releases for comparison -----------------------
-SJRelSEP <- lapply(list.files(path=here("data", "enhancement-PNI"),
+SJRelSEP <- lapply(list.files(path=here::here("data", "enhancement-PNI"),
                               pattern = "^SEP RELEASES_all-years-spp.*\\.xlsx$",
                               full.names = TRUE), 
                    readxl::read_excel, sheet="Actual Release") %>% 
@@ -139,7 +137,7 @@ SJRelSEP <- lapply(list.files(path=here("data", "enhancement-PNI"),
 
 
 # ============================== FENCE ==============================
-sj.fence <- readxl::read_excel(here("data", "escapement", "San_Juan_Fence_2020-present.xlsx"), sheet="Sheet1") %>%
+sj.fence <- readxl::read_excel(here::here("data", "escapement", "San_Juan_Fence_2020-present.xlsx"), sheet="Sheet1") %>%
   mutate(DOY = lubridate::yday(date)) %>%
   mutate_at("year", as.factor) %>%
   print()
@@ -205,10 +203,10 @@ sj.biodata <- readxl::read_excel(path=paste0("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_
 
 # ============================== MISC BIODATA ==============================
 # Fecundity data --------------
-sj.fecund <- read_excel(here("data", "biosamples", "San Juan misc biodata all years.xlsx"), sheet="fecundity")
+sj.fecund <- readxl::read_excel(here::here("data", "biosamples", "San Juan misc biodata all years.xlsx"), sheet="fecundity")
 
 # Sex ratio data --------------
-sj.SR <- read_excel(here("data", "biosamples", "San Juan misc biodata all years.xlsx"), sheet="SexRatio")
+sj.SR <- readxl::read_excel(here::here("data", "biosamples", "San Juan misc biodata all years.xlsx"), sheet="SexRatio")
 
 
 
@@ -285,42 +283,55 @@ San Juan Chinook escapement has varied over time. From its peak at 7500 in 1970 
 
 # CHINOOK ESCAPEMENT FIGURE ----------------------- 
 
+pdf(file = here::here("outputs", "figures", "San Juan Chinook escapement and benchmarks.pdf"),   
+    width = 14, # The width of the plot in inches
+    height = 8.5) # The height of the plot in inches
+
+
 ggplot() +
-  # Enhancement start vertical line:
-  geom_vline(data=SJRelSEP%>%filter(SPECIES_NAME=="Chinook")%>%group_by(SPECIES_NAME)%>%summarize(start=min(BROOD_YEAR))%>%rename(Species=SPECIES_NAME)%>%
+  # --- Enhancement start vertical line:
+  geom_vline(data=SJRelSEP %>% 
+               filter(SPECIES_NAME=="Chinook") %>% 
+               group_by(SPECIES_NAME) %>% 
+               summarize(start=min(BROOD_YEAR)) %>% 
+               rename(Species=SPECIES_NAME)%>%
                mutate(n=7000),
              aes(xintercept=start), colour="gray60", linetype="dashed", size=0.5) +
+  # --- Escapement goals: PFN 
+  geomtextpath::geom_textline(aes(x=unique(sj.esc$year), y=10000, label="PFN Biological-based benchmark"), 
+                              colour="black", linewidth=1, show.legend=F, hjust=-0.01, text_smoothing=30, size=4) +
+  # --- Escapement goal: DFO 
+  geomtextpath::geom_textline(aes(x=unique(sj.esc$year), y=RPs[RPs$RP=="SMSY",]$Value, label="DFO Smsy"), 
+                              colour="gold", linewidth=1, show.legend=F, hjust=-0.01, text_smoothing=30, size=4) +
+  geomtextpath::geom_textline(aes(x=unique(sj.esc$year), y=RPs[RPs$RP=="SGEN",]$Value, label="DFO Sgen"), 
+                              colour="red", linewidth=1, show.legend=F, hjust=-0.01, text_smoothing=30, size=4) +
+  geomtextpath::geom_textline(aes(x=unique(sj.esc$year), y=RPs[RPs$RP=="SREP",]$Value, label="DFO Srep"), 
+                              colour="green", linewidth=1, show.legend=F, hjust=-0.01, text_smoothing=30, size=4) +
   
-  # Escapement goal and average escapements: 
-  geom_hline(data=RPs%>%filter(RP=="SMSY"), aes(yintercept=Value), size=1, linetype="dashed") +
-    geom_hline(aes(yintercept=10000), size=1, linetype="dashed", colour="gray50") +
-  geom_hline(data=sj.esc %>% filter(Species=="Chinook", year>=(max(analysis_year-10)), est_type=="Natural Adult Spawners") %>% 
-               summarize(mean=round(mean(n,na.rm=T),0)),
-             aes(yintercept=mean), size=1, linetype="solid", colour="black") +
-
-  
-  # Plot NuSEDS escapement data:
+  # --- NuSEDS escapement data:
   geom_bar(data=sj.esc %>% filter(Species=="Chinook", source=="NuSEDS",
                                   est_type %in% c("Unspecified Return", "Natural Adult Spawners", "Adult Broodstock Removals"),
                                   !is.na(estimate), Species=="Chinook") %>%
              group_by(year, est_type, SJ_watershed_group)%>%summarize(estimate=sum(estimate))%>%
              filter(SJ_watershed_group=="core SJ watershed"),
            aes(x=year, y=as.numeric(estimate), fill=est_type, colour=est_type),
-           stat="identity", alpha=0.8, width=0.9, size=0.3) +
+           stat="identity", alpha=0.7, width=0.9, size=0.3) +
   
-  # Add in any prelim estimates from NEW ESCAPEMENT INDEX (depends on time of year):
+  # --- New Escapement Index data:
   geom_bar(data=sj.esc %>%
              filter(Species=="Chinook", est_type%in%c("Natural Adult Spawners", "Adult Broodstock Removals"),
                     source=="New Esc Index", Species=="Chinook", SJ_watershed_group=="core SJ watershed"),
-           aes(x=year, y=estimate, fill=est_type, colour=est_type), stat="identity", alpha=0.7, width=0.9, size=0.5) +
+           aes(x=year, y=estimate, fill=est_type), colour="transparent", stat="identity", alpha=0.4, width=0.9, size=0.5) +
 
-  # Highlight the prelim NEW ESCAPEMENT INDEX estimates in red to indicate preliminary data: 
+  # ----- Highlight New Escapement Index data in red: 
   geom_bar(data=sj.esc %>%
              filter(Species=="Chinook", est_type%in%c("Natural Adult Spawners", "Adult Broodstock Removals"),
                     source=="New Esc Index", Species=="Chinook", SJ_watershed_group=="core SJ watershed")%>%
-             group_by(year,Species)%>%summarize(total=sum(estimate)),
-           aes(x=year, y=total), stat="identity", width=0.9, size=0.7, fill="transparent", colour="red") +
+             group_by(year,Species) %>% 
+             summarize(total=sum(estimate)),
+           aes(x=year, y=total), stat="identity", width=0.9, size=0.7, fill="transparent", colour=alpha("red", 0.5), linetype="dotted") +
   
+  # --- Formatting
   scale_x_continuous(breaks=seq(min(sj.esc$year), max(sj.esc$year), by=3)) +
   scale_y_continuous(breaks=seq(0,10000,by=500)) +
   scale_fill_manual(breaks = c("Natural Adult Spawners", "Adult Broodstock Removals", "Unspecified Return"), 
@@ -338,6 +349,8 @@ ggplot() +
         legend.background = element_blank(),
         strip.text = element_text(size=10)) +
   guides(colour = guide_legend(override.aes=list(colour=NA))) 
+
+dev.off()
 ```
 
 <br>
@@ -387,13 +400,32 @@ dev.off()
 ```
 <br>
 
-```{r}
-# STUDY DESIGN TABLE 
+```{r eval=F}
+# STUDY DESIGN BY TABLE 
 sj.esc %>% 
   filter(est_type %in% c("Unspecified Return", "Natural Adult Spawners", "Adult Broodstock Removals"),
          !is.na(estimate), !is.na(Population)) %>% 
   group_by(year, Species, waterbody_name) %>% 
   summarize()
+
+
+study_design_year <- 2024
+
+# STUDY DESIGN AVERAGES 
+sj.esc %>% 
+  filter(est_type %in% c("Unspecified Return", "Natural Adult Spawners", "Natural Jack Spawners"),
+         !is.na(estimate), !is.na(Population), SJ_watershed_group=="core SJ watershed") %>% 
+  mutate(avggroup = "long-term",
+         avggroup = case_when(year %in% seq(study_design_year-12, study_design_year, by=1) ~ paste0(avggroup, ", 12 year"),
+                           TRUE ~ avggroup),
+         avggroup = case_when(year %in% seq(study_design_year-8, study_design_year, by=1) ~ paste0(avggroup, ", 8 year"),
+                           TRUE ~ avggroup),
+         avggroup = case_when(year %in% seq(study_design_year-4, study_design_year, by=1) ~ paste0(avggroup, ", 4 year"),
+                           TRUE ~ avggroup)) %>% 
+  group_by(Species, year, avggroup) %>% 
+  summarize(ann_esc = sum(estimate)) %>% 
+  group_by(Species, avggroup) %>% 
+  summarize(mean_esc = mean(ann_esc))
 ```
 
 
@@ -463,19 +495,50 @@ Additional benchmarks for use:
 
 Most chinook are observed in the San Juan between late September (statweek 94) and mid October (statweek 102) (Figure \@ref(fig:sj-timing)). Run timing counts come from a combination of the fence (which is usually in until Thanksgiving if possible) and swim surveys (which typically start after the fence is removed). Escapement estimates are typically derived from the swim surveys alone. 
 
-```{r sj-timing, fig.cap='Chinook counts through the fence and/or swim surveys in the San Juan River from 1995-present. Counts are more representative of arrival rather than peak spawning. Stock Assessment data.'}
+```{r sj-timing, fig.cap='Swim and/or fence counts in the San Juan River from 1995-present. Counts are more representative of arrival rather than peak spawning. Stat week is interpreted as the month and week surveys occurred (e.g., Stat week 81 = first week of August; stat week 93 = third week of September, etc.). Stock Assessment data.'}
+
+pdf(file = here::here("outputs", "figures", "San Juan run timing (all species).pdf"),   
+    width = 11, # The width of the plot in inches
+    height = 8.5) # The height of the plot in inches
 
 ggplot() +
-  geom_point(data=SJ.rtStWk%>%filter(species=="chinook"),
+  geom_point(data=SJ.rtStWk %>% filter(System=="SJ"),
              aes(x=stat_week, y=count, colour=plot_group, fill=plot_group, size=plot_group),
              shape=21, alpha=0.7) +
   scale_fill_manual(breaks=waiver(), values=c("gray60", "dodger blue")) +
   scale_colour_manual(breaks=waiver(), values=c("gray60", "dodger blue")) +
   scale_size_manual(breaks=waiver(), values=c(1.5,3.5)) +
-  labs(x="Stat week", y="Adult Chinook from swims", fill="Year:", colour="Year:", size="Year:") +
+  labs(x="Stat week", y="Live adults (raw)", fill="Year:", colour="Year:", size="Year:") +
   theme_bw() +
   theme(legend.position = "right",
-        legend.box = "vertical")
+        legend.box = "vertical") +
+  facet_wrap(~Species, nrow=3)
+
+dev.off()
+
+
+
+pdf(file = here::here("outputs", "figures", "San Juan run timing (chinook only).pdf"),   
+    width = 11, # The width of the plot in inches
+    height = 8.5) # The height of the plot in inches
+
+ggplot() +
+  geom_point(data=SJ.rtStWk %>% filter(System=="SJ" & Species=="Chinook"),
+             aes(x=stat_week, y=count, colour=plot_group, fill=plot_group, size=plot_group),
+             shape=21, alpha=0.7) +
+  scale_fill_manual(breaks=waiver(), values=c("gray60", "dodger blue")) +
+  scale_colour_manual(breaks=waiver(), values=c("gray60", "dodger blue")) +
+  scale_size_manual(breaks=waiver(), values=c(2.5,4)) +
+  labs(x="Stat week", y="Live Chinook adults (raw)", fill="Year:", colour="Year:", size="Year:") +
+  theme_bw() +
+  theme(axis.text = element_text(colour="black", size=12),
+        axis.title = element_text(face="bold", size=14),
+        legend.text = element_text(size=10),
+        legend.title = element_text(size=12, face="bold"),
+        legend.position = "right",
+        legend.box = "vertical") 
+
+dev.off()
 ```
 
 <br>
