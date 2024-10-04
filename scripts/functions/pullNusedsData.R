@@ -22,8 +22,8 @@ runNuSEDSQuery <- function (query_doc, config_file = "saaWeb.config", user_name 
 
 
 # ============================ 2. EXTRACT ESCAPEMENT DATA ============================
-a20_nuseds_escapement <- runNuSEDSQuery(query_doc=here("scripts", "json", "nuseds_esc_query_A20.json"), 
-                                 config_file=here("saaWeb.config")) %>%
+a20_nuseds_escapement <- runNuSEDSQuery(query_doc=here::here("scripts", "json", "nuseds_esc_query_A20.json"), 
+                                 config_file=here::here("saaWeb.config")) %>%
   filter(!grepl("GEORGIA STRAIT", `Conservation Unit Name`),
          `Waterbody Name` %notin% c("DE MAMIEL CREEK", "ROCKY CREEK", "AYUM CREEK", "SOOKE RIVER", "MAIDENHAIR CREEK", 
                                     "MUIR CREEK", "FALLS CREEK", "UGLOW CREEK"), 
@@ -46,6 +46,6 @@ a20_nuseds_escapement <- runNuSEDSQuery(query_doc=here("scripts", "json", "nused
 # ============================ 3: EXPORT ============================
 
 # Export to github repo ------------------------
-writexl::write_xlsx(a20_nuseds_escapement, here("outputs", 
+writexl::write_xlsx(a20_nuseds_escapement, here::here("outputs", 
                                            paste0("R_OUT - Area20WCVI_Escapement_allSpp-allYrs ", min(a20_nuseds_escapement$year), "-", max(a20_nuseds_escapement$year), ".xlsx")))
 
