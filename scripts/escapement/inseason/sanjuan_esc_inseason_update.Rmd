@@ -54,25 +54,56 @@ SJ.water <- full_join(
                                  pattern = "SANJUAN_realtime_08HA010_QR*",     # discharge realtime
                                  full.names = TRUE),
                  skip=9) %>%
-          rename(Value = Value..m..s.),
+          rename(Value = Value..m..s.,
+                 Date = Date..PST.,
+                 PARAM = Parameter),
         
         read.csv(file=list.files(path = here::here("data", "enviro"),
                                  pattern = "SANJUAN_realtime_08HA010_HG*",     # water level realtime
                                  full.names = TRUE),
                  skip=9) %>%
-          rename(Value = Value..m.)
+          rename(Value = Value..m.,
+                 Date = Date..PST.,
+                 PARAM = Parameter)
   )
   %>%
-    mutate(Parameter = case_when(Parameter==46 ~ "Level (m)",
-                                 Parameter=="47" ~ "Discharge (cms)"),
-           Date = lubridate::ymd(stringr::str_sub(string=Date..PST., start=1, end=10)),
-           time = stringr::str_sub(string=Date..PST., start=12, end=19),
-           year = lubridate::year(Date..PST.),
-           month = lubridate::month(Date..PST., label=T, abbr=T),
-           DOY = lubridate::yday(Date..PST.)) %>% 
-    rename(PARAM=Parameter)
+    mutate(PARAM = case_when(PARAM==46 ~ "Level (m)",
+                                 PARAM=="47" ~ "Discharge (cms)"),
+           Date = lubridate::ymd(stringr::str_sub(string=Date, start=1, end=10)),
+           time = stringr::str_sub(string=Date, start=12, end=19),
+           year = lubridate::year(Date),
+           month = lubridate::month(Date, label=T, abbr=T),
+           DOY = lubridate::yday(Date)) 
 )
 
+
+
+# Nitinat water data for comparison ---------------------------------
+nitinat.water <- 
+  # lapply(list.files(path = here::here("data", "enviro"),
+  #                   pattern = "^NitinatWaterLevelHydrometData.*\\.xlsx$",
+  #                   full.names = TRUE), 
+  #        readxl::read_excel, sheet="Exported Data") %>% 
+  #do.call("cbind",.) %>%
+  lapply(list.files(path = here::here("data", "enviro"),
+                    pattern = "NitinatWaterLevelHydrometData_20*",
+                    full.names = TRUE),
+         read.csv, skip=1) %>%
+  do.call("rbind",.) %>%
+  separate(Received, sep=" ", c("date", "time", "stamp")) %>%
+  mutate(date2 = case_when(is.na(TL.Battery.V) ~ lubridate::mdy(date),
+                          !is.na(TL.Battery.V) ~ lubridate::dmy(date)),
+        year = lubridate::year(date2),
+        month = lubridate::month(date2, label=T, abbr=T),
+        DOY = lubridate::yday(date2),
+        Water.Level.m = case_when(grepl("\\*", Water.Level.m) ~ NA,
+                                  TRUE ~ as.numeric(Water.Level.m)),
+        label_group = case_when(year<escapement_year ~ "Historical",
+                                        year==escapement_year ~ as.character(year)),
+        hour = as.numeric(stringr::str_sub(stringr::str_pad(time, width=5, pad = "0"), 1,2)),
+        hour = case_when(hour==12 & stamp=="AM" ~ 0,
+                         TRUE ~ hour)) %>%
+  print()
 
 
 # ================== HISTORICAL DATA ================== 
@@ -83,7 +114,7 @@ sj.rtStWk <- readxl::read_excel(path=#paste0(here::here("data", "escapement"), s
                                    "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/run timing tables (updated).xlsx",
                                  sheet="San Juan", guess_max=10000, trim_ws=T, 
                                  range=cellranger::cell_limits(c(4, 1), c(NA, NA))) %>% 
-  select(-c(`...25`:NOTES)) %>%
+  select(-c(`...25`:NOTES, `...34`:`...43`)) %>%
   rename(year=`...1`) %>% 
   filter(!is.na(year), !grepl("Observed", year), year!="Year") %>% 
   mutate(across(c(`81`:`124`), ~as.numeric(.)),
@@ -116,7 +147,7 @@ pdf(file = here::here("outputs", "figures", "San Juan water level 2024.pdf"),
     width = 11, # The width of the plot in inches
     height = 8.5) # The height of the plot in inches
 
-ggplot()+
+sjlevel <- ggplot()+
   geom_ribbon(data=SJ.water %>% 
                 filter(month %in% c("Aug","Sep","Oct", "Nov") & year!=escapement_year & PARAM=="Level (m)") %>%
                 group_by(DOY) %>% 
@@ -146,6 +177,8 @@ ggplot()+
         legend.title = element_blank())
 
 dev.off()
+
+sjlevel
 ```
 
 ```{r fig.cap='San Juan hydromet discharge (cms). Historical shaded area represents daily maximum and minimum recorded values over the time series, while the line represents the mean water level. Current year line represents daily mean water level (blue). Disharge is recorded every minute at the Environment Canada hydromet in the lower San Juan (above Fairy Lake).', fig.width=8, fig.height=6}
@@ -154,7 +187,7 @@ pdf(file = here::here("outputs", "figures", "San Juan water discharge 2024.pdf")
     width = 11, # The width of the plot in inches
     height = 8.5) # The height of the plot in inches
 
-ggplot()+
+sjflow <- ggplot()+
   geom_ribbon(data=SJ.water %>% 
                 filter(month %in% c("Aug","Sep","Oct", "Nov") & year!=escapement_year & PARAM=="Discharge (cms)") %>%
                 group_by(DOY) %>% 
@@ -184,6 +217,8 @@ ggplot()+
         legend.title = element_blank())
 
 dev.off()
+
+sjflow
 ```
 
 <br>
@@ -194,7 +229,7 @@ dev.off()
 
 ## Environment Canada river forecast 
 
-San Juan River Environment Canada COFFEE forecast is produced daily by the River Forecast Center.  
+San Juan River Environment Canada COFFEE forecast is produced daily by the River Forecast Center. In a pinch, Nitinat relative levels can also be viewed in the event the San Juan gauge goes down. 
 
 ```{r}
 knitr::include_url("http://bcrfc.env.gov.bc.ca/fallfloods/coffee/08HA010.PDF")
@@ -203,44 +238,43 @@ knitr::include_url("http://bcrfc.env.gov.bc.ca/fallfloods/coffee/08HA010.PDF")
 <br>
 
 ```{r fig.cap='Summer/fall water level at Nitinat (blue) and San Juan (gray) from 2021-present. Shaded region represents daily maximum and minimum levels while solid line indicates daily average among all years. San Juan water level from Environment Canada, Nitinat from South Coast Stock assessment hydromet.'}
+
 ggplot()+
-  geom_ribbon(data=SJ.water %>% 
-                filter(month %in% c("Aug","Sep","Oct", "Nov") & year%in%c(2021:escapement_year) & PARAM=="level (m)")  %>%
-                group_by(DOY) %>% 
-                summarize(max_lvl=max(Value,na.rm=T), min_lvl=min(Value,na.rm=T)),
-              aes(x=as.Date(DOY, origin="2021-12-31"), ymin=min_lvl, ymax=max_lvl), fill="gray80", alpha = 0.6) +
-  geomtextpath::geom_textline(data=SJ.water %>% 
-                                 filter(month %in% c("Aug","Sep","Oct", "Nov") & year%in%c(2021:escapement_year) & 
-                                          PARAM=="level (m)")  %>%
-                                 group_by(DOY) %>% 
-                                 summarize(mean_lvl_hist=mean(Value,na.rm=T)) %>%
-                                 mutate(label = paste0("San Juan ", min(nitinat.water$year), sep="-", escapement_year)),
-                               aes(x=as.Date(DOY, origin="2021-12-31"), y=mean_lvl_hist, label=as.factor(label)), 
-                               colour="gray60", linewidth=1, show.legend=F, hjust=0, text_smoothing=30, alpha=0.7) +
   geom_ribbon(data=nitinat.water %>% 
                 filter(month %in% c("Aug","Sep","Oct", "Nov") & Water.Level.m>0.1) %>%
                 group_by(DOY) %>% 
                 summarize(max_lvl=max(Water.Level.m,na.rm=T), min_lvl=min(Water.Level.m,na.rm=T)),
-              aes(x=as.Date(DOY, origin="2021-12-31"), ymin=min_lvl, ymax=max_lvl), fill="dodger blue", alpha=0.4) +
+              aes(x=as.Date(DOY, origin="2021-12-31"), ymin=min_lvl, ymax=max_lvl), fill="gray70", alpha=0.5) +
   geomtextpath:: geom_textline(data=nitinat.water %>% 
                                  filter(month %in% c("Aug","Sep","Oct", "Nov") & Water.Level.m>0.1) %>%
                                  group_by(DOY) %>% 
                                  summarize(mean_lvl=mean(Water.Level.m,na.rm=T)) %>% 
                                  mutate(label = paste0("Nitinat ", min(nitinat.water$year), sep="-", escapement_year)),
                                aes(x=as.Date(DOY, origin="2021-12-31"), y=mean_lvl, label=as.factor(label)), 
-                               colour="dodger blue", linewidth=1, show.legend=F, hjust=0.01, alpha=0.8) +
+                               colour="gray70", linewidth=1, show.legend=F, hjust=0.01, alpha=0.5) +
+  geom_ribbon(data=SJ.water %>% 
+                filter(month %in% c("Aug","Sep","Oct", "Nov") & year%in%c(2021:escapement_year) & PARAM=="Level (m)")  %>%
+                group_by(DOY) %>% 
+                summarize(max_lvl=max(Value,na.rm=T), min_lvl=min(Value,na.rm=T)),
+              aes(x=as.Date(DOY, origin="2021-12-31"), ymin=min_lvl, ymax=max_lvl), fill="dodger blue", alpha=0.6) +
+  geomtextpath::geom_textline(data=SJ.water %>% 
+                                filter(month %in% c("Aug","Sep","Oct", "Nov") & year%in%c(2021:escapement_year) & 
+                                         PARAM=="Level (m)")  %>%
+                                group_by(DOY) %>% 
+                                summarize(mean_lvl_hist=mean(Value,na.rm=T)) %>%
+                                mutate(label = paste0("San Juan ", min(nitinat.water$year), sep="-", escapement_year)),
+                              aes(x=as.Date(DOY, origin="2021-12-31"), y=mean_lvl_hist, label=as.factor(label)), 
+                              colour="dodger blue", linewidth=1, show.legend=F, hjust=0, text_smoothing=30, alpha=0.4) +
   labs(y="Water level (m)") +
   scale_colour_manual(values=c("dodger blue", "gray70")) +
   scale_x_date(date_labels = "%b %d") +
-  scale_y_continuous(breaks=seq(0,10,by=0.5)) +
-  coord_cartesian(ylim=c(0.75, 6)) +
+  coord_cartesian(ylim=c(0.75, 8)) +
   theme_bw() +
   theme(axis.text = element_text(colour="black"),
         axis.title = element_text(face="bold"),
         axis.title.x = element_blank(),
         legend.title = element_blank())
 ```
-
 
 <br>
 
@@ -250,16 +284,16 @@ ggplot()+
 
 <br> 
 
-The `r escapement_year` Nitinat River and tribs surveys will begin on September 4. A preliminary swim was conducted prior to this to confirm Sockeye presence. See \@ref(tab:survey-table) for segments surveyed each date. 
+The `r escapement_year` San Juan River and tribs surveys will begin on September 4. A preliminary swim was conducted prior to this to confirm Sockeye presence. See \@ref(tab:survey-table) for segments surveyed each date. 
 
 <br>
 
 ```{r survey-table, tab.cap='Segments surveyed by date.'}
-nitinat.SIL %>% 
+SJ.SIL %>% 
   filter(!is.na(date)) %>% 
-  group_by(date, `upper/lower (for Nitinat River only)`) %>% 
+  group_by(date, `upper/lower`) %>% 
   summarize() %>% 
-  rename(`Segment(s) surveyed`=`upper/lower (for Nitinat River only)`,
+  rename(`Segment(s) surveyed`=`upper/lower`,
          Date=date) %>% 
   kableExtra::kbl(align="c") %>%
   kableExtra::kable_paper("hover", full_width=T, position="center") 
@@ -272,20 +306,19 @@ nitinat.SIL %>%
 ```{r fig.cap='Raw live (bar) and carcass (line) counts for Nitinat River. Not all surveys are full system: early surveys are lower river only. Dead counts will populate once die-off begins.Note differing y-axis for each species.'}
 ggplot() +
   # ---- DEAD -----
-  # geom_point(data=nitinat.SIL %>% 
-  #              filter(system=="Nitinat River" & species!="No fish") %>% 
-  #              group_by(date, species) %>% 
-  #              summarize(total_adults_ded=sum(`adults dead`)) , 
-  #            aes(x=date, y=total_adults_ded*10, group=species, colour=species)) +
-  # # ---- DEAD -----  
-  # geom_line(data=nitinat.SIL %>% 
-  #             filter(system=="Nitinat River" & species!="No fish") %>% 
-  #             group_by(date, species) %>% 
-  #             summarize(total_adults_ded=sum(`adults dead`)), 
-  #           aes(x=date, y=total_adults_ded*10, group=species, colour=species)) +
+  geom_point(data=SJ.SIL %>%
+               filter(!grepl("No fish", species, ignore.case=T) & !is.na(species)) %>%
+               group_by(date, species) %>%
+               summarize(total_adults_ded=sum(`adults dead`)) ,
+             aes(x=date, y=total_adults_ded, group=species, colour=species)) +
+  geom_line(data=SJ.SIL %>%
+              filter(!grepl("No fish", species, ignore.case=T) & !is.na(species)) %>%
+              group_by(date, species) %>%
+              summarize(total_adults_ded=sum(`adults dead`)),
+            aes(x=date, y=total_adults_ded, group=species, colour=species)) +
   # ---- LIVE ----
-  geom_bar(data=nitinat.SIL %>% 
-             filter(system=="Nitinat River" & species!="No fish") %>% 
+  geom_bar(data=SJ.SIL %>% 
+             filter(!grepl("No fish", species, ignore.case=T) & !is.na(species)) %>% 
              group_by(date, species) %>% 
              summarize(total_adults=sum(`adults live`)), 
            aes(x=date, y=total_adults, group=species, fill=species), stat="identity", alpha=0.8, width=2) +
@@ -303,37 +336,65 @@ ggplot() +
 
 <br>
 
+Total counts:
+
+```{r}
+SJ.SIL %>% 
+  filter(!is.na(date), !grepl("no fish", species, ignore.case=T)) %>% 
+  group_by(date, species) %>% 
+  summarize(adults_live = sum(`adults live`)) %>% 
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position="center")
+```
+
+Peak counts:
+
+```{r}
+SJ.SIL %>% 
+  filter(!is.na(date), !grepl("no fish", species, ignore.case=T)) %>% 
+  group_by(date, species) %>% 
+  summarize(adults_live = sum(`adults live`)) %>% 
+  group_by(species) %>% 
+  filter(adults_live==max(adults_live)) %>%
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position="center")
+```
+
+<br>
+
+<br>
+
 ```{r fig.cap='Live counts (bars) and water level (blue line) in the Nitinat River.'}
 # Live ~ water 
 # Plot counts with hydromet data to show pulses of fish into the system relative to rain events. 
 
 ggplot() +
   # ---- WATER DATA ----
-  geom_ribbon(data=nitinat.water %>% 
-                filter(year==escapement_year & date2>=as.Date("2024-07-15")) %>%
-                group_by(date2) %>% 
-                summarize(mean_water = mean(Water.Level.m), min=min(Water.Level.m), max=max(Water.Level.m)),
-              aes(x=date2, ymin=min*10, ymax=max*10), fill="dodger blue", alpha=0.5) +
-  geom_line(data=nitinat.water %>% 
-              filter(year==escapement_year & date2>=as.Date("2024-07-15")) %>%
-              group_by(date2) %>% 
-              summarize(mean_water = mean(Water.Level.m), min=min(Water.Level.m), max=max(Water.Level.m)),
-            aes(x=date2, y=mean_water*1000), colour="dodger blue", size=1) +
+  geom_ribbon(data=SJ.water %>% 
+                filter(year==escapement_year, PARAM=="Level (m)", Date>=("2024-09-15")) %>%
+                group_by(Date) %>% 
+                summarize(mean_water = mean(Value), min=min(Value), max=max(Value)),
+              aes(x=Date, ymin=min*100, ymax=max*100), fill="dodger blue", alpha=0.5) +
+  geom_line(data=SJ.water %>% 
+              filter(year==escapement_year, PARAM=="Level (m)", Date>=("2024-09-15")) %>%
+              group_by(Date) %>% 
+              summarize(mean_water = mean(Value), min=min(Value), max=max(Value)),
+            aes(x=Date, y=mean_water*100), colour="dodger blue", size=1) +
   # ---- COUNTS ----
-  geom_bar(data=nitinat.SIL %>% 
-             filter(system=="Nitinat River", species!="No fish") %>% 
+  geom_bar(data=SJ.SIL %>% 
+             filter(!grepl("No fish", species, ignore.case=T), !is.na(species)) %>% 
              group_by(date, species) %>% 
              summarize(total_adults=sum(`adults live / habitat seen (# Est Live)`)), 
            aes(x=date, y=total_adults, group=species, fill=species, colour=species), 
            stat="identity", alpha=0.8, width=2, size=1) +
   scale_x_date(date_breaks="7 day", date_labels = "%b %d") +
-  scale_y_continuous(sec.axis = sec_axis(~ . /1000, name = "water level (m)")) +
+  scale_y_continuous(sec.axis = sec_axis(~./100, name = "water level (m)")) +
   labs(x="", y="Live count") +
   theme_bw() +
   theme(axis.text.x = element_text(angle=45, hjust=1),
         legend.position = "none",
         axis.title = element_text(face="bold")) +
-  facet_wrap(~species, ncol=2)
+  facet_wrap(~species, ncol=2, scales="free_y")
 ```
 
 <br>
@@ -344,41 +405,121 @@ ggplot() +
 
 ```{r fig.cap='Historical run timing for focal species in Nitinat River (gray). Stat weeks along x axis denote the month and week of historical counts (e.g., stat week 81=First week of August, statweek 93=Third week of Sept, etc). Current year counts will show as blue points when populated.', fig.width=8, fig.height=6}
 
-pdf(file = here::here("outputs", "figures", "Nitinat run timing.pdf"),   
+pdf(file = here::here("outputs", "figures", "San Juan run timing.pdf"),   
     width = 11, # The width of the plot in inches
     height = 8.5) # The height of the plot in inches
 
-nit.rt <- ggplot() +
-     annotate("text", x=Inf, y=-Inf, label="NOT FINAL ESTIMATES. DO NOT SHARE.",
-            hjust=1.1, vjust=-1.1, col="gray70", size=6, fontface="bold", alpha=0.6) +
-  geom_point(data=nit.rtStWk,
-           aes(x=stat_week, y=count, colour=plot_group, fill=plot_group, size=plot_group),
-           shape=21, alpha=0.6, stroke=1.5) +
+rtall <- ggplot() +
+  # annotate("text", x=Inf, y=-Inf, label="NOT FINAL ESTIMATES. DO NOT SHARE.",
+  #          hjust=1.1, vjust=-1.1, col="gray70", size=6, fontface="bold", alpha=0.6) +
+  geom_point(data=sj.rtStWk %>%
+               group_by(species_R, year, stat_week) %>%
+               summarize(count=case_when(!is.na(count) ~ sum(count,na.rm=T),
+                                         is.na(count) ~ NA), plot_group=plot_group) %>%
+               filter(!is.na(count)),
+             aes(x=stat_week, y=count, colour=plot_group, fill=plot_group, size=plot_group),
+             shape=21, alpha=0.6, stroke=1.5) +
   scale_fill_manual(breaks=waiver(), values=c("gray60", "dodger blue")) +
   scale_colour_manual(breaks=waiver(), values=c("gray60", "dodger blue")) +
   scale_size_manual(breaks=waiver(), values=c(2, 4)) +
   scale_y_continuous(labels=scales::comma) +
-  labs(x="Stat week", y="Live adults (raw)", fill="Year:", colour="Year:", size="Year:", caption="Historical run timing for focal species in Nitinat River (gray). Stat weeks along x axis denote the month and week of historical counts (e.g., stat week 81=First week of August, \nstatweek 93=Third week of Sept, etc). Current year counts will show as blue points when populated. DFO South Coast Salmon Stock Assessment data.") +
+  labs(x="Stat week", y="Live adults (raw)", fill="Year:", colour="Year:", size="Year:", 
+       #caption="Historical run timing for focal species in San Juan River (gray). Stat weeks along x axis denote the month and week of historical counts (e.g., stat week 81=First week of August, \nstatweek 93=Third week of Sept, etc). Current year counts will show as blue points when populated. DFO South Coast Salmon Stock Assessment data."
+       ) +
   theme_bw() +
   theme(legend.position = "bottom",
         legend.box = "horizontal",
         axis.title = element_text(face="bold"),
         legend.key.spacing.x = unit(5,"mm"),
         plot.caption = element_text(hjust=0)) +
-  facet_wrap(~stringr::str_to_title(species), nrow=3, scales="free_y") #+
-  #guides(colour = guide_legend(override.aes = list(size=3)),
-  #       fill = guide_legend(override.aes = list(size=3)))
+  facet_wrap(~stringr::str_to_title(species_R), nrow=3, scales="free_y") 
 
 dev.off()
 
-nit.rt
+rtall
 ```
 
 <br>
 
 <br>
 
+```{r fig.cap='Historical run timing for focal species in Nitinat River (gray). Stat weeks along x axis denote the month and week of historical counts (e.g., stat week 81=First week of August, statweek 93=Third week of Sept, etc). Current year counts will show as blue points when populated.', fig.width=8, fig.height=6}
 
+pdf(file = here::here("outputs", "figures", "San Juan run timing (heatmap).pdf"),   
+    width = 11, # The width of the plot in inches
+    height = 8.5) # The height of the plot in inches
+
+rtheat <- cowplot::plot_grid(
+
+ggplot() +
+  geom_tile(data=sj.rtStWk %>%
+              filter(species_R=="Chinook") %>%
+              group_by(year, stat_week) %>%
+              summarize(count=case_when(!is.na(count) ~ sum(count,na.rm=T),
+                                        is.na(count) ~ NA), plot_group=plot_group) %>%
+              filter(!is.na(count)),
+            aes(x=stat_week, y=reorder(year, year, descending=F), fill=count)) +
+  scale_fill_viridis_c(option = "C") +
+  scale_y_discrete(limits=rev) +
+  labs(x="Stat week", y="", fill="Chinook\nLive adults: ") +
+  theme_bw() +
+  theme(legend.position = c(0.93, 0.22),
+        legend.text = element_text(size=6),
+        legend.title = element_text(size=7),
+        legend.background = element_rect(fill=alpha("transparent",0.7), colour="black"),
+        axis.title = element_text(face="bold"),
+        axis.text = element_text(colour="black"),
+        legend.key.spacing.x = unit(5,"mm"),
+        plot.caption = element_text(hjust=0)),
+
+ggplot() +
+  geom_tile(data=sj.rtStWk %>%
+              filter(species_R=="Coho") %>%
+              group_by(year, stat_week) %>%
+              summarize(count=case_when(!is.na(count) ~ sum(count,na.rm=T),
+                                        is.na(count) ~ NA), plot_group=plot_group) %>%
+              filter(!is.na(count)),
+            aes(x=stat_week, y=reorder(year, year, descending=F), fill=count)) +
+  scale_fill_viridis_c(option = "C") +
+  scale_y_discrete(limits=rev) +
+  labs(x="Stat week", y="", fill="Coho\nLive adults: ") +
+  theme_bw() +
+  theme(legend.position = c(0.93, 0.22),
+        legend.text = element_text(size=6),
+        legend.title = element_text(size=7),
+        legend.background = element_rect(fill=alpha("transparent",0.7), colour="black"),
+        axis.title = element_text(face="bold"),
+        axis.text = element_text(colour="black"),
+        legend.key.spacing.x = unit(5,"mm"),
+        plot.caption = element_text(hjust=0)),
+
+ggplot() +
+  geom_tile(data=sj.rtStWk %>%
+              filter(species_R=="Chum") %>%
+              group_by(year, stat_week) %>%
+              summarize(count=case_when(!is.na(count) ~ sum(count,na.rm=T),
+                                        is.na(count) ~ NA), plot_group=plot_group) %>%
+              filter(!is.na(count)),
+            aes(x=stat_week, y=reorder(year, year, descending=F), fill=count)) +
+  scale_fill_viridis_c(option = "C", guide = guide_colorbar(barwidth = 0.5, barheight = 5)) +
+  scale_y_discrete(limits=rev) +
+  labs(x="Stat week", y="", fill="Chum\nLive adults: ") +
+  theme_bw() +
+  theme(legend.position = c(0.93, 0.22),
+        legend.text = element_text(size=6),
+        legend.title = element_text(size=7),
+        legend.background = element_rect(fill=alpha("transparent",0.7), colour="black"),
+        axis.title = element_text(face="bold"),
+        axis.text = element_text(colour="black"),
+        legend.key.spacing.x = unit(5,"mm"),
+        plot.caption = element_text(hjust=0)),
+
+nrow=2)
+
+dev.off()
+
+rtheat
+```
 
 
 
