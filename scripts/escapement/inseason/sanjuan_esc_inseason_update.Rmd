@@ -256,7 +256,7 @@ ggplot()+
                 filter(month %in% c("Aug","Sep","Oct", "Nov") & year%in%c(2021:escapement_year) & PARAM=="Level (m)")  %>%
                 group_by(DOY) %>% 
                 summarize(max_lvl=max(Value,na.rm=T), min_lvl=min(Value,na.rm=T)),
-              aes(x=as.Date(DOY, origin="2021-12-31"), ymin=min_lvl, ymax=max_lvl), fill="dodger blue", alpha=0.6) +
+              aes(x=as.Date(DOY, origin="2021-12-31"), ymin=min_lvl, ymax=max_lvl), fill="dodger blue", alpha=0.5) +
   geomtextpath::geom_textline(data=SJ.water %>% 
                                 filter(month %in% c("Aug","Sep","Oct", "Nov") & year%in%c(2021:escapement_year) & 
                                          PARAM=="Level (m)")  %>%
@@ -303,7 +303,7 @@ SJ.SIL %>%
 
 <br>
 
-```{r fig.cap='Raw live (bar) and carcass (line) counts for Nitinat River. Not all surveys are full system: early surveys are lower river only. Dead counts will populate once die-off begins.Note differing y-axis for each species.'}
+```{r fig.cap='Raw live (bar) and carcass (line) counts for San Juan River. Not all surveys are full system: early surveys are lower river only. Dead counts will populate once die-off begins.Note differing y-axis for each species.'}
 ggplot() +
   # ---- DEAD -----
   geom_point(data=SJ.SIL %>%
@@ -364,7 +364,7 @@ SJ.SIL %>%
 
 <br>
 
-```{r fig.cap='Live counts (bars) and water level (blue line) in the Nitinat River.'}
+```{r fig.cap='Live counts (bars) and water level (blue line) in the San Juan River.'}
 # Live ~ water 
 # Plot counts with hydromet data to show pulses of fish into the system relative to rain events. 
 
@@ -403,7 +403,7 @@ ggplot() +
 
 # **Historical run timing** 
 
-```{r fig.cap='Historical run timing for focal species in Nitinat River (gray). Stat weeks along x axis denote the month and week of historical counts (e.g., stat week 81=First week of August, statweek 93=Third week of Sept, etc). Current year counts will show as blue points when populated.', fig.width=8, fig.height=6}
+```{r fig.cap='Historical run timing for focal species in San Juan River (gray). Stat weeks along x axis denote the month and week of historical counts (e.g., stat week 81=First week of August, statweek 93=Third week of Sept, etc). Current year counts will show as blue points when populated.', fig.width=8, fig.height=6}
 
 pdf(file = here::here("outputs", "figures", "San Juan run timing.pdf"),   
     width = 11, # The width of the plot in inches
@@ -443,7 +443,7 @@ rtall
 
 <br>
 
-```{r fig.cap='Historical run timing for focal species in Nitinat River (gray). Stat weeks along x axis denote the month and week of historical counts (e.g., stat week 81=First week of August, statweek 93=Third week of Sept, etc). Current year counts will show as blue points when populated.', fig.width=8, fig.height=6}
+```{r fig.cap='Historical run timing for focal species in San Juan River (gray). Stat weeks along x axis denote the month and week of historical counts (e.g., stat week 81=First week of August, statweek 93=Third week of Sept, etc). Current year counts will show as blue points when populated.', fig.width=12, fig.height=12}
 
 pdf(file = here::here("outputs", "figures", "San Juan run timing (heatmap).pdf"),   
     width = 11, # The width of the plot in inches
@@ -463,12 +463,12 @@ ggplot() +
   scale_y_discrete(limits=rev) +
   labs(x="Stat week", y="", fill="Chinook\nLive adults: ") +
   theme_bw() +
-  theme(legend.position = c(0.93, 0.22),
-        legend.text = element_text(size=6),
-        legend.title = element_text(size=7),
+  theme(legend.position = c(0.93, 0.15),
+        legend.text = element_text(size=9),
+        legend.title = element_text(size=11),
         legend.background = element_rect(fill=alpha("transparent",0.7), colour="black"),
-        axis.title = element_text(face="bold"),
-        axis.text = element_text(colour="black"),
+        axis.title = element_text(face="bold", size=15),
+        axis.text = element_text(colour="black", size=12),
         legend.key.spacing.x = unit(5,"mm"),
         plot.caption = element_text(hjust=0)),
 
@@ -484,12 +484,12 @@ ggplot() +
   scale_y_discrete(limits=rev) +
   labs(x="Stat week", y="", fill="Coho\nLive adults: ") +
   theme_bw() +
-  theme(legend.position = c(0.93, 0.22),
-        legend.text = element_text(size=6),
-        legend.title = element_text(size=7),
+  theme(legend.position = c(0.93, 0.15),
+        legend.text = element_text(size=9),
+        legend.title = element_text(size=11),
         legend.background = element_rect(fill=alpha("transparent",0.7), colour="black"),
-        axis.title = element_text(face="bold"),
-        axis.text = element_text(colour="black"),
+        axis.title = element_text(face="bold", size=15),
+        axis.text = element_text(colour="black", size=12),
         legend.key.spacing.x = unit(5,"mm"),
         plot.caption = element_text(hjust=0)),
 
@@ -505,12 +505,12 @@ ggplot() +
   scale_y_discrete(limits=rev) +
   labs(x="Stat week", y="", fill="Chum\nLive adults: ") +
   theme_bw() +
-  theme(legend.position = c(0.93, 0.22),
-        legend.text = element_text(size=6),
-        legend.title = element_text(size=7),
+  theme(legend.position = c(0.93, 0.15),
+        legend.text = element_text(size=9),
+        legend.title = element_text(size=11),
         legend.background = element_rect(fill=alpha("transparent",0.7), colour="black"),
-        axis.title = element_text(face="bold"),
-        axis.text = element_text(colour="black"),
+        axis.title = element_text(face="bold", size=12),
+        axis.text = element_text(colour="black", size=15),
         legend.key.spacing.x = unit(5,"mm"),
         plot.caption = element_text(hjust=0)),
 
