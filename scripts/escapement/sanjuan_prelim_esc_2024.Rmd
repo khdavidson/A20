@@ -67,7 +67,7 @@ tribs.sil <- list.files(path=paste0("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI
  
 
 # SIL+AUC DB TABLE: Waterbody values (to join to EscEStSppHeader table):
-wbdyVals <- readxl::read_excel(path=here("data", "escapement", "prelim-inseason", "WaterbodiesValues.xlsx")) %>% 
+wbdyVals <- readxl::read_excel(path=here::here("data", "escapement", "prelim-inseason", "WaterbodiesValues.xlsx")) %>% 
   mutate(AREA = case_when(NAME=="TUCK LAKE" ~ "22",
                           TRUE ~ AREA)) %>%
   select(AREA, NAME, WATERSHED_CDE) %>% 
@@ -88,12 +88,22 @@ wbdyVals <- readxl::read_excel(path=here("data", "escapement", "prelim-inseason"
 
 
 # SIL+AUC DB TABLE: AUC Data Table for analysis: 
-AUCdataTable <- readxl::read_excel(path=here("data", "escapement", "prelim-inseason", "AUC_DataAnalysisTable_area20.xlsx"))
-
+AUCdataTable <- readxl::read_excel(path=here::here("data", "escapement", "prelim-inseason",
+                                                   list.files(path=here::here("data", "escapement", 
+                                                                              "prelim-inseason"),
+                                                              pattern=paste0("^AUC_DataAnalysisTable_area20_",
+                                                                             analysis_year, 
+                                                                             ".xlsx"))))
+                                                   
 
 
 # SIL+AUC DB TABLE: EscEstSppHeader table:
-escEstSpp <- readxl::read_excel(path=here("data", "escapement", "prelim-inseason", "EscEstSppHeader_area20-22.xlsx")) %>% 
+escEstSpp <- readxl::read_excel(path=here::here("data", "escapement", "prelim-inseason",
+                                                list.files(path=here::here("data", "escapement", 
+                                                                           "prelim-inseason"),
+                                                           pattern=paste0("^EscEstSppHeader_area20-22_",
+                                                                          analysis_year, 
+                                                                          ".xlsx")))) %>% 
   left_join(.,
             wbdyVals,
             na_matches="never", relationship="many-to-one")
@@ -107,41 +117,76 @@ mile4.fence <- readxl::read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/E
 
 
 # Enviro ----------------------------
-sj.water <- list.files(here::here("data", "enviro"), pattern = "08HA010", full.names = T) %>% 
-  map(~read.csv(file=.x, skip=9)) %>%
-  purrr::list_rbind() %>%
-  mutate(date = as.Date(Date..PST.),
-         Parameter = case_when(Parameter==46~"water level",
-                               Parameter==47 ~ "discharge")) %>%
-  rename(level_m = Value.m.,
-         cms = Value.m..s.) %>%
-  print()
+SJ.water <- full_join(
+  read.csv(file=list.files(path = here::here("data", "enviro"),
+                           pattern = "SANJUAN_historical*",
+                           full.names = TRUE),
+           skip=1) %>%
+    mutate(PARAM = case_when(PARAM==1 ~ "Discharge (cms)",
+                             PARAM==2 ~ "Level (m)"),
+           Date = lubridate::ymd(Date),
+           year = lubridate::year(Date),
+           month = lubridate::month(Date, label=T, abbr=T),
+           DOY = lubridate::yday(Date)),
+  
+  rbind(read.csv(file=list.files(path = here::here("data", "enviro"),
+                                 pattern = "SANJUAN_REALTIME_08HA010_QR*",     # discharge realtime
+                                 full.names = TRUE),
+                 skip=9) %>%
+          rename(Value = Value..m..s.,
+                 Date = Date..PST.,
+                 PARAM = Parameter),
+        
+        read.csv(file=list.files(path = here::here("data", "enviro"),
+                                 pattern = "SANJUAN_REALTIME_08HA010_HG*",     # water level realtime
+                                 full.names = TRUE),
+                 skip=9) %>%
+          rename(Value = Value..m.,
+                 Date = Date..PST.,
+                 PARAM = Parameter)
+  )
+  %>%
+    mutate(PARAM = case_when(PARAM==46 ~ "Level (m)",
+                                 PARAM=="47" ~ "Discharge (cms)"),
+           Date = lubridate::ymd(stringr::str_sub(string=Date, start=1, end=10)),
+           time = stringr::str_sub(string=Date, start=12, end=19),
+           year = lubridate::year(Date),
+           month = lubridate::month(Date, label=T, abbr=T),
+           DOY = lubridate::yday(Date)) 
+)
 
 
 # Run timing ----------------------------
-sj.rtStWk <- readxl::read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/run timing tables (updated).xlsx", 
-                                    sheet="San Juan", guess_max=10000, trim_ws=T, range=cell_limits(c(4, 1), c(NA, NA))) %>% 
-  select(-c(`...25`:`Fence out`,`...34`:`...43`)) %>%
-  relocate(species_R, .before = `81`) %>% 
+sj.rtStWk <- readxl::read_excel(path=#paste0(here::here("data", "escapement"), sep="/", 
+                                      #       list.files(path=here::here("data", "escapement"),
+                                      #                  pattern="run timing tables (updated)*")), 
+                                   "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/run timing tables (updated).xlsx",
+                                 sheet="San Juan", guess_max=10000, trim_ws=T, 
+                                 range=cellranger::cell_limits(c(4, 1), c(NA, NA))) %>% 
+  select(-c(`...25`:NOTES, `...34`:`...43`)) %>%
   rename(year=`...1`) %>% 
-  filter(if_any(everything(), ~ !is.na(.)), !grepl("Table", year), !grepl("Year", year), !is.na(year), !grepl("Observed", year)) %>% 
+  filter(!is.na(year), !grepl("Observed", year), year!="Year") %>% 
   mutate(across(c(`81`:`124`), ~as.numeric(.)),
          plot_group = case_when(year==analysis_year ~ year,
-                                year!=analysis_year ~ paste0(min(year), sep="-", (analysis_year-1)))) %>%
+                                year!=analysis_year ~ paste0(min(year), 
+                                                               sep="-", (analysis_year-1)))) %>%
   pivot_longer(cols = c(`81`:`124`), names_to = "stat_week", values_to = "count") %>% 
   print()
 
 sj.rtStWk$stat_week <- factor(sj.rtStWk$stat_week,
-                              levels=c("81","82","83","84",
-                                       "91","92","93","94",
-                                       "101","102","103","104","105",
-                                       "111","112","113","114","115",
-                                       "121","122","123","124", ordered=T))
+                               levels=c("81","82","83","84",
+                                        "91","92","93","94",
+                                        "101","102","103","104","105",
+                                        "111","112","113","114","115",
+                                        "121","122","123","124", ordered=T)) 
 
 # Escapement ----------------------------
-sj.esc <- readxl::read_excel(path=here("data", "escapement", "NuSEDS_Area20_escapement_Dec2023.xlsx"), sheet="Data")
+sj.escHistorical <- readxl::read_excel(path=list.files(path=here::here("data", "escapement"),
+                                                       pattern="NuSEDS_Area20_escapement_Jun2024.xlsx",
+                                                       full.names=T), 
+                                       sheet="Data")
 
-sj.esc.goal <- read.csv(here("data", "escapement", "wcviCK-BootstrappedRPs.csv")) %>% 
+sj.esc.goal <- read.csv(here::here("data", "escapement", "wcviCK-BootstrappedRPs.csv")) %>% 
   filter(Stock=="San Juan")
 
 ```
@@ -167,7 +212,7 @@ Three complete surveys conducted over 2-3 days per survey were conducted for in 
 
 Counts are expanded for % population estimated and/or observer efficiency, depending on survey conditions. 
 
-```{r}
+```{r eval=F}
 # ggplot() +
 #   geom_bar(data=ver23 %>% 
 #              filter(ShortSpecies=="SK") %>% 
@@ -200,7 +245,7 @@ Figure: Raw live Adult Sockeye counts (blue) and expanded for OE (pink).
 
 ## Counts & environmentals
 
-```{r }
+```{r eval=F}
 ggplot() +
   geom_ribbon(data=sj.water %>% group_by(date) %>% 
                 summarize(minL=min(level_m,na.rm=T), maxL=max(level_m,na.rm=T), 
@@ -231,7 +276,7 @@ Figure: Sockeye raw counts (live adults) and water levels (blue line) in the San
 
 ## Behaviour & carcasses 
 
-```{r}
+```{r eval=F}
 ggplot() +
   geom_bar(data=sj.sil %>% filter(species=="Sockeye") %>% group_by(date, section) %>% 
              summarize(Spawning=sum(`adults # spawning`),
@@ -273,7 +318,7 @@ No sockeye were passed through the fence in 2023.
 ## Tributaries 
 
 Table: Sockeye counts (raw live and dead) for San Juan tributaries (Renfrew, Lens, Harris) and Gordon River in 2023.
-```{r}
+```{r eval=F}
 tribs.sil %>% 
   filter(species=="Sockeye") %>% 
   group_by(trib_status, system,date) %>% 
@@ -286,7 +331,7 @@ tribs.sil %>%
 
 <br>
 
-```{r}
+```{r eval=F}
 ggplot() +
   geom_bar(data=sj.sil %>% 
              filter(species=="Sockeye") %>% 
@@ -326,7 +371,7 @@ Figure: Mainstem and trib counts for Sockeye adults (raw). Indicates subtraction
 
 Table: San Juan raw swim data (raw and expanded live and dead) for Sockeye.  
 
-```{r}
+```{r eval=F}
 AUCdataTable %>% 
   filter(ShortSpecies=="SK") %>% 
   select(ShortSpecies,Section_AreaInspected, SDate, WaterTemperature, WaterClarity, LiveAdults, DeadAdults,LiveJacks,DeadJacks, ExpLiveAdults,
@@ -341,7 +386,7 @@ AUCdataTable %>%
 
 Table: Escapement estimates for each system. San Juan mainstem surveys were rolled up based on mid-point date for each of 3 complete survey events, and then the PL+D was selected based on the 3 survey events.  
 
-```{r}
+```{r eval=F}
 escEstSpp %>% 
   filter(ShortSpecies=="SK", AREA=="20") %>% 
   select(ShortSpecies, SystemName, contains("PLD"), contains("Reco"), -c(contains("Recommend"))) %>% 
