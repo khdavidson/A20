@@ -483,18 +483,18 @@ ggplot() +
                 filter(PARAM=="Discharge (cms)", year==2024, month%in%c("Aug", "Sep", "Oct", "Nov")) %>%
                 group_by(Date) %>%
                 summarize(min=min(Value, na.rm=T), max=max(Value, na.rm=T)),
-              aes(x=as.Date(Date), ymin=min*5, ymax=max*5), fill="dodger blue", alpha=0.3) +
+              aes(x=as.Date(Date), ymin=min*3, ymax=max*3), fill="dodger blue", alpha=0.3) +
   geom_line(data=SJ.water %>%
                 filter(PARAM=="Discharge (cms)", year==2024, month%in%c("Aug", "Sep", "Oct", "Nov")) %>%
                 group_by(Date) %>%
                 summarize(mean=mean(Value, na.rm=T)),
-              aes(x=as.Date(Date), y=mean*5), colour="dodger blue", alpha=0.9, size=1) +
+              aes(x=as.Date(Date), y=mean*3), colour="dodger blue", alpha=0.9, size=1) +
   geom_bar(data=sj.sil %>% filter(species=="Coho") %>% group_by(date, `upper/lower`) %>% 
              summarize(n=sum(`adults live / habitat seen (# Est Live)`)), 
            aes(x=as.Date(date), y=n, fill=`upper/lower`, colour=`upper/lower`), 
            stat="identity", position="stack", alpha=0.7) +
   labs(x="", y="Expanded adult Coho", fill="Segment", colour="Segment") +
-  scale_y_continuous(sec.axis = sec_axis(~./5, name="Discharge (cms)")) +
+  scale_y_continuous(sec.axis = sec_axis(~./3, name="Discharge (cms)")) +
   scale_x_date(date_breaks="7 day", date_labels="%b %d") +
   theme_bw() +
   theme(axis.text.x = element_text(angle=45, hjust=1))
@@ -532,7 +532,7 @@ ggplot() +
 ```
 <br>
 
-Figure: Expanded live adult Coho (bars) and carcasses (black line) in the San Juan mainstem. Bar fill colur indicates behaviour (spawning=gray, holding=white) while bar outline colour indicates river segment (lower=pink, mid=green, upper=blue). Note Oct 3/4 mid was covered within upper and lower segments.  
+Figure: Expanded live adult Coho (bars) and carcasses (black line) in the San Juan mainstem. Bar fill colur indicates behaviour (spawning=gray, holding=white) while bar outline colour indicates river segment (lower=pink, mid=green, upper=blue). 
 
 <br>
 
@@ -757,19 +757,19 @@ Figure: Raw live Adult Chum counts (blue) and expanded for OE (pink).
 
 ```{r eval=F}
 ggplot() +
-  geom_ribbon(data=SJ.water %>% group_by(date) %>% 
-                summarize(minL=min(level_m,na.rm=T), maxL=max(level_m,na.rm=T), 
-                          minD=min(cms,na.rm=T), maxD=max(cms,na.rm=T)) %>% 
-                filter(across(c(minL:maxD), ~ . !="Inf"), date<=as.Date("2023-11-10")), 
-              aes(x=as.Date(date), ymin=minD*1, ymax=maxD*1), fill="dodger blue", alpha=0.5) +
-  geom_line(data=SJ.water %>% group_by(date) %>% 
-              summarize(meanL = mean(level_m,na.rm=T),
-                        meanD = mean(cms,na.rm=T)) %>% 
-              filter(across(c(meanL:meanD), ~.!="Inf"), date<=as.Date("2023-11-10")), 
-            aes(x=as.Date(date), y=meanD*1), colour="dodger blue") +
-  geom_bar(data=sj.sil %>% filter(species=="Chum") %>% group_by(date, section) %>% 
+  geom_ribbon(data=SJ.water %>%
+                filter(PARAM=="Discharge (cms)", year==2024, month%in%c("Aug", "Sep", "Oct", "Nov")) %>%
+                group_by(Date) %>%
+                summarize(min=min(Value, na.rm=T), max=max(Value, na.rm=T)),
+              aes(x=as.Date(Date), ymin=min*1, ymax=max*1), fill="dodger blue", alpha=0.3) +
+  geom_line(data=SJ.water %>%
+                filter(PARAM=="Discharge (cms)", year==2024, month%in%c("Aug", "Sep", "Oct", "Nov")) %>%
+                group_by(Date) %>%
+                summarize(mean=mean(Value, na.rm=T)),
+              aes(x=as.Date(Date), y=mean*1), colour="dodger blue", alpha=0.9, size=1) +
+  geom_bar(data=sj.sil %>% filter(species=="Chum") %>% group_by(date, `upper/lower`) %>% 
              summarize(n=sum(`adults live / habitat seen (# Est Live)`)), 
-           aes(x=as.Date(date), y=n, fill=section, colour=section), 
+           aes(x=as.Date(date), y=n, fill=`upper/lower`, colour=`upper/lower`), 
            stat="identity", position="stack", alpha=0.7) +
   labs(x="", y="Expanded adult Chum", fill="Segment", colour="Segment") +
   scale_y_continuous(sec.axis = sec_axis(~./1, name="Discharge (cms)")) +
@@ -788,11 +788,11 @@ Figure: Chum counts (raw live adults) and water levels (blue line) in the San Ju
 
 ```{r eval=F}
 ggplot() +
-  geom_bar(data=sj.sil %>% filter(species=="Chum") %>% group_by(date, section) %>% 
+  geom_bar(data=sj.sil %>% filter(species=="Chum") %>% group_by(date, `upper/lower`) %>% 
              summarize(Spawning=sum(`adults # spawning`),
                        Holding = sum(`adults # holding`)) %>% 
              pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count"), 
-           aes(x=as.Date(date), y=count, fill=behaviour, colour=section), 
+           aes(x=as.Date(date), y=count, fill=behaviour, colour=`upper/lower`), 
            stat="identity", position="stack", alpha=0.7, size=1) +
   geom_point(data=sj.sil %>% filter(species=="Chum") %>% group_by(date) %>% 
                summarize(n=sum(`adults dead`)), 
@@ -810,7 +810,7 @@ ggplot() +
 ```
 <br>
 
-Figure: Raw live adult Chum (bars) and carcasses (black line) in the San Juan mainstem. Bar fill colour indicates behaviour (spawning=gray, holding=white) while bar outline colour indicates river segment (lower=pink, mid=green, upper=blue). Note Oct 3/4 mid was covered within upper and lower segments.  
+Figure: Raw live adult Chum (bars) and carcasses (black line) in the San Juan mainstem. Bar fill colour indicates behaviour (spawning=gray, holding=white) while bar outline colour indicates river segment (lower=pink, mid=green, upper=blue). 
 
 <br>
 
@@ -833,9 +833,9 @@ tribs.sil %>%
   group_by(trib_status, system,date) %>% 
   summarize(live_adults = round(sum(`adults live`),0),
             dead_adults = sum(`adults dead`))%>% 
-  kbl(align="c") %>%
-  kable_paper("hover", full_width=T, position = "center") %>%
-  collapse_rows(columns=c(1:1), valign="middle", target=1) 
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:1), valign="middle", target=1) 
 ```
 
 <br>
@@ -844,31 +844,30 @@ tribs.sil %>%
 ggplot() +
   geom_bar(data=sj.sil %>% 
              filter(species=="Chum") %>% 
-             group_by(surveyNum) %>% 
+             group_by(system, date) %>% 
              summarize(Spawning=sum(`adults # spawning`),
                        Holding = sum(`adults # holding`)) %>% 
-             pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count") %>%
-             mutate(date = case_when(surveyNum=="SJ-1" ~ as.Date("2023-10-04"),
-                                     surveyNum=="SJ-2" ~ as.Date("2023-10-11"),
-                                     surveyNum=="SJ-3" ~ as.Date("2023-10-28")),
-                    system="mainstem"), 
+             pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count"),
+             #mutate(date = case_when(surveyNum=="SJ-1" ~ as.Date("2023-10-04"),
+            #                         surveyNum=="SJ-2" ~ as.Date("2023-10-11"),
+            #                         surveyNum=="SJ-3" ~ as.Date("2023-10-28")),
+            #        system="mainstem"), 
            aes(x=as.Date(date), y=count, fill=behaviour, colour=system), 
            stat="identity", position="stack", alpha=0.7, size=1, width=1) +
   geom_bar(data = tribs.sil %>% 
-             filter(species=="Chum", trib_status=="San Juan trib") %>% 
-             group_by(system,date) %>% 
+             filter(species=="Chum", trib_status!="San Juan mainstem") %>% 
+             group_by(system, date) %>% 
              summarize(Spawning=sum(`adults # spawning`),
                        Holding = sum(`adults # holding`)) %>% 
-             pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count") %>%
-             filter(system!="Renfrew"),
-           aes(x=as.Date(date), y=count*100, colour=system, fill=behaviour), stat="identity",  alpha=0.8, size=1, width=1) +
-  scale_y_continuous(sec.axis = sec_axis(~./100, name="Trib count")) +
+             pivot_longer(cols=c(Spawning, Holding), names_to="behaviour", values_to="count"),
+           aes(x=as.Date(date), y=count*100, colour=system, fill=behaviour), stat="identity",  alpha=0.5, size=1, width=1) +
+  #scale_y_continuous(sec.axis = sec_axis(~./100, name="Trib count")) +
   scale_fill_manual(breaks=waiver(), values=c("transparent", "gray")) +
   labs(x="", y="mainstem count") +
   theme_bw()
 ```
 
-Figure: Mainstem and trib counts for Chum adults (unexpanded). Probably not subtract tribs as spawning was well underway with carcasses accumulating on the last mainstem survey and shortly after there was already tributary spawning. Renfrew Creek not considered for removals as Fairy Lake trib downstream of survey area.  
+Figure: Mainstem and trib counts for Chum adults (unexpanded). 
 
 <br>
 
@@ -886,9 +885,9 @@ AUCdataTable %>%
   select(ShortSpecies,Section_AreaInspected, SDate, WaterTemperature, WaterClarity, LiveAdults, DeadAdults,LiveJacks,DeadJacks, ExpLiveAdults,
          ExpDeadAdults, ExpLiveJacks, ExpDeadJacks, OverallReliability, EstPctSeen) %>% 
   mutate(across(c(LiveAdults:ExpDeadJacks), ~round(., 0))) %>% 
-  kbl(align="c") %>%
-  kable_paper("hover", full_width=T, position = "center") %>%
-  collapse_rows(columns=c(1:4), valign="middle", target=1) 
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:4), valign="middle", target=1) 
 ```
 
 <br>
@@ -904,9 +903,9 @@ escEstSpp %>%
   select(ShortSpecies, SystemName, contains("PLD"), AdultRemovalsReco, JackRemovalsReco, FinalAdultEstimate, FinalJackEstimate) %>% 
   mutate(across(FinalJackEstimate:FinalAdultEstimate, ~case_when(.<0 ~ 0,
                                                                  TRUE ~ .))) %>%
-  kbl(align="c") %>%
-  kable_paper("hover", full_width=T, position = "center") %>%
-  collapse_rows(columns=c(1:4), valign="middle", target=1) 
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:4), valign="middle", target=1) 
 ```
 
 <br>
@@ -941,16 +940,20 @@ Figure: Raw swim counts (blue) from this year compared to historical raw swim co
 
 ```{r eval=F}
 ggplot()  +
-  geom_bar(data=sj.esc %>% filter(`Waterbody Name`=="SAN JUAN RIVER", `Species Qualified`=="CM"), 
-           aes(x=`Analysis Year`, y=`Natural Adult Spawners`), stat="identity", colour="dodger blue", fill="dodger blue", alpha=0.8) +
-  geom_bar(data=sj.esc %>% filter(`Waterbody Name`=="SAN JUAN RIVER", `Species Qualified`=="CM"), 
-           aes(x=`Analysis Year`, y=`Unspecified Return`), stat="identity", colour="gray80", fill="gray80", alpha=0.8) +  
+  geom_bar(data=sj.escHistorical %>% 
+             filter(`Waterbody Name`=="SAN JUAN RIVER", `Species Qualified`=="CM"), 
+           aes(x=`Analysis Year`, y=`Natural Adult Spawners`), 
+           stat="identity", colour="dodger blue", fill="dodger blue", alpha=0.8) +
+  geom_bar(data=sj.escHistorical %>% 
+             filter(`Waterbody Name`=="SAN JUAN RIVER", `Species Qualified`=="CM"), 
+           aes(x=`Analysis Year`, y=`Unspecified Return`), 
+           stat="identity", colour="gray80", fill="gray80", alpha=0.8) +  
   geom_bar(data=escEstSpp %>% 
              filter(ShortSpecies=="CM", AREA=="20", SystemName!="Gordon River") %>% 
              select(Year, SystemName, AdultNaturalReco) %>% 
              summarize(n=sum(AdultNaturalReco)), 
              aes(x=analysis_year, y=n), stat="identity", colour="red", fill="dodger blue", alpha=0.8) +   
-  scale_x_continuous(breaks=seq(min(sj.esc$`Analysis Year`), analysis_year, by=2)) +
+  scale_x_continuous(breaks=seq(min(sj.escHistorical$`Analysis Year`), analysis_year, by=2)) +
   labs(x="Return Year", y="Chum spawners") +
   theme_bw() +
   theme(axis.text.x = element_text(angle=45, hjust=1))
@@ -1114,7 +1117,7 @@ Figure: Chinook counts (expanded live adults) and water levels (blue line) in th
 ```
 <br>
 
-Figure: Expanded live adult Chinook (bars) and carcasses (black line) in the San Juan mainstem. Bar fill colour indicates behaviour (spawning=gray, holding=white) while bar outline colour indicates river segment (lower=pink, mid=green, upper=blue). Note Oct 3/4 mid was covered within upper and lower.  
+Figure: Expanded live adult Chinook (bars) and carcasses (black line) in the San Juan mainstem. Bar fill colour indicates behaviour (spawning=gray, holding=white) while bar outline colour indicates river segment (lower=pink, mid=green, upper=blue).  
 
 <br>
 
