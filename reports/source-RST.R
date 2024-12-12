@@ -10,15 +10,16 @@ library(tidyverse)
 
 # ========================= LOAD 2024 EPICOLLECT DATA =========================
 # Form 1: Metadata/survey details -------------------
-rst24.1 <- readxl::read_excel(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/Data management/Epicollect Data Downloads/2024/RST/form-1_RSTmaster - verified.xlsx",
+rst24.1 <- readxl::read_excel(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/Data management/Epicollect Data Downloads/2024/RST/form-1_RSTmaster - verified.xlsx",
                               guess_max=20000) %>% 
-  mutate(R_date = lubridate::dmy(str_sub(title, start=1, end=10)),
-         R_time = str_sub()) %>% 
+  mutate(R_date = lubridate::dmy(stringr::str_sub(title, start=1, end=10))#,
+         #R_time = stringr::str_sub()
+         ) %>% 
   rename(ec5_parent_uuid=ec5_uuid)
 
 
 # Form 2: Enumeration -------------------
-rst24.2 <- readxl::read_excel(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/Data management/Epicollect Data Downloads/2024/RST/form-2_RSTmaster - verified.xlsx",
+rst24.2 <- readxl::read_excel(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/Data management/Epicollect Data Downloads/2024/RST/form-2_RSTmaster - verified.xlsx",
                               guess_max=20000) 
 
 rst24.releases <- rst24.2 %>% 
@@ -29,7 +30,7 @@ rst24.2 <- rst24.2 %>%
 
 
 # Form 3: Catch sampling -------------------
-rst24.3 <- readxl::read_excel(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/Data management/Epicollect Data Downloads/2024/RST/form-3_RSTmaster - verified.xlsx",
+rst24.3 <- readxl::read_excel(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/Data management/Epicollect Data Downloads/2024/RST/form-3_RSTmaster - verified.xlsx",
                               guess_max=20000)
 
 
@@ -85,6 +86,10 @@ writexl::write_xlsx(left_join(rst24.3, rst24.1,
 #                                                                 Raw data exploration
 
 # Salmon catch
+pdf(file = here::here("outputs", "figures", "Area 20 escapement - populations.pdf"),   
+    width = 14, # The width of the plot in inches
+    height = 8.5) # The height of the plot in inches
+
 ggplot() +
   geom_bar(data=rst24.metaEnum %>% 
              group_by(DOY, species, stage) %>%
@@ -121,7 +126,7 @@ ggplot() +
         legend.position = c(0.8,0.8),
         legend.background = element_rect(colour="black"))
   
-
+dev.off()
 
 
 # ========================= MORTS =========================
