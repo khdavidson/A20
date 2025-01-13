@@ -10,19 +10,19 @@ library(leaflet)
 # ============================ LOAD DATA ============================
 
 # PURSE SEINE DATA -------------------------
-form1 <- read.csv(file="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/Data management/Epicollect Data Downloads/2024/PUrse Seining/form-1__rst-seining-survey_MASTER_2024.csv") %>%
+form1 <- read.csv(file="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/Data management/Epicollect Data Downloads/2024/PUrse Seining/form-1__rst-seining-survey_MASTER_2024.csv") %>%
   mutate(X2_Date = lubridate::dmy(X2_Date)) %>% 
   rename(ec5_form1_uuid = ec5_uuid)
-form2 <- read.csv(file="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/Data management/Epicollect Data Downloads/2024/PUrse Seining/form-2__fishing-sets_MASTER_2024.csv") %>%
+form2 <- read.csv(file="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/Data management/Epicollect Data Downloads/2024/PUrse Seining/form-2__fishing-sets_MASTER_2024.csv") %>%
   rename(ec5_form2_uuid = ec5_uuid,
          ec5_form1_uuid = ec5_parent_uuid)
-form3 <- read.csv(file="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/Data management/Epicollect Data Downloads/2024/PUrse Seining/form-3__catch-sampling_MASTER_2024.csv") %>%
+form3 <- read.csv(file="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/Data management/Epicollect Data Downloads/2024/PUrse Seining/form-3__catch-sampling_MASTER_2024.csv") %>%
   rename(ec5_form3_uuid = ec5_uuid,
          ec5_form2_uuid = ec5_parent_uuid) %>%
   mutate(date = lubridate::ymd(stringr::str_sub(created_at, 1,10)))
 
 # BEACH SEINE DATA -------------------------
-bs <- readxl::read_excel(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan Juveniles/Data management/2024 Misc Data/SanJuan_BeachSeine_Data_2024/SanJuan_BeachSeine_Data_2024.xlsx",
+bs <- readxl::read_excel(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan Juveniles/Data management/2024 Misc Data/SanJuan_BeachSeine_Data_2024/SanJuan_BeachSeine_Data_2024.xlsx",
                          sheet="2024 Beach Seine Data") %>% 
   mutate(date = lubridate::ymd(`Date (YY-MM-DD)`)) %>% 
   left_join(.,
@@ -64,7 +64,8 @@ tt123 <- sf::st_as_sf(tt123,
 
 write.csv(file=paste0(here::here("outputs"), "/R_OUT - 2024 purse seine joined data (forms1+2+3).csv"), x=tt123, row.names=F)
 
-prs.dna <- read.csv(file=here::here("outputs", "R_OUT - 2024 purse seine joined data (forms1+2+3) - DNA submission version.csv"))
+#prs.dna <- read.csv(file=here::here("outputs", "R_OUT - 2024 purse seine joined data (forms1+2+3) - DNA submission version.csv"))
+prs.dna <- read_csv(file=here::here("outputs", "R_OUT - 2024 purse seine joined data (forms1+2+3).csv"))
 
 #########################################################################################################################################################
 
@@ -271,7 +272,7 @@ leaflet() %>%
 #########################################################################################################################################################
 
 
-# Random selection process 
+###################################################### SUBMISSION 1 Random selection process 
 
 
 # ======================= BEACH SEINE =======================
@@ -321,7 +322,7 @@ prs.subsamp <- full_join(
   print()
 
 
-# EXPORT
+# ======================= EXPORT =======================
 # Create workbook --------------------
 R_OUT_DNAsubsamp <- openxlsx::createWorkbook()
 
@@ -340,4 +341,76 @@ openxlsx::saveWorkbook(R_OUT_DNAsubsamp,
                        returnValue=T)
 
 
+
+###################################################### SUBMISSION 2 Random selection process 
+
+
+# ======================= BEACH SEINE =======================
+# Dates/situations chosen for sub-sampling are: 
+# NOT CLIPPED
+# NOT LETHAL 
+#(June 17 BS09 --> n=3  **used output from above- already done, just ran out of space last time** )
+# July 11 BS07 --> n=9
+#July 31 BS07 --> n=10
+
+set.seed(234)
+
+bs.subsampSub2 <- full_join(
+  bs %>% 
+    filter(`Date (YY-MM-DD)`=="24-07-11" & `Site Name`=="BS07") %>%
+    filter(`AD Clipped (Y/N)`=="N", `Lethal Sample (Y/N)`=="N", is.na(`DNA submission status`)) %>%
+    slice_sample(n = 9),
+  bs %>% 
+    filter(`Date (YY-MM-DD)`%in%c("24-07-31") & `Site Name`=="BS07")  %>%
+    filter(`AD Clipped (Y/N)`=="N", `Lethal Sample (Y/N)`=="N", is.na(`DNA submission status`)) %>%
+    slice_sample(n = 10)
+) %>% 
+  print()
+
+
+# ======================= PURSE SEINE =======================
+# Dates/situations chosen for sub-sampling are: 
+# NOT CLIPPED
+# NOT LETHAL 
+# July 15 PRCD --> n=3
+# July 15 Thrasher --> n=3
+# Sept 3 Offshore B --> n=2
+
+set.seed(123)
+
+prs.subsampSub2 <- full_join(
+  prs.dna %>% 
+    filter(X242_Species=="Chinook", X248_Adipose_Clip_Sta=="Not clipped",  X266_Is_this_a_lethal=="No") %>%
+    filter(date==as.Date("2024-07-15") & grepl("PRCD", X5_Survey_Location_ri, ignore.case=T)) %>% 
+    slice_sample(n = 3),
+  prs.dna %>% 
+    filter(X242_Species=="Chinook", X248_Adipose_Clip_Sta=="Not clipped",  X266_Is_this_a_lethal=="No") %>%
+    filter(date==as.Date("2024-07-15") & grepl("Thrasher", X5_Survey_Location_ri, ignore.case=T)) %>% 
+    slice_sample(n = 3)
+) %>% 
+  full_join(.,
+            prs.dna %>% 
+              filter(X242_Species=="Chinook", X248_Adipose_Clip_Sta=="Not clipped",  X266_Is_this_a_lethal=="No") %>%
+              filter(date==as.Date("2024-09-03") & grepl("PS B", X5_Survey_Location_ri, ignore.case=T)) %>% 
+              slice_sample(n = 2)) %>%
+  print()
+
+
+# ======================= EXPORT =======================
+# Create workbook --------------------
+R_OUT_DNAsubsamp2 <- openxlsx::createWorkbook()
+
+# Add sheets to the workbook --------------------
+openxlsx::addWorksheet(R_OUT_DNAsubsamp2, "BS subsample Sub2")
+openxlsx::addWorksheet(R_OUT_DNAsubsamp2, "PRS subsample Sub2")
+
+# Write data to the sheets --------------------
+openxlsx::writeData(R_OUT_DNAsubsamp2, sheet="BS subsample Sub2", x=bs.subsampSub2)
+openxlsx::writeData(R_OUT_DNAsubsamp2, sheet="PRS subsample Sub2", x=prs.subsampSub2)
+
+# Export to github repo --------------------
+openxlsx::saveWorkbook(R_OUT_DNAsubsamp2,
+                       file=here::here("outputs", "R_OUT - 2024 BS and PRS DNA subsample choice - NEW SUBMISSION 2.xlsx"),
+                       overwrite=T,
+                       returnValue=T)
 
