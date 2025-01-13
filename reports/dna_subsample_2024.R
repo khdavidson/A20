@@ -7,6 +7,8 @@ library(ggridges)
 library(leaflet)
 
 
+"%notin%" <- Negate("%in%")
+
 # ============================ LOAD DATA ============================
 
 # PURSE SEINE DATA -------------------------
@@ -381,18 +383,18 @@ set.seed(123)
 prs.subsampSub2 <- full_join(
   prs.dna %>% 
     filter(X242_Species=="Chinook", X248_Adipose_Clip_Sta=="Not clipped",  X266_Is_this_a_lethal=="No") %>%
-    filter(date==as.Date("2024-07-15") & grepl("PRCD", X5_Survey_Location_ri, ignore.case=T)) %>% 
+    filter(date==as.Date("2024-07-15") & grepl("Thrasher", X5_Survey_Location_ri, ignore.case=T), X254_DNA_sample__What%notin%c("SJ24-PRS256", "SJ24-251")) %>% 
     slice_sample(n = 3),
   prs.dna %>% 
     filter(X242_Species=="Chinook", X248_Adipose_Clip_Sta=="Not clipped",  X266_Is_this_a_lethal=="No") %>%
-    filter(date==as.Date("2024-07-15") & grepl("Thrasher", X5_Survey_Location_ri, ignore.case=T)) %>% 
-    slice_sample(n = 3)
+    filter(date==as.Date("2024-09-03") & grepl("PS B", X5_Survey_Location_ri, ignore.case=T), X254_DNA_sample__What%notin%c("SJ24-PRS256", "SJ24-251")) %>% 
+    slice_sample(n = 2)
 ) %>% 
   full_join(.,
             prs.dna %>% 
               filter(X242_Species=="Chinook", X248_Adipose_Clip_Sta=="Not clipped",  X266_Is_this_a_lethal=="No") %>%
-              filter(date==as.Date("2024-09-03") & grepl("PS B", X5_Survey_Location_ri, ignore.case=T)) %>% 
-              slice_sample(n = 2)) %>%
+              filter(date==as.Date("2024-08-26") & grepl("Jap", X5_Survey_Location_ri, ignore.case=T), X254_DNA_sample__What%notin%c("SJ24-PRS256", "SJ24-251")) %>% 
+              slice_sample(n = 3)) %>%
   print()
 
 
