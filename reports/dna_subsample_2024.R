@@ -361,7 +361,7 @@ bs.subsampSub2 <- full_join(
   bs %>% 
     filter(`Date (YY-MM-DD)`=="24-07-11" & `Site Name`=="BS07") %>%
     filter(`AD Clipped (Y/N)`=="N", `Lethal Sample (Y/N)`=="N", is.na(`DNA submission status`)) %>%
-    slice_sample(n = 9),
+    slice_sample(n = 9),   #actually ended up doing n=10 after pulling samples and seeing 1 vial was empty so manually added another sample
   bs %>% 
     filter(`Date (YY-MM-DD)`%in%c("24-07-31") & `Site Name`=="BS07")  %>%
     filter(`AD Clipped (Y/N)`=="N", `Lethal Sample (Y/N)`=="N", is.na(`DNA submission status`)) %>%
