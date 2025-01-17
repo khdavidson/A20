@@ -86,7 +86,7 @@ writexl::write_xlsx(left_join(rst24.3, rst24.1,
 #                                                                 Raw data exploration
 
 # Salmon catch
-pdf(file = here::here("outputs", "figures", "Area 20 escapement - populations.pdf"),   
+pdf(file = here::here("outputs", "figures", "juvenile", "RST raw catch (salmon only).pdf"),   
     width = 14, # The width of the plot in inches
     height = 8.5) # The height of the plot in inches
 
@@ -161,21 +161,22 @@ ggplot() +
              filter(condition=="Mort" & total>0) %>% 
              mutate(mort_rate=n/total) %>%
              filter(mort_rate>0),
-           aes(x=DOY, y=mort_rate, 
-               group=interaction(species, stage, sep=" "), fill=interaction(species, stage, sep=" "), colour=interaction(species, stage, sep=" ")), 
-           stat="identity", width=1, alpha=0.5, position=position_stack(vjust=1)) +
-  geom_text(data=rst24.metaEnum %>% 
-              filter(!is.na(species)) %>%
-              group_by(DOY, species, stage, condition) %>%
-              summarize(n=sum(count, na.rm=T)) %>%
-              group_by(DOY) %>% 
-              mutate(total=sum(n)) %>%
-              filter(condition=="Mort" & total>0) %>% 
-              mutate(mort_rate=n/total) %>%
-              filter(mort_rate>0),
-            aes(x=DOY, y=mort_rate, 
-                group=interaction(species, stage, sep=" "), fill=interaction(species, stage, sep=" "), colour=interaction(species, stage, sep=" "),
-                label=n), position=position_stack(vjust=0.5)) +
+           aes(x=as.Date(DOY, origin="2023-12-31"), y=mort_rate, 
+               group=interaction(species, stage, sep=" "), fill=interaction(species, stage, sep=" "), colour=interaction(species, stage, sep=" "), 
+               label=paste0("n=", n)), 
+           stat="identity", width=1, alpha=0.5, position=position_stack(vjust=0.5)) +
+  # geom_text(data=rst24.metaEnum %>% 
+  #             filter(!is.na(species)) %>%
+  #             group_by(DOY, species, stage, condition) %>%
+  #             summarize(n=sum(count, na.rm=T)) %>%
+  #             group_by(DOY) %>% 
+  #             mutate(total=sum(n)) %>%
+  #             filter(condition=="Mort" & total>0) %>% 
+  #             mutate(mort_rate=n/total) %>%
+  #             filter(mort_rate>0),
+  #           aes(x=as.Date(DOY, origin="2023-12-31"), y=mort_rate+0.007, 
+  #               group=interaction(species, stage, sep=" "), fill=interaction(species, stage, sep=" "), colour=interaction(species, stage, sep=" "),
+  #               label=paste0("n=", n)), position=position_stack(vjust=0.5)) +
   labs(x="", y="Mortality rate", group="Species/stage", fill="Species/stage", colour="Species/stage") +
   theme_bw() +
   theme(axis.text.x = element_text(angle=45, hjust=1),
@@ -187,6 +188,12 @@ ggplot() +
 
 
 ############################################################################################################################################################
+
+
+
+
+############################################################################################################################################################
+
 
 #                                                             Mark-recapture 
 

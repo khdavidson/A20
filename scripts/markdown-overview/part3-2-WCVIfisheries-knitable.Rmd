@@ -9,21 +9,21 @@ knitr::opts_chunk$set(echo=F, warning=F, echo=F, message=F)
 
 # Load libraries ------------------------------------
 library(tidyverse)
-library(readxl)
-library(kableExtra)
-library(bookdown)
-library(here)
+#library(readxl)
+#library(kableExtra)
+#library(bookdown)
+#library(here)
 #library(ggpubr)                # for ggarrange()
-library(saaWeb)
-library(sf)                     # for mapping
-library(sp)                     # for merge()
+#library(saaWeb)
+#library(sf)                     # for mapping
+#library(sp)                     # for merge()
 #library(ggspatial)             # for mapping
-library(rnaturalearth)          # for mapping ne_states()
+#library(rnaturalearth)          # for mapping ne_states()
 #library(rnaturalearthdata)     # for mapping
 #library(rnaturalearthhires)    # for mapping
 #library(scatterpie)            # for scatterplot mapping
-library(leaflet)                # for leaflet()
-library(plotly)                 # for ggplotly()
+#library(leaflet)                # for leaflet()
+#library(plotly)                 # for ggplotly()
 
 
 
@@ -39,29 +39,30 @@ library(plotly)                 # for ggplotly()
 # MRP DUMP ------------------------------------
   # source(here("scripts", "functions", "pullA20ChinookCWTRelRcvy.R"))
   # saves as a20cwtRcvy
-a20cwtRcvy <- readxl::read_excel(here("outputs", "R_OUT - Area 20 CWT Recoveries JOIN Releases - CHINOOK RY1982-2022.xlsx"), sheet=1)
+a20cwtRcvy <- readxl::read_excel(here::here("outputs", "R_OUT - Area 20 CWT Recoveries JOIN Releases - CHINOOK RY1982-2022.xlsx"), 
+                                 sheet=1)
 
 # Fishery mapping ------------------------------------
-FisheryGearMapping <- readxl::read_excel(here("data", "fisheries", "MRP-RMPC - Fishery Gear Mapping.xlsx"), sheet=1)
+FisheryGearMapping <- readxl::read_excel(here::here("data", "fisheries", "MRP-RMPC - Fishery Gear Mapping.xlsx"), sheet=1)
 
 
 
 # ================================= Spatial data =================================
 
 # DFO PFMA spatial files -----------------------
-DFOcentroids <- read.csv(here("data", "fisheries", "spatial", "MRP_PFMA_spatial.csv")) %>%
+DFOcentroids <- read.csv(here::here("data", "fisheries", "spatial", "MRP_PFMA_spatial.csv")) %>%
   rename(`R (RC) Recovery PSC Location-L4`=PFMA_resolved)
 
-pfmaPOLY <- rgdal::readOGR(dsn=here("data", "fisheries", "spatial"), layer="pfma1", verbose=F)
+pfmaPOLY <- rgdal::readOGR(dsn=here::here("data", "fisheries", "spatial"), layer="pfma1", verbose=F)
 wcviPFMApoly <- pfmaPOLY[pfmaPOLY@data$STATAREA%in%c(20:27,121:127),]
-pfma_sf <- sf::st_read(dsn=here("data", "fisheries", "spatial"), layer="pfma1")
+pfma_sf <- sf::st_read(dsn=here::here("data", "fisheries", "spatial"), layer="pfma1")
 
-creelSubAreaPOLY <- rgdal::readOGR(dsn=here("data", "fisheries", "spatial"), layer="Creel_Survey_Areas", verbose=F)
-creelSubAreaPOLY_sf <- sf::st_read(dsn=here("data", "fisheries", "spatial"), layer="Creel_Survey_Areas")
-creelSubAreaPOLY_sf <- st_as_sf(x = creelSubAreaPOLY_sf,                         
+creelSubAreaPOLY <- rgdal::readOGR(dsn=here::here("data", "fisheries", "spatial"), layer="Creel_Survey_Areas", verbose=F)
+creelSubAreaPOLY_sf <- sf::st_read(dsn=here::here("data", "fisheries", "spatial"), layer="Creel_Survey_Areas")
+creelSubAreaPOLY_sf <- sf::st_as_sf(x = creelSubAreaPOLY_sf,                         
                   coords = c("longitude", "latitude"),
                   crs = "+proj=utm +zone=10")
-sfc = st_transform(creelSubAreaPOLY_sf, crs = "+proj=longlat +datum=WGS84")
+sfc = sf::st_transform(creelSubAreaPOLY_sf, crs = "+proj=longlat +datum=WGS84")
 creelSubAreaPOLY_sfdf <- as.data.frame(sfc)
   
 # Load "UScentroids" -----------------------
@@ -108,18 +109,19 @@ creelSubAreaPOLY_sfdf <- as.data.frame(sfc)
 # ================================= CREST data =================================
 
 # Biodata w results ----------------------
-WCVIcrestBDWR <- read.csv(file=list.files(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/CRESTcompile_base-files/2-Export-from-R/",
-                                      pattern="R_OUT - Biological_Data_With_Results*.*csv", full.names=T), check.names=F) %>%
+WCVIcrestBDWR <- read.csv(file=list.files(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/CREST-BDWRcompile_base-files/2-Export-from-R/",
+                                          pattern="^R_OUT - Biological_Data_With_Results \\(.*\\) \\d{4}-\\d{4}\\.csv$", 
+                                          full.names=T), check.names=F) %>%
   mutate(yday = lubridate::yday(COLLECTION_DATE),
          LEGAL_STATUS = case_when(LENGTH_MM > 450 & LENGTH_MM < 800 ~ "LEGAL",
                                   LENGTH_MM <= 450 ~ "SUBLEGAL",
                                   LENGTH_MM >= 800 & yday%in%c(196:212) ~ "SUPERLEGAL",
                                   LENGTH_MM >= 800 & yday%notin%c(196:212) ~ "LEGAL"),
-         isSJ1 = case_when(grepl("San Juan", `(R) RESOLVED ORIGIN-STOCK ID`) ~ `(R) RESOLVED ORIGIN-STOCK ID`,
-                          !grepl("San Juan", `(R) RESOLVED ORIGIN-STOCK ID`) & `(R) Origin`!="Unknown" ~ 
-                            paste0(`(R) Origin`, " ", "Non-San Juan"),
-                          !grepl("San Juan", `(R) RESOLVED ORIGIN-STOCK ID`) & `(R) Origin`=="Unknown" ~ 
-                            "Unknown Non-San Juan"),
+         isSJ1 = case_when(grepl("San Juan", `(R) Term Run Group 3`) ~ `(R) Term Run Group 3`,
+                           !grepl("San Juan", `(R) Term Run Group 3`) & `(R) Origin`!="Unknown" ~ 
+                             paste0(`(R) Origin`, " ", "Non-San Juan"),
+                           !grepl("San Juan", `(R) Term Run Group 3`) & `(R) Origin`=="Unknown" ~ 
+                             "Unknown Non-San Juan"),
          isSJ2 = case_when(grepl("Non-San Juan", isSJ1) ~ "Other",
                            TRUE ~ isSJ1)) %>% 
   print()
@@ -158,8 +160,9 @@ WCVIcrestBDWR <- read.csv(file=list.files(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SC
 
 
 # Catch estimates ----------------------
-catEst <- readxl::read_excel(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/Salmon$/FMCR_Fishery_Monitoring_Catch_Reporting/Recreational_CM/Catch_Data/SC Sport Catch Creel Sub-area Disposition (Master Do No Edit).xlsx", sheet="YTD") %>%
-  filter(grepl("127|27|126|26|125|25|124|24|123|23|121|21|22|20", PFMA), YEAR%in%c(2017:2023), SPECIES=="CHINOOK SALMON") 
+catEst <- readxl::read_excel(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/Reg_Shares/FHM/SMCS/Salmon/FMCR_Fishery_Monitoring_Catch_Reporting/Recreational_CM/Catch_Data/SC Sport Catch Creel Sub-area Disposition (Master Do No Edit).xlsx", 
+                             sheet="YTD") %>%
+  filter(grepl("127|27|126|26|125|25|124|24|123|23|121|21|22|20", PFMA), YEAR>=2017, SPECIES=="CHINOOK SALMON") 
 
 
 
@@ -233,6 +236,7 @@ wcviPFMA_sjCatEst <- left_join(pfma_sf ,
                                  mutate(AreaMonthTotalSamples = sum(n_lvl3, na.rm=T),
                                         propn_AreaMonth = n_lvl3/AreaMonthTotalSamples,
                                         estKeptByID = propn_AreaMonth*Est_Kept,
+                                        # i think i did this "inverse" for some reason due to mapping  but i can't remember: 
                                         inverse_estKeptByID = case_when(isSJ3=="Other" ~ Est_Kept-estKeptByID,
                                                                         TRUE ~ estKeptByID),
                                         inverse_estKeptByID = case_when(inverse_estKeptByID==0 ~ NA,
@@ -483,49 +487,151 @@ ggplotly(
 
 #### Annual monthly maps 
 
-```{r wcvi22}
+#### 2023 Catch estimate map
+
+```{r wcvi23}
+# 2023 CATCH MAP
+
+pdf(file = here::here("outputs", "figures", "WCVI SJ catch estimate map 2023.pdf"),   
+    width = 11, # The width of the plot in inches
+    height = 8.5) # The height of the plot in inches
+
 #ggplotly(
-  ggplot() +
-    geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(YEAR=="2022"), 
-            aes(fill=round(inverse_estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour="gray80", alpha=0.8, stroke=0.1) +
-    scale_fill_viridis_b(na.value = NA) +
-    geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
-            colour="transparent", fill="gray60") +
-    coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
-    theme_bw() +
-    facet_wrap(~factor(MONTH, levels=c("May", "June", "July", "August", "September", ordered=T)))
+ggplot() +
+  geom_sf(data=wcviPFMA_sjCatEst %>% 
+            sf::st_set_crs(.,"WGS84") %>% 
+            filter(YEAR=="2023") %>%
+            filter(MONTH%in%c("May", "June", "July", "August", "September")), 
+          aes(fill=round(inverse_estKeptByID, 0), text=paste0("PFMA ", STATAREA)), colour=alpha("gray60", 0.5), linewidth=0.5) +
+  #scale_fill_viridis_b(na.value = NA) +
+  paletteer::scale_fill_paletteer_c("viridis::plasma", na.value = NA) +
+  geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
+          colour="transparent", fill="black") +
+  coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
+  labs(fill="Estimated number of kept \nSan Juan Chinook 2023") +
+  theme_bw() +
+  theme(axis.text = element_blank(),
+        legend.title = element_text(face="bold", size=20),
+        legend.text = element_text(size=19),
+        legend.position = c(0.85, 0.2),
+        panel.grid.major = element_blank(),
+        panel.background = element_rect(fill="white"),
+        strip.text = element_text(size=20),
+        plot.title = element_text(size=15)) +
+  facet_wrap(~factor(MONTH, levels=c("May", "June", "July", "August", "September", ordered=T)))
 #  tooltip = c("text", "estKeptByID")
 #)
+
+dev.off()
 ```
+
+#### 2022 Catch estimate map
+```{r wcvi22}
+# 2022 CATCH MAP
+
+pdf(file = here::here("outputs", "figures", "WCVI SJ catch estimate map 2022.pdf"),   
+    width = 11, # The width of the plot in inches
+    height = 8.5) # The height of the plot in inches
+
+#ggplotly(
+ggplot() +
+  geom_sf(data=wcviPFMA_sjCatEst %>% 
+            sf::st_set_crs(.,"WGS84") %>% 
+            filter(MONTH%in%c("May", "June", "July", "August", "September"), YEAR=="2022"),
+          aes(fill=round(inverse_estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour=alpha("gray60", 0.5), linewidth=0.5) +
+  #scale_fill_viridis_b(na.value = NA) +
+  paletteer::scale_fill_paletteer_c("viridis::plasma", na.value = NA) +
+  geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
+          colour="transparent", fill="black") +
+  coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
+  labs(fill="Estimated number of kept \nSan Juan Chinook 2022") +
+  theme_bw() +
+  theme(axis.text = element_blank(),
+        legend.title = element_text(face="bold", size=20),
+        legend.text = element_text(size=19),
+        legend.position = c(0.85, 0.2),
+        panel.grid.major = element_blank(),
+        panel.background = element_rect(fill="white"),
+        strip.text = element_text(size=20),
+        plot.title = element_text(size=15)) +
+  facet_wrap(~factor(MONTH, levels=c("May", "June", "July", "August", "September", ordered=T)))
+#  tooltip = c("text", "estKeptByID")
+#)
+
+dev.off()
+```
+
+<br>
+
+#### 2021 Catch estimate map
 
 ```{r wcvi21}
-#ggplotly(
-  ggplot() +
-    geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2021"), 
-            aes(fill=round(estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour="gray80", alpha=0.8, stroke=0.1) +
-    scale_fill_viridis_b(na.value = NA) +
-    geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
-            colour="transparent", fill="gray60") +
-    coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
-    theme_bw() +
-    facet_wrap(~factor(MONTH, levels=c("May", "June", "July", "August", ordered=T))) #,
-#  tooltip = c("text", "estKeptByID")
-#)
-```
+pdf(file = here::here("outputs", "figures", "WCVI SJ catch estimate map 2021.pdf"),   
+    width = 11, # The width of the plot in inches
+    height = 8.5) # The height of the plot in inches
 
-```{r wcvi20, eval=F}
-ggplotly(
+#ggplotly(
 ggplot() +
-  geom_sf(data=wcviPFMA_sjCatEst%>%st_set_crs(.,"WGS84")%>%filter(!is.na(MONTH) & YEAR=="2020"), 
-          aes(fill=round(estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour="gray80", alpha=0.8, stroke=0.1) +
+  geom_sf(data=wcviPFMA_sjCatEst %>% 
+            sf::st_set_crs(.,"WGS84") %>% 
+            filter(MONTH%in%c("May", "June", "July", "August", "September"), YEAR=="2021"), 
+          aes(fill=round(inverse_estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour=alpha("gray60", 0.5), linewidth=0.5) +
   scale_fill_viridis_b(na.value = NA) +
   geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
-          colour="transparent", fill="gray60") +
+          colour="transparent", fill="black") +
   coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
+  labs(fill="Estimated number of kept \nSan Juan Chinook 2021") +
   theme_bw() +
-    facet_wrap(~factor(MONTH, levels=c("May", "June", "July", "August", ordered=T))),
-tooltip = c("text", "estKeptByID")
-)
+  theme(axis.text = element_blank(),
+        legend.title = element_text(face="bold", size=20),
+        legend.text = element_text(size=19),
+        legend.position = c(0.85, 0.2),
+        panel.grid.major = element_blank(),
+        panel.background = element_rect(fill="white"),
+        strip.text = element_text(size=20),
+        plot.title = element_text(size=15)) +
+  facet_wrap(~factor(MONTH, levels=c("May", "June", "July", "August", "September", ordered=T)))
+#  tooltip = c("text", "estKeptByID")
+#)
+
+dev.off()
+```
+
+<br>
+
+#### 2020 Catch estimate map
+
+```{r wcvi20, eval=F}
+pdf(file = here::here("outputs", "figures", "WCVI SJ catch estimate map 2020.pdf"),   
+    width = 11, # The width of the plot in inches
+    height = 8.5) # The height of the plot in inches
+
+#ggplotly(
+ggplot() +
+  geom_sf(data=wcviPFMA_sjCatEst %>% 
+            sf::st_set_crs(.,"WGS84") %>% 
+            filter(MONTH%in%c("May", "June", "July", "August", "September"), YEAR=="2020"), 
+          aes(fill=round(inverse_estKeptByID,0), text=paste0("PFMA ", STATAREA)), colour=alpha("gray60", 0.5), linewidth=0.5) +
+  scale_fill_viridis_b(na.value = NA) +
+  geom_sf(data=rnaturalearth::ne_countries(type="countries", scale="large", returnclass="sf"), 
+          colour="transparent", fill="black") +
+  coord_sf(crs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0", xlim=c(-129, -123), ylim=c(51.5, 48)) +
+  labs(fill="Estimated number of kept \nSan Juan Chinook 2020") +
+  theme_bw() +
+  theme(axis.text = element_blank(),
+        legend.title = element_text(face="bold", size=20),
+        legend.text = element_text(size=19),
+        legend.position = c(0.85, 0.2),
+        panel.grid.major = element_blank(),
+        panel.background = element_rect(fill="white"),
+        strip.text = element_text(size=20),
+        plot.title = element_text(size=15)) +
+  facet_wrap(~factor(MONTH, levels=c("May", "June", "July", "August", "September", ordered=T)))
+#,
+#tooltip = c("text", "estKeptByID")
+#)
+
+dev.off()
 ```
 
 ```{r wcvi19, eval=F}
@@ -569,7 +675,7 @@ ggplotly(
 
 ### Area 20: Area, regional IDs
 
-```{r include+F}
+```{r include=F}
 # CREST biodata joined to catch ------------------------
 # BY SUB-AREA 
 A20crestBDWR.catEst.sj <- left_join(WCVIcrestBDWR %>% 
