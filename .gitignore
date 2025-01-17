@@ -9,3 +9,4 @@ data/escapement/*Stad Chinook Accessible Watershed Area*
 data/fisheries/
 data/biosamples/AllChinook*.xlsx
 scripts/functions/get*.R
+outputs/figures/WCVI SJ catch estimate map*.pdf
