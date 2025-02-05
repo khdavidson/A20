@@ -1,5 +1,6 @@
 
-
+library(tidyverse)
+"%notin%" <- Negate("%in%")
 
 
 WCVIcrestBDWR <- read.csv(file=list.files(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/CREST-BDWRcompile_base-files/2-Export-from-R/",
@@ -53,7 +54,7 @@ WCVIcrestBDWR %>%
 
 
 
-pdf(file = here::here("outputs", "figures", "The Wedge SJ stock composition.pdf"),   
+pdf(file = here::here("outputs", "figures", "The Wedge SJ stock composition - monthly proportion.pdf"),   
     width = 11, # The width of the plot in inches
     height = 8.5) # The height of the plot in inches
 
@@ -62,7 +63,7 @@ pdf(file = here::here("outputs", "figures", "The Wedge SJ stock composition.pdf"
    geom_text(data=wedge, aes(x=MONTH, y=propn+0.05, label=n, group=isSJ2), position=position_dodge(width=0.5), size=6) +
    scale_fill_manual(breaks=waiver(), values=c(scales::hue_pal()(2)[1], scales::hue_pal()(2)[2], "gray70")) +
    scale_y_continuous(labels = scales::percent_format()) +
-   labs(x="", y="Proportion of creel Chinook biosamples \nfrom The Wedge") +
+   labs(x="", y="Proportion of biosamples", title="The Wedge creel biosamples") +
    theme_bw() +
    theme(axis.text = element_text(colour="black", size=20),
          axis.title = element_text(face="bold", size=22),
@@ -72,5 +73,50 @@ pdf(file = here::here("outputs", "figures", "The Wedge SJ stock composition.pdf"
          legend.background = element_rect(colour="black"),
          legend.position=c(0.8, 0.35)) +
    facet_wrap(~YEAR, nrow=2)
+ 
+ dev.off()
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ # wedge stock comp
+ wedgeDOY <- WCVIcrestBDWR %>% 
+   filter(SAMPLE_TYPE=="Sport", SPECIES==124, AREA==20, FISHING_LOCATION=="The Wedge") %>% 
+   group_by(YEAR, DAYOFYEAR, isSJ2) %>% 
+   filter(!grepl("Unknown", isSJ2)) %>%
+   summarize(n=n()) %>%
+   group_by(YEAR, DAYOFYEAR) %>% 
+   mutate(total_n = sum(n),
+          propn = n/total_n) %>%
+   print()
+ 
+ 
+
+ 
+ pdf(file = here::here("outputs", "figures", "The Wedge SJ stock composition - daily.pdf"),   
+     width = 11, # The width of the plot in inches
+     height = 8.5) # The height of the plot in inches
+ 
+ ggplot() +
+   geom_bar(data=wedgeDOY, aes(x=as.Date(DAYOFYEAR, origin="2021-12-31"), y=n, fill=isSJ2, colour=isSJ2), 
+            stat='identity', position="dodge", alpha=0.8, width=0.7, size=0.7) +
+   scale_fill_manual(breaks=waiver(), values=c(scales::hue_pal()(2)[1], scales::hue_pal()(2)[2], "gray80")) +
+   scale_colour_manual(breaks=waiver(), values=c(scales::hue_pal()(2)[1], scales::hue_pal()(2)[2], "gray80")) +
+   scale_x_date(date_labels = "%b %d", date_breaks="2 day") +
+   labs(x="", y="Number of creel samples from The Wedge") +
+   theme_bw() +
+   theme(axis.text = element_text(colour="black", size=20),
+         axis.text.x = element_text(angle=45, hjust=1),
+         axis.title = element_text(face="bold", size=22),
+         strip.text = element_text(size=20),
+         legend.title=element_blank(),
+         legend.text=element_text(size=20),
+         legend.background = element_rect(colour="black"),
+         legend.position=c(0.8, 0.35)) +
+   facet_wrap(~YEAR, nrow=2)
+
  
  dev.off()
