@@ -22,7 +22,7 @@ knitr::opts_chunk$set(echo=F, warning=F, message=F)
 library(tidyverse)
 #library(readxl)
 #library(kableExtra)
-library(bookdown)
+#library(bookdown)
 #library(here)
 
 "%notin%" <- Negate("%in%")
@@ -67,6 +67,10 @@ sj.fence.dates <- readxl::read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCV
 ```
 
 <br>
+
+<br>
+
+# **Misc Environmental Information**
 
 <br>
 
@@ -130,8 +134,12 @@ ggplot() +
 ```
 
 
+<br>
+
+<br>
 
 
+## **4 Mile fence operations and flow**
 
 
 
