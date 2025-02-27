@@ -1183,11 +1183,11 @@ Figure: Expanded live adult Chinook (bars) and carcasses (black line) in the San
 
 ### Jack to male ratio
 
-```{r include=F}
+```{r include=F, eval=F}
 
 # For run reconstruction
 
-jack_propn <- list.files(path=paste0("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/",
+jack_propn <- list.files(path=paste0("//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/ESCAPEMENT/Data/",
                                          analysis_year,
                                          "/SILs/Area 20/"),
                      pattern = "^A20_Port_Renfrew*.*xlsx", 
@@ -1200,9 +1200,10 @@ jack_propn <- list.files(path=paste0("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCV
             n_jacks = sum(`jacks live`, na.rm=T),
             propn_jacks = n_jacks/(n_adults+n_jacks))  %>%
   print()
-```
 
-The proportion of total chinook that were jacks observed on the swims ranged from `r min(jack_propn[jack_propn$propn_jacks>0,]$propn_jacks, na.rm=T)*100`% to `r max(jack_propn$propn_jacks, na.rm=T)*100`% (mean = `r mean(jack_propn[jack_propn$propn_jacks>0,]$propn_jacks, na.rm=T)*100`%). 
+
+# The proportion of total chinook that were jacks observed on the swims ranged from `r min(jack_propn[jack_propn$propn_jacks>0,]$propn_jacks, na.rm=T)*100`% to `r max(jack_propn$propn_jacks, na.rm=T)*100`% (mean = `r mean(jack_propn[jack_propn$propn_jacks>0,]$propn_jacks, na.rm=T)*100`%). 
+```
 
 <br>
 
