@@ -29,12 +29,12 @@ analysis_year <- 2024
 options(scipen = 9999)
 
 
-# ============================= Load data ============================
 
-# SIL+AUC DATABASE DATA ----------------------------
 
-# Raw SIL entry for lower/mid/upper designations compared to water level etc: 
-sj.sil <- list.files(path=paste0("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/",
+# ============================= SIL EXCEL DATA ============================
+
+# SJ Mainstem -----------------------
+sj.sil <- list.files(path=paste0("//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/ESCAPEMENT/Data/",
                                          analysis_year,
                                          "/SILs/Area 20/"),
                      pattern = "^A20_Port_Renfrew*.*xlsx", 
@@ -46,7 +46,9 @@ sj.sil <- list.files(path=paste0("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ES
   arrange(desc(segment))  %>%
   print()
 
-tribs.sil <- list.files(path=paste0("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/",
+
+# Tributaries -----------------------
+tribs.sil <- list.files(path=paste0("//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/ESCAPEMENT/Data/",
                                          analysis_year,
                                          "/SILs/Area 20/"),
                      pattern = "^A20_Port_Renfrew*.*xlsx", 
@@ -56,59 +58,64 @@ tribs.sil <- list.files(path=paste0("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI
   filter(system!="San Juan") %>%
   mutate_at("SIL page", as.numeric) %>%
   print()
+
  
 
-# SIL+AUC DB TABLE: Waterbody values (to join to EscEStSppHeader table):
-wbdyVals <- readxl::read_excel(path=here::here("data", "escapement", "prelim-inseason", "WaterbodiesValues.xlsx")) %>% 
-  mutate(AREA = case_when(NAME=="TUCK LAKE" ~ "22",
-                          TRUE ~ AREA)) %>%
-  select(AREA, NAME, WATERSHED_CDE) %>% 
-  rename(WatershedCode = WATERSHED_CDE) %>% 
-  filter(!is.na(WatershedCode)) %>% 
-  group_by(AREA, NAME, WatershedCode) %>% 
-  filter(AREA %in% c(20,21,22)) %>% 
-  group_by(WatershedCode) %>% 
-  mutate(n=n(),
-         system = case_when(n>1 ~ paste0("system", seq(1,length(n),by=1)),
-                            n==1 ~ "system1")) %>% 
-  group_by(WatershedCode) %>% 
-  pivot_wider(names_from=system, values_from=NAME) %>% 
-  #select(-n) %>% 
-  unite("SystemName", system1:system3, sep=", ", remove=T, na.rm=T) %>% 
-  mutate(SystemName = str_to_title(SystemName)) %>%
-  print()
+# ============================= SIL+AUC DATABASE DATA ============================
 
-
-# SIL+AUC DB TABLE: AUC Data Table for analysis: 
-AUCdataTable <- readxl::read_excel(path=here::here("data", "escapement", "prelim-inseason",
-                                                   list.files(path=here::here("data", "escapement", 
-                                                                              "prelim-inseason"),
-                                                              pattern=paste0("^AUC_DataAnalysisTable_area20_",
-                                                                             analysis_year, 
-                                                                             ".xlsx"))))
+# AUC Data Analysis Table ----------------------- 
+AUCdataTable <- readxl::read_excel(path=list.files(path=paste0(here::here("data", "escapement", 
+                                                                          "prelim-inseason"), "/", analysis_year),
+                                                   pattern=paste0("^AUC_DataAnalysisTable_area20_",
+                                                                  analysis_year, 
+                                                                  ".xlsx"),
+                                                   full.names = T))
                                                    
 
 
-# SIL+AUC DB TABLE: EscEstSppHeader table:
-escEstSpp <- readxl::read_excel(path=here::here("data", "escapement", "prelim-inseason",
-                                                list.files(path=here::here("data", "escapement", 
-                                                                           "prelim-inseason"),
-                                                           pattern=paste0("^EscEstSppHeader_area20-22_",
-                                                                          analysis_year, 
-                                                                          ".xlsx")))) %>% 
+# EscEstSppHeader table ----------------------- 
+escEstSpp <- readxl::read_excel(path=list.files(path=paste0(here::here("data", "escapement", "prelim-inseason"),
+                                                            "/", analysis_year),
+                                                pattern=paste0("^EscEstSppHeader_area20-22_",
+                                                               analysis_year, 
+                                                               ".xlsx"),
+                                                full.names = T)) %>% 
   left_join(.,
-            wbdyVals,
+            # Need Waterbody Vals table from Access, but only if there are changes to the waterbody codes which is unlikely
+            readxl::read_excel(path=here::here("data", "escapement", "prelim-inseason", "WaterbodiesValues.xlsx")) %>% 
+              mutate(AREA = case_when(NAME=="TUCK LAKE" ~ "22",
+                                      TRUE ~ AREA)) %>%
+              select(AREA, NAME, WATERSHED_CDE) %>% 
+              rename(WatershedCode = WATERSHED_CDE) %>% 
+              filter(!is.na(WatershedCode)) %>% 
+              group_by(AREA, NAME, WatershedCode) %>% 
+              filter(AREA %in% c(20,21,22)) %>% 
+              group_by(WatershedCode) %>% 
+              mutate(n=n(),
+                     system = case_when(n>1 ~ paste0("system", seq(1,length(n),by=1)),
+                                        n==1 ~ "system1")) %>% 
+              group_by(WatershedCode) %>% 
+              pivot_wider(names_from=system, values_from=NAME) %>% 
+              #select(-n) %>% 
+              unite("SystemName", system1:system3, sep=", ", remove=T, na.rm=T) %>% 
+              mutate(SystemName = str_to_title(SystemName)),
             na_matches="never", relationship="many-to-one")
 
 
 
-# Hatchery ----------------------------
-mile4.fence <- readxl::read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/San_Juan_Fence_2022-present.xlsx", sheet="Sheet1", guess_max=20000) %>%
+# ============================= HATCHERY DATA ============================
+
+# Fence counts ----------------------------
+mile4.fence <- readxl::read_excel("//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/ESCAPEMENT/Data/San_Juan_Fence_2022-present.xlsx", sheet="Sheet1", guess_max=20000) %>%
   filter(year==analysis_year) %>% 
   print()
 
+# Broodstock? 
 
-# Enviro ----------------------------
+
+
+# ============================= WATER DATA ============================
+
 SJ.water <- full_join(
   read.csv(file=list.files(path = here::here("data", "enviro"),
                            pattern = "SANJUAN_historical*",
@@ -148,6 +155,9 @@ SJ.water <- full_join(
 )
 
 
+
+# ============================= HISTORICAL DATA ============================
+
 # Run timing ----------------------------
 sj.rtStWk <- readxl::read_excel(path=#paste0(here::here("data", "escapement"), sep="/", 
                                       #       list.files(path=here::here("data", "escapement"),
@@ -172,12 +182,15 @@ sj.rtStWk$stat_week <- factor(sj.rtStWk$stat_week,
                                         "111","112","113","114","115",
                                         "121","122","123","124", ordered=T)) 
 
-# Escapement ----------------------------
+
+# Escapement time series ----------------------------
 sj.escHistorical <- readxl::read_excel(path=list.files(path=here::here("data", "escapement"),
                                                        pattern="NuSEDS_Area20_escapement_Jun2024.xlsx",
                                                        full.names=T), 
                                        sheet="Data")
 
+
+# Escapement goals ----------------------------
 sj.esc.goal <- read.csv(here::here("data", "escapement", "wcviCK-BootstrappedRPs.csv")) %>% 
   filter(Stock=="San Juan")
 ```
@@ -394,7 +407,8 @@ escEstSpp %>%
 
 ### Estimate decision:   
 
-For 2023 estimate used expanded PL+D of 39 adults and 1 jack. Given that peak count occurred Oct 10-12 and most were not spawning, removed 4 Harris adults so that final estimate is 39 adults + 1 jack. *This is subject to change; see EscBatchHardCopy report for specific estimate abundance.*
+For 2024 estimates used PL+D. No SK counted through the fence. No accounting needed for tribs as none observed in Harris/Lens.
+
 
 <br>
 
@@ -1395,14 +1409,56 @@ Figure: 2023 preliminary adult Chinook escapement estimate (red outline) relativ
 
 # **Pink** 
 
-
+## Swim counts
 ```{r}
 sj.sil %>% 
   filter(species=="Pink")
 ```
+
+<br>
+
 ```{r}
 tribs.sil %>% 
   filter(species=="Pink")
 ```
+
+<br>
+
+## Fence counts
+
+```{r}
+mile4.fence %>% 
+  filter(species=="pink", year==2024) %>%
+  group_by(species, date) %>% 
+  summarize(daily_total = sum(count))
+```
+
+## Area 20 preliminary escapement estimate (PL+D):
+
+Table: Escapement estimates for each system. San Juan mainstem surveys were rolled up based on mid-point date for each of 3 complete survey events, and then the PL+D was selected based on the 3 survey events.  
+
+```{r}
+escEstSpp %>% 
+  filter(ShortSpecies=="PK", AREA=="20") %>% 
+  select(ShortSpecies, SystemName, contains("PLD"), contains("Reco"), -c(contains("Recommend"))) %>% 
+  rename(FinalAdultEstimate = AdultNaturalReco,
+         FinalJackEstimate = JackNaturalReco) %>% 
+  select(ShortSpecies, SystemName, contains("PLD"), AdultRemovalsReco, JackRemovalsReco, FinalAdultEstimate, FinalJackEstimate) %>% 
+  mutate(across(FinalJackEstimate:FinalAdultEstimate, ~case_when(.<0 ~ 0,
+                                                                 TRUE ~ .))) %>%
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:4), valign="middle", target=1) 
+```
+
+<br>
+
+### Estimate decision:   
+
+For 2024 estimate used fence count of 5 adults for San Juan and PL+D for other systems. Little/no pinks expected in this system, especially in tributaries. *This is subject to change; see EscBatchHardCopy report for specific estimate abundance.*
+
+
+
+
 
 
