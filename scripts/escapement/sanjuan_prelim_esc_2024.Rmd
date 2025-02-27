@@ -933,7 +933,7 @@ Table: Escapement estimates for each system. San Juan mainstem surveys were roll
 
 ```{r}
 escEstSpp %>% 
-  filter(ShortSpecies=="CO", AREA=="20") %>% 
+  filter(ShortSpecies=="CM", AREA=="20") %>% 
   select(ShortSpecies, SystemName, contains("PLD"), contains("Reco"), -c(contains("Recommend"))) %>% 
   rename(FinalAdultEstimate = AdultNaturalReco,
          FinalJackEstimate = JackNaturalReco) %>% 
@@ -949,7 +949,7 @@ escEstSpp %>%
 
 ### Estimate decision:   
 
-For 2023 estimate used expanded PL+D of 454 adults. Did not remove tributaries as the peak count already had considerable spawning, and the trib counts shortly after already had evidence of spawning underway as well. *This is subject to change; see EscBatchHardCopy report for specific estimate abundance.*
+For 2024 estimate used expanded PL+D of 411 adults. Did not end up adjusting the Oct 25 survey much even though it was lower-only because the 90% OE adjustment added more than enough - double-expanding added ~100 fish which seemed unlikely given timing and that these would all be in the upper section. Renfrew and Gordon also PL+D and separate from SJ. *This is subject to change; see EscBatchHardCopy report for specific estimate abundance.*
 
 <br>
 
@@ -996,12 +996,17 @@ ggplot()  +
   theme(axis.text.x = element_text(angle=45, hjust=1))
 ```
 
-Figure: 2023 preliminary adult Chum escapement estimate (red outline) for entire San Juan system (including tributaries) relative to historical adult (blue) and unspecified (gray) escapement estimates. Gaps indicate years without estimates. 
+Figure: 2024 preliminary adult Chum escapement estimate (red outline) for entire San Juan system (including tributaries) relative to historical adult (blue) and unspecified (gray) escapement estimates. Gaps indicate years without estimates. 
 
 <br>
 
 <br>
 
+------------------------
+
+<br>
+
+<br>
 
 
 
