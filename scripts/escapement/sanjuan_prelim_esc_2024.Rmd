@@ -99,7 +99,9 @@ escEstSpp <- readxl::read_excel(path=list.files(path=paste0(here::here("data", "
               #select(-n) %>% 
               unite("SystemName", system1:system3, sep=", ", remove=T, na.rm=T) %>% 
               mutate(SystemName = str_to_title(SystemName)),
-            na_matches="never", relationship="many-to-one")
+            na_matches="never", relationship="many-to-one") %>%
+  mutate(AdultNaturalReco = case_when(AdultNaturalReco < 0 ~ 0,
+                                      TRUE ~ AdultNaturalReco)) 
 
 
 
@@ -309,7 +311,33 @@ Figure: Raw live adult Sockeye (bars) and carcasses (black line) in the San Juan
 
 ## Swim & fence counts
 
-No sockeye were passed through the fence in 2023.
+```{r}
+ggplot() +
+  geom_bar(data=sj.sil %>% 
+             filter(species=="Sockeye") %>% 
+             group_by(date, `upper/lower`) %>% 
+             summarize(n=sum(`adults live / habitat seen (# Est Live)`)), 
+           aes(x=as.Date(date), y=n, fill=`upper/lower`, colour=`upper/lower`), 
+           stat="identity", position="stack", alpha=0.7) + 
+  geom_line(data=mile4.fence %>% 
+              filter(species=="sockeye") %>% 
+              group_by(date) %>% 
+              summarize(n=sum(count)) %>% 
+              mutate(ncum = cumsum(n)),
+            aes(x=as.Date(date), y=as.numeric(ncum)), alpha=0.7) +
+  geom_point(data=mile4.fence %>% 
+               filter(species=="sockeye") %>% 
+               group_by(date) %>% 
+               summarize(n=sum(count)) %>% 
+               mutate(ncum = cumsum(n)),
+             aes(x=as.Date(date), y=as.numeric(ncum)), alpha=0.7, size=2) +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d")+
+  labs(x="", y="Expanded adult Coho (swims)", fill="Segment", colour="Segment") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: Sockeye swim counts (raw adults) in the San Juan mainstem relative to cumulative fence counts (black line). If no black line, then no Sockeye were counted through the fence this year. 
 
 <br>
 
@@ -1373,7 +1401,7 @@ ggplot()  +
              filter(ShortSpecies=="CN", AREA=="20", SystemName!="Gordon River") %>% 
              select(Year, SystemName, AdultNaturalReco) %>% 
              summarize(n=sum(AdultNaturalReco)), 
-             aes(x=analysis_year, y=n-24-21), stat="identity", colour="red", fill="dodger blue", alpha=0.8) +   scale_x_continuous(breaks=seq(min(sj.escHistorical$`Analysis Year`), analysis_year, by=2)) +
+             aes(x=analysis_year, y=n), stat="identity", colour="red", fill="dodger blue", alpha=0.8) +   scale_x_continuous(breaks=seq(min(sj.escHistorical$`Analysis Year`), analysis_year, by=2)) +
   labs(x="Return Year", y="Chinook spawners") +
   theme_bw() +
   theme(axis.text.x = element_text(angle=45, hjust=1))
@@ -1405,31 +1433,84 @@ Figure: 2023 preliminary adult Chinook escapement estimate (red outline) relativ
 
 # **Pink** 
 
-## Swim counts
+<br>
+
+## Area 20 raw vs expanded counts
+
+Counts are expanded for % population estimated and/or observer efficiency, depending on survey conditions. 
+
 ```{r}
-sj.sil %>% 
-  filter(species=="Pink")
+ggplot() +
+  geom_bar(data=AUCdataTable %>% 
+             filter(ShortSpecies=="PK") %>% 
+             pivot_longer(c(LiveAdults:TotalJacks,ExpLiveAdults:ExpDeadJacks), names_to="est_type", values_to="n") %>% 
+             filter(est_type %in% c("LiveAdults", "ExpLiveAdults")), 
+           aes(x=as.Date(SDate), y=n, colour=est_type, fill=est_type), stat="identity", position="dodge", alpha=0.5) +
+  labs(x="", y="Adult Sockeye counts", fill="Expansion", colour="Expansion") +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d", expand = c(0, 0)) +
+  scale_y_continuous(limits=c(0, max(AUCdataTable[AUCdataTable$ShortSpecies=="PK",]$ExpLiveAdults,na.rm=T))) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        legend.position = c(0.8,0.2)) +
+  facet_wrap(~Section_AreaInspected, scales="free_y")
 ```
 
 <br>
 
+<br>
+
+## Swim & fence counts
+
 ```{r}
-tribs.sil %>% 
-  filter(species=="Pink")
+ggplot() +
+  geom_bar(data=sj.sil %>% 
+             filter(species=="Pink") %>% 
+             group_by(date, `upper/lower`) %>% 
+             summarize(n=sum(`adults live / habitat seen (# Est Live)`)), 
+           aes(x=as.Date(date), y=n, fill=`upper/lower`, colour=`upper/lower`), 
+           stat="identity", position="stack", alpha=0.7) + 
+  geom_line(data=mile4.fence %>% 
+              filter(species=="pink") %>% 
+              group_by(date) %>% 
+              summarize(n=sum(count)) %>% 
+              mutate(ncum = cumsum(n)),
+            aes(x=as.Date(date), y=as.numeric(ncum)), alpha=0.7) +
+  geom_point(data=mile4.fence %>% 
+               filter(species=="pink") %>% 
+               group_by(date) %>% 
+               summarize(n=sum(count)) %>% 
+               mutate(ncum = cumsum(n)),
+             aes(x=as.Date(date), y=as.numeric(ncum)), alpha=0.7, size=2) +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d")+
+  labs(x="", y="Expanded adult Coho (swims)", fill="Segment", colour="Segment") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
 ```
+
+Figure: Pink swim counts (raw adults) in the San Juan mainstem relative to cumulative fence counts (black line). If no black line, then no pink were counted through the fence this year. 
 
 <br>
 
-## Fence counts
+<br>
+
+## Area 20 preliminary escapement estimate (PL+D)
+
+<br>
+
+Table: San Juan swim counts (expanded live and dead) and preliminary escapement estimates for San Juan surveys. 
 
 ```{r}
-mile4.fence %>% 
-  filter(species=="pink", year==2024) %>%
-  group_by(species, date) %>% 
-  summarize(daily_total = sum(count))
+AUCdataTable %>% 
+  filter(ShortSpecies=="PK") %>% 
+  select(ShortSpecies,Section_AreaInspected, SDate, WaterTemperature, WaterClarity, LiveAdults, DeadAdults,LiveJacks,DeadJacks, ExpLiveAdults,
+         ExpDeadAdults, ExpLiveJacks, ExpDeadJacks, OverallReliability, EstPctSeen) %>% 
+  mutate(across(c(LiveAdults:ExpDeadJacks), ~round(., 0))) %>% 
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:4), valign="middle", target=1) 
 ```
 
-## Area 20 preliminary escapement estimate (PL+D):
+<br>
 
 Table: Escapement estimates for each system. San Juan mainstem surveys were rolled up based on mid-point date for each of 3 complete survey events, and then the PL+D was selected based on the 3 survey events.  
 
@@ -1451,7 +1532,42 @@ escEstSpp %>%
 
 ### Estimate decision:   
 
-For 2024 estimate used fence count of 5 adults for San Juan and PL+D for other systems. Little/no pinks expected in this system, especially in tributaries. *This is subject to change; see EscBatchHardCopy report for specific estimate abundance.*
+For 2024 estimate used fence count for SJ mainstem and PL+D for Gordon. *This is subject to change; see EscBatchHardCopy report for specific estimate abundance.*
+
+<br>
+
+<br>
+
+## `r analysis_year` compared to historical abundance
+
+```{r}
+ggplot()  +
+  geom_bar(data=sj.escHistorical %>% filter(`Waterbody Name`=="SAN JUAN RIVER", `Species Qualified`=="PKE"), 
+           aes(x=`Analysis Year`, y=`Natural Adult Spawners`), stat="identity", colour="dodger blue", fill="dodger blue", alpha=0.8) +
+  geom_bar(data=sj.escHistorical %>% filter(`Waterbody Name`=="SAN JUAN RIVER", `Species Qualified`=="PKE"), 
+           aes(x=`Analysis Year`, y=`Unspecified Return`), stat="identity", colour="gray80", fill="gray80", alpha=0.8) +  
+  geom_bar(data=escEstSpp %>% 
+             filter(ShortSpecies=="PK", AREA=="20", SystemName!="Gordon River") %>% 
+             select(Year, SystemName, AdultNaturalReco) %>% 
+             summarize(n=sum(AdultNaturalReco)), 
+             aes(x=analysis_year, y=n), stat="identity", colour="red", fill="dodger blue", alpha=0.8) +   scale_x_continuous(breaks=seq(min(sj.escHistorical$`Analysis Year`), analysis_year, by=2)) +
+  labs(x="Return Year", y="Pink spawners") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: 2024 preliminary adult Pink escapement estimate (red outline) relative to historical adult (blue) and unspecified (gray) escapement estimates. Gaps indicate years without estimates. 
+
+
+<br>
+
+
+
+
+
+
+
+
 
 
 
