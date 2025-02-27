@@ -23,11 +23,11 @@ knitr::opts_chunk$set(echo=F, warning=F, message=F)
 #library(here)
 library(tidyverse)
 #library(readxl)
-library(kableExtra)
-library(bookdown)  
-library(scales)       # for label_percent()
-library(ggpubr)       # for ggarrange()
-library(saaWeb)
+# library(kableExtra)
+# library(bookdown)  
+# library(scales)       # for label_percent()
+# library(ggpubr)       # for ggarrange()
+# library(saaWeb)
 
 
 # Helpers/functions ------------------------
@@ -52,7 +52,7 @@ a20_nuseds_escapement <- readxl::read_excel(path=here::here("outputs",
 
 # Long-term time series (merge NuSEDS and Esc Index for complete time series) ----------------------- 
 sj.esc <- full_join(a20_nuseds_escapement,
-                    readxl::read_excel("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/NEW ESCAPEMENT INDEX.xls", 
+                    readxl::read_excel("//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/ESCAPEMENT/Data/NEW ESCAPEMENT INDEX.xls", 
                                sheet="EscData", skip=4) %>%
                       select(-c(`...17`)) %>% 
                       filter(Area==20, (Year %notin% unique(a20_nuseds_escapement$year) | Year==2004)) %>%
@@ -101,7 +101,7 @@ RPs <- read.csv(here::here("data", "escapement", "wcviCK-BootstrappedRPs.csv")) 
 # sj.cn.timing$stat_week <- factor(sj.cn.timing$stat_week, levels=c("81","82","83","84","91","92","93","94","101","102","103","104","105",
 #                                                                   "111","112","113","114","115","121","122","123","124", ordered=T))
 
-SJ.rtStWk <- readxl::read_excel(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/DATA/run timing tables (updated).xlsx",
+SJ.rtStWk <- readxl::read_excel(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/ESCAPEMENT/DATA/run timing tables (updated).xlsx",
                                 sheet="San Juan", guess_max=10000, trim_ws=T, range=cellranger::cell_limits(c(4, 1), c(NA, NA))) %>% 
   select(-c(...25:NOTES,...34:...43)) %>%
   rename(Year=`...1`) %>% 
@@ -156,14 +156,16 @@ sj.fence$stat_week <- factor(sj.fence$stat_week,
 
 # ====================== AGE data ======================   (all species, all years - not linked to individual fish)
 # Option 1: Re-dump source code for updates ------------------
-# source(here::here("scripts", "functions", "pullSanJuanAgeData.R"))
+ source(here::here("scripts", "functions", "pullSanJuanAgeData.R"))
   # saves as SJ_allAgesMaster
 
 
 # Option 2: Load pre-dumped age data ------------------
 # Load SJ specific data -- old
-SJ_allAgesMaster <- readxl::read_excel(here::here("outputs", "R_OUT - SanJuan_Ages_allSpp-allYrs 1990-2023.xlsx"),
-                                       sheet="Sheet1") %>%
+SJ_allAgesMaster <- readxl::read_excel(path=list.files(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/",
+                                                  pattern = "^R_OUT - ALL South Coast Chinook Age results",
+                                                  full.names = T),
+                                       guess_max=20000) %>%
   mutate(`(R) RESOLVED TOTAL AGE` = case_when(PADS_GrAge == "0M" ~ "1",
                                               grepl("chinook", PADS_Species, ignore.case=T) & PADS_GrAge == "1M" ~ "2",
                                               grepl("chinook", PADS_Species, ignore.case=T) & PADS_GrAge == "2M" ~ "3",
@@ -608,7 +610,11 @@ See study design for forecast: [Area 20 Study Design](//dcbcpbsna01a.ENT.dfo-mpo
 
 ## Age structure {#escAge}
 
-The adult age structure is primarily 4 and 5 year olds. Jacks and 6 year olds contribute almost nothing to the population, especially in recent years (see Table \@ref(tab:age-tab) and Figure \@ref(fig:age-fig)). Biosample data are only obtained from hatchery broodstock; no deadpitch currently occurs on the naturally-spawning population 
+The adult age structure is primarily 3 and 4 year olds. Jacks and 6 year olds contribute almost nothing to the population, especially in recent years (see Table \@ref(tab:age-tab) and Figure \@ref(fig:age-fig)). Biosample data are primarily obtained from hatchery broodstock, with occaisional, opportunistic deadpitch sampling of the naturally-spawning population. 
+
+<br>
+
+### Hatchery age composition
 
 <br>
 
@@ -779,6 +785,14 @@ ggplot() +
 ```
 
 <br>
+
+### Natural spawner age composition 
+
+So far the only deadpitch data available are from 2024. 
+
+
+
+
 
 <br>
 
