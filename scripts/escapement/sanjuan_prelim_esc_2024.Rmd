@@ -159,19 +159,16 @@ SJ.water <- full_join(
 # ============================= HISTORICAL DATA ============================
 
 # Run timing ----------------------------
-sj.rtStWk <- readxl::read_excel(path=#paste0(here::here("data", "escapement"), sep="/", 
-                                      #       list.files(path=here::here("data", "escapement"),
-                                      #                  pattern="run timing tables (updated)*")), 
-                                   "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/ESCAPEMENT/Data/run timing tables (updated).xlsx",
-                                 sheet="San Juan", guess_max=10000, trim_ws=T, 
-                                 range=cellranger::cell_limits(c(4, 1), c(NA, NA))) %>% 
+sj.rtStWk <- readxl::read_excel(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/ESCAPEMENT/Data/run timing tables (updated).xlsx",
+                                sheet="San Juan", guess_max=10000, trim_ws=T, 
+                                range=cellranger::cell_limits(c(4, 1), c(NA, NA))) %>% 
   select(-c(`...25`:NOTES, `...34`:`...43`)) %>%
   rename(year=`...1`) %>% 
   filter(!is.na(year), !grepl("Observed", year), year!="Year") %>% 
   mutate(across(c(`81`:`124`), ~as.numeric(.)),
          plot_group = case_when(year==analysis_year ~ year,
                                 year!=analysis_year ~ paste0(min(year), 
-                                                               sep="-", (analysis_year-1)))) %>%
+                                                             sep="-", (analysis_year-1)))) %>%
   pivot_longer(cols = c(`81`:`124`), names_to = "stat_week", values_to = "count") %>% 
   print()
 
@@ -407,8 +404,7 @@ escEstSpp %>%
 
 ### Estimate decision:   
 
-For 2024 estimates used PL+D. No SK counted through the fence. No accounting needed for tribs as none observed in Harris/Lens.
-
+For 2024 estimates used PL+D. No SK counted through the fence. No accounting needed for tribs as none observed in Harris/Lens (and Renfrew d/s of SJ survey area).
 
 <br>
 
@@ -433,7 +429,7 @@ ggplot()  +
   theme(axis.text.x = element_text(angle=45, hjust=1))
 ```
 
-Figure: 2023 preliminary adult Sockeye escapement estimate (red outline) for entire San Juan system (including tributaries) relative to historical adult (blue) and unspecified (gray) escapement estimates. Gaps indicate years without estimates. 
+Figure: 2024 preliminary adult Sockeye escapement estimate (red outline) for entire San Juan system (including tributaries) relative to historical adult (blue) and unspecified (gray) escapement estimates. Gaps indicate years without estimates. 
 
 <br>
 
