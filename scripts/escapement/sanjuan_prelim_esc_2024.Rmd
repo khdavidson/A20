@@ -1095,13 +1095,6 @@ ggplot() +
              summarize(n=sum(`adults live / habitat seen (# Est Live)`)), 
            aes(x=as.Date(date), y=n, fill=`upper/lower`, colour=`upper/lower`), 
            stat="identity", position="stack", alpha=0.7) +
-  # geom_point(data=sj.sil %>% filter(species=="Chinook") %>% group_by(Date) %>% 
-  #              summarize(n=sum(`adults dead`)), 
-  #            aes(x=as.Date(Date), y=n), size=2, alpha=0.5) +
-  # geom_line(data=sj.sil %>% filter(species=="Chinook") %>% group_by(Date) %>% 
-  #             summarize(n=sum(`adults dead`)), 
-  #           aes(x=as.Date(Date), y=n), 
-  #           stat="identity", position="stack") +
   labs(x="", y="Expanded adult Chinook") +
   scale_y_continuous(sec.axis = sec_axis(~./5, name="Discharge (cms)")) +
   scale_x_date(date_breaks="7 day", date_labels="%b %d", limits=c(as.Date("2024-9-25"), as.Date("2024-11-01"))) +
@@ -1119,43 +1112,25 @@ Figure: Chinook counts (expanded live adults) and water levels (blue line) in th
 ## Behaviour & carcasses 
 
 ```{r}
-  # ggplot() +
-  #   geom_bar(data=sj.sil %>% filter(species=="Chinook") %>% group_by(date, section) %>% 
-  #              summarize(n=sum(`adults live / habitat seen (# Est Live)`)), 
-  #            aes(x=as.Date(date), y=n, fill=section, colour=section), 
-  #            stat="identity", position="stack", alpha=0.7) +
-  #   geom_point(data=sj.sil %>% filter(species=="Chinook") %>% group_by(date) %>% 
-  #                summarize(n=sum(`adults dead`)), 
-  #              aes(x=as.Date(date), y=n), size=2, alpha=0.5) +
-  #   geom_line(data=sj.sil %>% filter(species=="Chinook") %>% group_by(date) %>% 
-  #               summarize(n=sum(`adults dead`)), 
-  #             aes(x=as.Date(date), y=n), 
-  #             stat="identity", position="stack") +
-  #   scale_y_continuous(sec.axis = sec_axis(~./1, name="Carcasses")) +
-  #   scale_x_date(date_breaks="7 day", date_labels = "%b %d")+
-  #   labs(x="", y="Expanded live adult Chinook", fill="Segment", colour="Segment") +
-  #   theme_bw() +
-  #   theme(axis.text.x = element_text(angle=45, hjust=1)),
-  
-  ggplot() +
-    geom_bar(data=sj.sil %>% filter(species=="Chinook") %>% group_by(date, `upper/lower`) %>% 
-               summarize(Spawning=sum(`adults # spawning`),
-                         Holding = sum(`adults # holding`)) %>% 
-               pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count"), 
-             aes(x=as.Date(date), y=count, fill=behaviour, colour=`upper/lower`), 
-             stat="identity", position="dodge", alpha=0.7, size=1, width=4) +
-    geom_point(data=sj.sil %>% filter(species=="Chinook") %>% group_by(date) %>% 
-                 summarize(n=sum(`adults dead`)), 
-               aes(x=as.Date(date), y=n), size=2, alpha=0.5) +
-    geom_line(data=sj.sil %>% filter(species=="Chinook") %>% group_by(date) %>% 
-                summarize(n=sum(`adults dead`)), 
-              aes(x=as.Date(date), y=n)) +
-    scale_y_continuous(sec.axis = sec_axis(~./1, name="Carcasses")) +
-    scale_x_date(date_breaks="7 day", date_labels = "%b %d")+
-    scale_fill_manual(breaks=waiver(), values=c("transparent", "gray")) +
-    labs(x="", y="Spawning adult Chinook", fill="Behaviour", colour="Segment") +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle=45, hjust=1))
+ggplot() +
+  geom_bar(data=sj.sil %>% filter(species=="Chinook") %>% group_by(date, `upper/lower`) %>% 
+             summarize(Spawning=sum(`adults # spawning`),
+                       Holding = sum(`adults # holding`)) %>% 
+             pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count"), 
+           aes(x=as.Date(date), y=count, fill=behaviour, colour=`upper/lower`), 
+           stat="identity", position="dodge", alpha=0.7, size=1, width=4) +
+  geom_point(data=sj.sil %>% filter(species=="Chinook") %>% group_by(date) %>% 
+               summarize(n=sum(`adults dead`)), 
+             aes(x=as.Date(date), y=n), size=2, alpha=0.5) +
+  geom_line(data=sj.sil %>% filter(species=="Chinook") %>% group_by(date) %>% 
+              summarize(n=sum(`adults dead`)), 
+            aes(x=as.Date(date), y=n)) +
+  scale_y_continuous(sec.axis = sec_axis(~./1, name="Carcasses")) +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d")+
+  scale_fill_manual(breaks=waiver(), values=c("transparent", "gray")) +
+  labs(x="", y="Spawning adult Chinook", fill="Behaviour", colour="Segment") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
 ```
 <br>
 
@@ -1370,7 +1345,7 @@ escEstSpp %>%
 
 ### Estimate decision:   
 
-For 2024 estimate, went with PL+D (expanded) estimate. Suggest not removing any trib spawners 
+For 2024 estimate, went with PL+D (expanded) estimate for SJ. Expanded Oct 25 survey to account for missed Chinook in upper (not surveyed). Did not subtract any trib fish this year as most were spawning on the first peak swim and also spawning when seen in tribs, so it's very unlikely fish were double-counted on their way to Harris/Lens. Added in broodstock from seining/fence ops. 
 
 <br>
 
@@ -1412,7 +1387,7 @@ ggplot()  +
   theme(axis.text.x = element_text(angle=45, hjust=1))
 ```
 
-Figure: 2023 preliminary adult Chinook escapement estimate (red outline) relative to historical adult (blue) and unspecified (gray) escapement estimates. Gaps indicate years without estimates. 
+Figure: 2024 preliminary adult Chinook escapement estimate (red outline) relative to historical adult (blue) and unspecified (gray) escapement estimates. Gaps indicate years without estimates. 
 
 <br>
 
