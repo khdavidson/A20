@@ -11,25 +11,48 @@ library(tidyverse)
 
 
 # ========================= LOAD AREA 20 JUVI "DATABASE" =========================
+
+# Sample event metadata/environmentals ----------------- 
+
 eventMeta <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/test run master DB development.xlsx",
   #                  sheet="sample_event_meta")
   readxl::read_excel(path=here::here("data", "juvenile", "test run master DB development.xlsx"),
-                     sheet="sample_event_meta")
+                     sheet="sample_event_meta") %>% 
+  filter(grepl("RST|IPT", gear))
+
+
+
+# Catch totals ----------------- 
 
 setTotals <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/test run master DB development.xlsx",
   #                    sheet="set_totals")
   readxl::read_excel(path=here::here("data", "juvenile", "test run master DB development.xlsx"),
-                     sheet="set_totals")
+                     sheet="set_totals") %>% 
+  filter(grepl("RST|IPT", gear)) %>%
+  mutate(species_stage_simple = case_when(grepl("rainbow|steelhead", species, ignore.case=T) | life_stage=="rainbow" ~ "Rainbow parr",
+                                          grepl("cutthroat", species, ignore.case=T) ~ "Cutthroat parr",
+                                          !is.na(life_stage) ~ paste0(species, " ", life_stage),
+                                          grepl("newt|toad", species, ignore.case=T) ~ "Amphibian",
+                                          grepl("lamprey|sculpin|stickleback", species, ignore.case=T) ~ "Other non-salmonid",
+                                          
+                                          TRUE ~ species))
+
+
+# Mark-release ----------------- 
 
 release <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/test run master DB development.xlsx",
   #                    sheet="mark-release")
   readxl::read_excel(path=here::here("data", "juvenile", "test run master DB development.xlsx"),
                      sheet="mark-release")
 
+
+
+# Biosampling ----------------- 
 biosamp <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/test run master DB development.xlsx",
   #                  sheet="biosampling")
   readxl::read_excel(path=here::here("data", "juvenile", "test run master DB development.xlsx"),
-                     sheet="biosampling")
+                     sheet="biosampling") %>% 
+  filter(grepl("RST|IPT", gear))
 
 
 
@@ -117,124 +140,183 @@ biosamp <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Op
          
 ############################################################################################################################################################
 
-#                                                                 Raw data exploration
+#                                                                 CATCH SECTION (2023-2025)
 
-# Salmon catch
-pdf(file = here::here("outputs", "figures", "juvenile", "RST raw catch (salmon only).pdf"),   
+
+# ======================= ALL SPECIES, ALL YEARS =======================
+
+# Species slightly simplified ---------------------
+rstCatchFig <- 
+ggplot() +
+  geom_bar(data=setTotals %>%
+             filter(!is.na(species) & species!="unknown") %>%
+             group_by(year, DOY, species_stage_simple) %>%
+             summarize(n=sum(total_caught_excl_recaps, na.rm=T)) ,
+           aes(x=as.Date(DOY, origin="2023-12-31"), y=n,
+               fill=stringr::str_to_sentence(species_stage_simple), colour=stringr::str_to_sentence(species_stage_simple)),
+           stat="identity", alpha=0.7,
+           position=position_stack(vjust=0.5)) +
+  # ggrepel::geom_text_repel(data=setTotals %>%
+  #                            filter(!is.na(species) & species!="unknown") %>%
+  #                            group_by(year, DOY, species_stage_simple) %>%
+  #                            summarize(n=sum(total_caught_excl_recaps, na.rm=T)) %>%
+  #                            filter(grepl("coho|chum|chinook", species_stage_simple, ignore.case=T), n<10),
+  #                          aes(label=stringr::str_to_sentence(paste0(species_stage_simple, " (", n, ")")),
+  #                              x=as.Date(DOY, origin="2023-12-31"),
+  #                              y=n-10,
+  #                              colour=species_stage_simple),
+  #                          position=position_stack(vjust=1),
+  #                          size=2.5,
+  #                          direction="y",
+  #                          hjust=-0.5,
+  #                          segment.size=1, segment.curvature=-0.1, segment.ncp=3, segment.angle=45, min.segment.length=unit(0, 'lines'),
+  #                          box.padding=2,
+  #                          force=0.5, force_pull=1,
+  #                          na.rm=T, show.legend=F) +
+  scale_x_date(date_labels="%b %d", date_breaks="3 day") +
+  labs(x="", y="Total catch") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1, size=8),
+        axis.text = element_text(colour="black", size=8),
+        axis.title = element_text(face="bold", size=9),
+        legend.text = element_text(size=6.5),
+        legend.key.size = unit(2.5, "mm"), 
+        legend.title = element_blank(),
+        legend.position = c(0.8, 0.3),
+        legend.background = element_rect(colour="black"),
+        strip.text = element_text(size=8)) +
+  guides(fill=guide_legend(ncol=2)) +
+  facet_wrap(~year, ncol=1, scales="free_y")
+  
+
+# Save as PDF ---------------------
+pdf(file = here::here("outputs", "figures", "juvenile", "RST raw catch (bars).pdf"),   
     width = 14, # The width of the plot in inches
     height = 8.5) # The height of the plot in inches
 
-ggplot() +
-  geom_bar(data=rst24.metaEnum %>% 
-             group_by(DOY, species, stage) %>%
-             summarize(n=sum(count, na.rm=T)) %>%
-             filter(!is.na(species) & !is.na(stage) & n>0 & species%in%c("Chinook", "Chum", "Coho")), 
-           aes(x=as.Date(DOY, origin="2023-12-31"), y=n, 
-               group=interaction(species, stage, sep=" "), fill=interaction(species, stage, sep=" "), colour=interaction(species, stage, sep=" ")), 
-           stat="identity", alpha=0.7,
-           position=position_stack(vjust=0.5)) +
-  ggrepel::geom_text_repel(data=rst24.metaEnum %>% 
-                             group_by(DOY, species, stage) %>%
-                             summarize(n=sum(count, na.rm=T)) %>%
-                             filter(!is.na(species) & !is.na(stage) & n>0 & species=="Chinook" & stage=="Smolt"), 
-                           aes(label=str_to_title(paste0(species, " ", stage, " (", n, ")")), 
-                               x=as.Date(DOY, origin="2023-12-31"),
-                               y=n-30,
-                               group=interaction(species, stage, sep=" "),
-                               colour=interaction(species, stage, sep=" ")), 
-                           position=position_stack(vjust=1), 
-                           size=2.5,
-                           direction="y", 
-                           hjust=-0.5,
-                           segment.size=1, segment.curvature=-0.1, segment.ncp=3, segment.angle=45, min.segment.length=unit(0, 'lines'), 
-                           box.padding=2,
-                           force=0.5, force_pull=1,
-                           na.rm=T, show.legend=F) +
-  scale_x_date(date_labels="%b %d", date_breaks="3 day") +
-  labs(x="", y="Total catch (uncorrected)", group="Species/stage", fill="Species/stage", colour="Species/stage") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle=45, hjust=1),
-        axis.text = element_text(colour="black"),
-        axis.title = element_text(face="bold"),
-        legend.title = element_text(face="bold"),
-        legend.position = c(0.8,0.8),
-        legend.background = element_rect(colour="black"))
-  
+rstCatchFig
+
 dev.off()
 
 
-# ========================= MORTS =========================
-# Count of mortalities -------------------
 
-ggplot(data=rst24.metaEnum %>% 
-         filter(condition=="Mort") %>% 
-         group_by(DOY, species, stage) %>%
-         summarize(n=sum(count, na.rm=T)) %>%
-         filter(species%in%c("Chinook", "Chum", "Coho") & n>0), 
-       aes(x=as.Date(DOY, origin="2023-12-31"), y=n, group=interaction(species, stage, sep=" "), fill=interaction(species, stage, sep=" "), colour=interaction(species, stage, sep=" "))) +
-  geom_bar(stat="identity", width=1, alpha=0.6) +
-  scale_x_date(date_labels="%b %d", date_breaks="3 day") +
-  labs(x="", y="Mortalities (count)", group="Species/stage", fill="Species/stage", colour="Species/stage") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle=45, hjust=1),
-        axis.text = element_text(colour="black"),
-        axis.title = element_text(face="bold"),
-        legend.title = element_text(face="bold"),
-        legend.position = c(0.8,0.8),
-        legend.background = element_rect(colour="black"))
+
+
+
+# ========================= MORTS =========================
+
+# Count of mortalities -------------------
+# ggplot(data=rst24.metaEnum %>% 
+#          filter(condition=="Mort") %>% 
+#          group_by(DOY, species, stage) %>%
+#          summarize(n=sum(count, na.rm=T)) %>%
+#          filter(species%in%c("Chinook", "Chum", "Coho") & n>0), 
+#        aes(x=as.Date(DOY, origin="2023-12-31"), y=n, group=interaction(species, stage, sep=" "), fill=interaction(species, stage, sep=" "), colour=interaction(species, stage, sep=" "))) +
+#   geom_bar(stat="identity", width=1, alpha=0.6) +
+#   scale_x_date(date_labels="%b %d", date_breaks="3 day") +
+#   labs(x="", y="Mortalities (count)", group="Species/stage", fill="Species/stage", colour="Species/stage") +
+#   theme_bw() +
+#   theme(axis.text.x = element_text(angle=45, hjust=1),
+#         axis.text = element_text(colour="black"),
+#         axis.title = element_text(face="bold"),
+#         legend.title = element_text(face="bold"),
+#         legend.position = c(0.8,0.8),
+#         legend.background = element_rect(colour="black"))
 
 
 # Mort rate -------------------
-ggplot() +
-  geom_bar(data=rst24.metaEnum %>% 
-             filter(!is.na(species)) %>%
-             group_by(DOY, species, stage, condition) %>%
-             summarize(n=sum(count, na.rm=T)) %>%
-             group_by(DOY) %>% 
-             mutate(total=sum(n)) %>%
-             filter(condition=="Mort" & total>0) %>% 
-             mutate(mort_rate=n/total) %>%
-             filter(mort_rate>0),
-           aes(x=as.Date(DOY, origin="2023-12-31"), y=mort_rate, 
-               group=interaction(species, stage, sep=" "), fill=interaction(species, stage, sep=" "), colour=interaction(species, stage, sep=" "), 
-               label=paste0("n=", n)), 
-           stat="identity", width=1, alpha=0.5, position=position_stack(vjust=0.5)) +
-  # geom_text(data=rst24.metaEnum %>% 
-  #             filter(!is.na(species)) %>%
-  #             group_by(DOY, species, stage, condition) %>%
-  #             summarize(n=sum(count, na.rm=T)) %>%
-  #             group_by(DOY) %>% 
-  #             mutate(total=sum(n)) %>%
-  #             filter(condition=="Mort" & total>0) %>% 
-  #             mutate(mort_rate=n/total) %>%
-  #             filter(mort_rate>0),
-  #           aes(x=as.Date(DOY, origin="2023-12-31"), y=mort_rate+0.007, 
-  #               group=interaction(species, stage, sep=" "), fill=interaction(species, stage, sep=" "), colour=interaction(species, stage, sep=" "),
-  #               label=paste0("n=", n)), position=position_stack(vjust=0.5)) +
-  labs(x="", y="Mortality rate", group="Species/stage", fill="Species/stage", colour="Species/stage") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle=45, hjust=1),
-        axis.text = element_text(colour="black"),
-        axis.title = element_text(face="bold"),
-        legend.title = element_text(face="bold"),
-        legend.position = c(0.8,0.8),
-        legend.background = element_rect(colour="black"))
+# ggplot() +
+#   geom_bar(data=rst24.metaEnum %>% 
+#              filter(!is.na(species)) %>%
+#              group_by(DOY, species, stage, condition) %>%
+#              summarize(n=sum(count, na.rm=T)) %>%
+#              group_by(DOY) %>% 
+#              mutate(total=sum(n)) %>%
+#              filter(condition=="Mort" & total>0) %>% 
+#              mutate(mort_rate=n/total) %>%
+#              filter(mort_rate>0),
+#            aes(x=as.Date(DOY, origin="2023-12-31"), y=mort_rate, 
+#                group=interaction(species, stage, sep=" "), fill=interaction(species, stage, sep=" "), colour=interaction(species, stage, sep=" "), 
+#                label=paste0("n=", n)), 
+#            stat="identity", width=1, alpha=0.5, position=position_stack(vjust=0.5)) +
+#   # geom_text(data=rst24.metaEnum %>% 
+#   #             filter(!is.na(species)) %>%
+#   #             group_by(DOY, species, stage, condition) %>%
+#   #             summarize(n=sum(count, na.rm=T)) %>%
+#   #             group_by(DOY) %>% 
+#   #             mutate(total=sum(n)) %>%
+#   #             filter(condition=="Mort" & total>0) %>% 
+#   #             mutate(mort_rate=n/total) %>%
+#   #             filter(mort_rate>0),
+#   #           aes(x=as.Date(DOY, origin="2023-12-31"), y=mort_rate+0.007, 
+#   #               group=interaction(species, stage, sep=" "), fill=interaction(species, stage, sep=" "), colour=interaction(species, stage, sep=" "),
+#   #               label=paste0("n=", n)), position=position_stack(vjust=0.5)) +
+#   labs(x="", y="Mortality rate", group="Species/stage", fill="Species/stage", colour="Species/stage") +
+#   theme_bw() +
+#   theme(axis.text.x = element_text(angle=45, hjust=1),
+#         axis.text = element_text(colour="black"),
+#         axis.title = element_text(face="bold"),
+#         legend.title = element_text(face="bold"),
+#         legend.position = c(0.8,0.8),
+#         legend.background = element_rect(colour="black"))
+
+
+
+
+# ========================= CORRECTING FOR MIS-ID CHINOOK/COHO?? =========================
+
+
+
+
+# ========================= CHINOOK, COHO ONLY =========================
+
+# Cumulative probability figure -----------------------
+
+
+
+
+# ========================= CHINOOK ONLY =========================
+
+# Smolts & fry -----------------------
+
+
+
+
 
 
 ############################################################################################################################################################
 
+#                                             INFILLING FOR UNFISHED DAYS (2023-2025) & MARK RECAPTURE ESTIMATE 
+
+
+# ========================= INFILLING =========================
+# Do for chum, coho, chinook only (?)
+
+
+
+
+# ========================= MARK-RECAP ESTIMATE (2024, 2025) =========================
+# Do for chum, coho, chinook only (?)
 
 
 
 ############################################################################################################################################################
 
+#                                                                     BIOSAMPLING
 
-#                                                             Mark-recapture 
 
-# Create M-R dataframe -------------------
-rst24.mr <- left_join(rst24.metaEnum %>%
-                        filter(condition=="Live") %>% 
-                        select(R_date, DOY, ))
+
+# ========================= SUMMARY STATS, ALL SPECIES, ALL YEARS =========================
+
+# Length x weight x condition factor
+
+
+
+
+
+
+############################################################################################################################################################
+
 
 
 
