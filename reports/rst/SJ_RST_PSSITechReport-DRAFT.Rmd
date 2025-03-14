@@ -1,0 +1,156 @@
+---
+title: "Downstream outmigration of natural juvenile San Juan Chinook relative to hatchery releases during 2006-2007 and 2023-2025"
+output: pdf_document
+date: "2024-08-21"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=F, warning=F, message=F)
+
+source(here::here("reports", "source-purse_seine.R"))
+```
+
+
+
+# Acknowledgements
+
+PFN (HJ, JJ, RJ, JRAJ, MDJ, TL, FD), 4 Mile (SB, LM), SEP (HW, MT, MN), DBurt, DFO StA (JA, AJ, PV, PVW, WL, JB), other DFO (MQ, NL, ER)
+
+<br>
+
+
+
+
+
+
+# Intro
+
+<br>
+
+
+
+
+
+
+
+
+# Methods 
+
+## Study area and field survey methods
+
++ Overview of area (SJ, PFMA, Pacheedaht, etc.) 
++ Temporal/spatial extent of study (lat/long RST if OK with Rod/PFN?)
++ RST specific operations:
+  + Set/check times (fishing overnight)
+  + days/week fished 
++ Biosampling routine:
+  + Fork length, weight, condition factor
+  + Lethal sample rate
+- DNA clip – ethanol  
+- Mark recapture (in some years)
+  + Marking frequency, assumptions
+  + Marking method, length of time in BB
+  + Release location and timing 
+  + Equations/method for estimating abundance 
+
+
+The San Juan River is the major salmon producing system that empties into Port San Juan (Port Renfrew, BC) on the southwest coast of Vancouver Island (MAP) 
+It supports genetically distinct populations of Chinook and Coho (CITE), as well as a small abundance of SWVI Chum. The tributaries of the San Juan are particularly productive for Coho and Steelhead. 
+This area falls within the traditional territory of PFN, who are committing tremendous effort towards re-establishing the natural Chinook run through restoration and monitoring projects as well as co-management of the 4 Mile Hatchery. The hatchery has enhanced chinook since x, coho since x, … . 
+DFO and PFN operated an RST during the spring outmigration of 2023 (pilot year), 2024 and 2025. We also include here unpublished RST results (CITE??) from 2006 and 2007 to provide a discontinuous time series of data in order to increase our sample size and inference (weird wording). 
+ 
+
+## Lab processing 
+
+- Dissections (link to protocol?)
+- DNA 
+- Otoliths 
+- Diet analysis 
+
+
+## Data analyses 
+
+- FL-oto regression 
+- Diet 
+- RST abundance 
+
+
+<br>
+
+
+
+
+
+
+
+
+
+
+# Results
+
+## Overall catch composition (all species-years)
+
+- Raw catch 
+- Chinook/coho mis-id rate from genetics? 
+
+
+Look at these amazing results
+
+```{r fig.cap='Raw daily RST catch from 2023-2025, with 2006-07 for reference.'}
+
+
+
+
+```
+
+
+
+## Chinook specific abundance and timing relative
+
+- Timing relative to hatchery release in these years too 
+- Abundance estimates 2006, 2024, 2025
+- Implied survival – adult x sex ratio x fecundity  compared to estimate?  
+  + Adult returns from outmigration? This could be hard to calculate as it needs age structure? 
+
+
+## Body size and condition factor  
+- Length/weight/condition of natural vs hatchery fish
+- Changes in natural fish over the season / early smalls/late-larges
+  + Otolith FL ? 
+
+
+Some more text about how gr8 this is
+
+```{r fig.cap='Cumulative probability of chinook capture throughout the 2023 purse seine season. Due to exceptionally low catches of natural-origin Chinook, the figure combines both natural and hatchery-origin Chinook.'}
+cuml_prob_fig
+```
+
+
+
+
+
+
+
+<br>
+
+
+
+
+
+
+
+
+
+
+# Discussion
+
+
+
+
+
+
+
+
+
+
+
