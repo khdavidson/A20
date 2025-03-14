@@ -714,7 +714,22 @@ escEstSpp %>%
 
 ### Estimate decision:   
 
-For 2024 used PL+D SJ mainstem without subtracting tribs initially as the peak count was after the trib surveys (i.e., no concern about double-counting this year). However, many of those mainstem fish probably moved into Harris/Lens later as the survey(s) were quite early (relatively, for Coho). Past tagging studies indicated ~66% of the Coho return goes into Harris. The aggregate total esc for the SJ+Harris+Lens system is 2,814 + 415 + 10 = 3,239 adults. 66% of 3,239 = 2,138. Allocating 2,138 to Harris leaves 1,101 remaining. If we assume 50/50 split between SJ and Lens, that leaves ~550 for SJ mainstem and Lens. This is not a very rigorous approach, but the best possible. Also illustrates why San Juan escapement time series should always include mainstem and tribs - the aggregate is correct, but the allocation to each system is very difficult and variable year-to-year.  **Need PFN Review on this**
+For 2024 used PL+D SJ mainstem without subtracting tribs initially as the peak count was after the trib surveys (i.e., no concern about double-counting this year). However, many of those mainstem fish probably moved into Harris/Lens later as the survey(s) were quite early (relatively, for Coho). Past tagging studies indicated ~66% of the Coho return goes into Harris. The aggregate total esc for the SJ+Harris+Lens system is 
+`r escEstSpp %>% filter(ShortSpecies=="CO", SystemName=="San Juan River") %>% pull(AdultExpPLD)`  + 
+`r escEstSpp %>% filter(ShortSpecies=="CO", SystemName=="Harris Creek") %>% pull(AdultExpPLD)` + 
+`r escEstSpp %>% filter(ShortSpecies=="CO", SystemName=="Lens Creek") %>% pull(AdultExpPLD)` 
+= `r escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(AdultExpPLD = sum(AdultExpPLD)) %>% pull(AdultExpPLD)` adults and 
+`r escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(JackExpPLD = sum(JackExpPLD)) %>% pull(JackExpPLD)` jacks; 
+Assume 66% of this aggregate is destined for Harris 
+= `r round(escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(AdultExpPLD = sum(AdultExpPLD)) %>% pull(AdultExpPLD)*0.66, 0)` adults 
+and `r round(escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(JackExpPLD = sum(JackExpPLD)) %>% pull(JackExpPLD)*0.66, 0)` jacks. 
+Assume the remainder is split about 60/40 San Juan/Lens. 
+This leaves `r round((escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(AdultExpPLD = sum(AdultExpPLD)) %>% pull(AdultExpPLD) - round(escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(AdultExpPLD = sum(AdultExpPLD)) %>% pull(AdultExpPLD)*0.66, 0))*0.6, 0)` adults and 
+`r round((escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(JackExpPLD = sum(JackExpPLD)) %>% pull(JackExpPLD) - round(escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(JackExpPLD = sum(JackExpPLD)) %>% pull(JackExpPLD)*0.66, 0))*0.6, 0)` jacks in San Juan and
+`r round((escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(AdultExpPLD = sum(AdultExpPLD)) %>% pull(AdultExpPLD) - round(escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(AdultExpPLD = sum(AdultExpPLD)) %>% pull(AdultExpPLD)*0.66, 0))*0.4, 0)` adults and 
+`r round((escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(JackExpPLD = sum(JackExpPLD)) %>% pull(JackExpPLD) - round(escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(JackExpPLD = sum(JackExpPLD)) %>% pull(JackExpPLD)*0.66, 0))*0.6, 0)` jacks
+in Lens Creek. 
+This is not a very rigorous approach, but the best possible. Also illustrates why San Juan escapement time series should always include mainstem and tribs - the aggregate is correct, but the allocation to each system is very difficult and variable year-to-year. Estimate reviewed by H. Jones, specifically noted: up to 70% can go into Harris, and advised slightly fewer to Lens than SJ mainstem. 
 *This is subject to change; see EscBatchHardCopy report for specific estimate abundance.*
 
 <br>
