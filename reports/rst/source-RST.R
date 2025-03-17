@@ -14,9 +14,9 @@ library(tidyverse)
 
 # Sample event metadata/environmentals ----------------- 
 
-eventMeta <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/test run master DB development.xlsx",
+eventMeta <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/San Juan PSSI master database.xlsx",
   #                  sheet="sample_event_meta")
-  readxl::read_excel(path=here::here("data", "juvenile", "test run master DB development.xlsx"),
+  readxl::read_excel(path=here::here("data", "juvenile", "San Juan PSSI master database.xlsx"),
                      sheet="sample_event_meta") %>% 
   filter(grepl("RST|IPT", gear))
 
@@ -24,33 +24,33 @@ eventMeta <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/
 
 # Catch totals ----------------- 
 
-setTotals <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/test run master DB development.xlsx",
+setTotals <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/San Juan PSSI master database.xlsx",
   #                    sheet="set_totals")
-  readxl::read_excel(path=here::here("data", "juvenile", "test run master DB development.xlsx"),
+  readxl::read_excel(path=here::here("data", "juvenile", "San Juan PSSI master database.xlsx"),
                      sheet="set_totals") %>% 
   filter(grepl("RST|IPT", gear)) %>%
   mutate(species_stage_simple = case_when(grepl("rainbow|steelhead", species, ignore.case=T) | life_stage=="rainbow" ~ "Rainbow parr",
                                           grepl("cutthroat", species, ignore.case=T) ~ "Cutthroat parr",
+                                          grepl("chinook", species, ignore.case=T) & clip_status == "clipped" ~ paste0(species, " ", life_stage, " ", "(hatchery)"),
                                           !is.na(life_stage) ~ paste0(species, " ", life_stage),
                                           grepl("newt|toad", species, ignore.case=T) ~ "Amphibian",
                                           grepl("lamprey|sculpin|stickleback", species, ignore.case=T) ~ "Other non-salmonid",
-                                          
                                           TRUE ~ species))
 
 
 # Mark-release ----------------- 
 
-release <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/test run master DB development.xlsx",
+release <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/San Juan PSSI master database.xlsx",
   #                    sheet="mark-release")
-  readxl::read_excel(path=here::here("data", "juvenile", "test run master DB development.xlsx"),
+  readxl::read_excel(path=here::here("data", "juvenile", "San Juan PSSI master database.xlsx"),
                      sheet="mark-release")
 
 
 
 # Biosampling ----------------- 
-biosamp <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/test run master DB development.xlsx",
+biosamp <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/San Juan PSSI master database.xlsx",
   #                  sheet="biosampling")
-  readxl::read_excel(path=here::here("data", "juvenile", "test run master DB development.xlsx"),
+  readxl::read_excel(path=here::here("data", "juvenile", "San Juan PSSI master database.xlsx"),
                      sheet="biosampling") %>% 
   filter(grepl("RST|IPT", gear))
 
