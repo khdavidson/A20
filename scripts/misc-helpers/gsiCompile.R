@@ -4,55 +4,143 @@
 
 # Load libraries ------------------------------------
 library(tidyverse)
-#library(here)
-#library(readxl)
-library(writexl)
+
+
+
+# ========================= LOAD MGL FILES =========================
+
+# Load and compile repunit_table_ids tabs all years ------------------------------------
+gsi.repunits_table_ids.LL <- c(
+  # --- 2023:
+  lapply(list.files(here::here("data", "juvenile", "GSI", "2023"), 
+                    pattern=".xlsx", full.names=T), 
+         function(x) {
+           readxl::read_excel(x, sheet="repunits_table_ids")
+         }),
+  
+  # --- 2024:
+  lapply(list.files(here::here("data", "juvenile", "GSI", "2024"), 
+                    pattern=".xlsx", full.names=T), 
+         function(x) {
+           readxl::read_excel(x, sheet="repunits_table_ids")
+         })
+)
+
+# Rename, convert to data frame: 
+names(gsi.repunits_table_ids.LL) <- c(list.files(here::here("data", "juvenile", "GSI", "2023"), 
+                                            pattern=".xlsx", full.names=F),
+                                   list.files(here::here("data", "juvenile", "GSI", "2024"), 
+                                              pattern=".xlsx", full.names=F))
+
+# Convert the Large List into a useable R dataframe:
+gsi.repunits_table_ids <- do.call("rbind", gsi.repunits_table_ids.LL) %>%
+  tibble::rownames_to_column(var="file_source")
+remove(gsi.repunits_table_ids.LL)
+
+
+
+# Load and compile extraction_sheet tabs all years ------------------------------------
+gsi.extraction_sheets.LL <- c(
+  # --- 2023:
+  lapply(list.files(here::here("data", "juvenile", "GSI", "2023"), 
+                    pattern=".xlsx", full.names=T), 
+         function(x) {
+           readxl::read_excel(x, sheet="extraction_sheet")
+         }),
+  
+  # --- 2024:
+  lapply(list.files(here::here("data", "juvenile", "GSI", "2024"), 
+                    pattern=".xlsx", full.names=T), 
+         function(x) {
+           readxl::read_excel(x, sheet="extraction_sheet")
+         })
+)
+
+# Rename, convert to data frame: 
+names(gsi.extraction_sheets.LL) <- c(list.files(here::here("data", "juvenile", "GSI", "2023"), 
+                                                 pattern=".xlsx", full.names=F),
+                                      list.files(here::here("data", "juvenile", "GSI", "2024"), 
+                                                 pattern=".xlsx", full.names=F))
+
+# Convert the Large List into a useable R dataframe:
+gsi.extraction_sheets <- do.call("rbind", gsi.extraction_sheets.LL) %>%
+  tibble::rownames_to_column(var="file_source")
+remove(gsi.extraction_sheets.LL)
+
+
+# Load and compile species_ID tabs all years ------------------------------------
+gsi.species_ID.LL <- c(
+  # --- 2023:
+  lapply(list.files(here::here("data", "juvenile", "GSI", "2023"), 
+                    pattern=".xlsx", full.names=T), 
+         function(x) {
+           readxl::read_excel(x, sheet="species_ID")
+         }),
+  
+  # --- 2024:
+  lapply(list.files(here::here("data", "juvenile", "GSI", "2024"), 
+                    pattern=".xlsx", full.names=T), 
+         function(x) {
+           readxl::read_excel(x, sheet="species_ID")
+         })
+)
+
+# Rename, convert to data frame: 
+names(gsi.species_ID.LL) <- c(list.files(here::here("data", "juvenile", "GSI", "2023"), 
+                                                 pattern=".xlsx", full.names=F),
+                                      list.files(here::here("data", "juvenile", "GSI", "2024"), 
+                                                 pattern=".xlsx", full.names=F))
+
+# Convert the Large List into a useable R dataframe:
+gsi.species_ID <- do.call("rbind", gsi.species_ID.LL) %>%
+  tibble::rownames_to_column(var="file_source")
+remove(gsi.species_ID.LL)
 
 
 
 
-# Load and join MGL files ------------------------------------
-gsi.IDs <- full_join(
-  # GSI part 1: Read in extraction sheet which has Vial and individual ID and catch metadata
-  readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20230066(4)_2023_WCVI_FTF_Juv_SS(23)_4_sc520_2024-01-15_new-format.xlsx"), 
-                     sheet="extraction_sheet") %>% 
-    select(indiv, Vial, CatchJulDate, CatchYear),
-  # GSI part 1: Read in GSI table results
-  readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20230066(4)_2023_WCVI_FTF_Juv_SS(23)_4_sc520_2024-01-15_new-format.xlsx"), 
-                     sheet="repunits_table_ids") %>%
-    select(indiv, ID_Source:PBT_brood_group, repunit.1:associated_collection_prob)) %>% 
+# ========================= JOIN MGL INTO 1 MASTER FILE =========================
 
+# Join into a master dataframe ------------------------------------
+gsi.master <- full_join(
+  gsi.repunits_table_ids %>% 
+    select(indiv, mixture_collection:prob.2, top_collection, associated_collection_prob),
+  gsi.extraction_sheets %>% 
+    select(indiv, CatchJulDate, Vial, Comments, ID_Source),
+  by=c("indiv", "ID_Source")
+) %>%
   full_join(.,
-            full_join(
-              # GSI part 2: read in extraction sheet which has Vial and individual ID and catch metadata 
-              readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20240039(2)_WCVI_FTF(22-23)_sc578_2024-07-11_NF_JB -- 2023 SJ purse seine part 2.xlsx"),
-                                 sheet = "extraction_sheet") %>% 
-                select(indiv, CatchYear, CatchJulDate, Vial),
-              # GSI part 2: read in GSI table results
-              readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20240039(2)_WCVI_FTF(22-23)_sc578_2024-07-11_NF_JB -- 2023 SJ purse seine part 2.xlsx"),
-                                 sheet="repunits_table_ids") %>%
-                select(indiv, `Vial Number`:associated_collection_prob) %>%
-                rename(Vial=`Vial Number`))
-  ) %>%
-  left_join(.,
-            rbind(readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20230066(4)_2023_WCVI_FTF_Juv_SS(23)_4_sc520_2024-01-15_new-format.xlsx"), 
-                                     sheet="species_ID"),
-                  readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20240039(2)_WCVI_FTF(22-23)_sc578_2024-07-11_NF_JB -- 2023 SJ purse seine part 2.xlsx"),
-                                     sheet = "species_ID")),
-            by="indiv") %>%
-  left_join(., 
-            rbind(readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20230066(4)_2023_WCVI_FTF_Juv_SS(23)_4_sc520_2024-01-15_new-format.xlsx"), 
-                                     sheet="sex_ID") %>%
-                    select(indiv, sex_ID, notes),
-                  readxl::read_excel(here::here("data", "juvenile", "GSI", "PID20240039(2)_WCVI_FTF(22-23)_sc578_2024-07-11_NF_JB -- 2023 SJ purse seine part 2.xlsx"),
-                                     sheet = "sex_ID") %>%
-                    select(indiv, sex_ID, notes)),
-            by="indiv") %>% 
-  setNames(paste0('MGL_', names(.))) %>%
-  rename(DNA_vial = MGL_Vial) %>% 
+            gsi.species_ID %>%
+              select(indiv:neg_sp_confirmed),
+            by=c("indiv")) %>%
   print()
-            
 
+
+# Export in case needed ------------------------------------
+writexl::write_xlsx(gsi.master, path=paste0(here::here("data", "juvenile", "GSI"), 
+                                            "/San Juan MGL master file ",
+                                            Sys.Date(),
+                                            ".xlsx"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  
+  
+  
+  
 
 
 # Link juvi biodata + metadata + MGL IDs ------------------------------------
