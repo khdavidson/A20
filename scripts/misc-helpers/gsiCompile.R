@@ -124,65 +124,55 @@ writexl::write_xlsx(gsi.master, path=paste0(here::here("data", "juvenile", "GSI"
 
 
 
+############################################################################################################################################################
+
+#                                                           LINK GSI MASTER TO BIODATA 
 
 
+# Load Biosampling sheet of juvenile database, Join to MGL Master file ----------------- 
+biosamp.linked <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/San Juan PSSI master database.xlsx",
+  #                  sheet="biosampling")
+  full_join(
+    readxl::read_excel(path=here::here("data", "juvenile", "San Juan PSSI master database.xlsx"),
+                       sheet="biosampling"),
+    gsi.master %>%
+      select(ID_Source:Vial,species:neg_sp_confirmed),
+    by=c("DNA_vial" = "Vial"),
+    na_matches = "never")
 
 
-
-
-
-
-
-
-
-  
-  
-  
-  
-  
-  
-
-
-# Link juvi biodata + metadata + MGL IDs ------------------------------------
-juvi.bioMeta.GSI <- left_join(readxl::read_excel(here::here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="biosamples", trim_ws=T),
-                          readxl::read_excel(here::here("data", "juvenile", "PFN_DFO_FTFjuvi_2023_verified.xlsx"), sheet="sample_event_metadata", trim_ws=T),
-                          na_matches="never",
-                          by="usid") %>% 
-  left_join(.,
-            gsi.IDs,
-            by="DNA_vial", na_matches="never") %>% 
-  # mutate(`(R) ORIGIN` = case_when(ID_Source=="PBT" ~ "Hatchery",
-  #                                 ad_clip=="Y" ~ "Hatchery",
-  #                                 prob.1 >= 75 & grepl("HATCHERY", collection.1) ~ "Hatchery",
-  #                                 grepl("HAT", usid) ~ "Hatchery",
-  #                                 grepl("RST", gear) ~ "Natural",
-  #                                 ID_Source=="GSI" & ad_clip=="N" & !grepl("RST", gear) ~ "Natural (assumed)",
-  #                                 ID_Source=="Failed to amplify" ~ "Unknown",
-  #                                 
-  #                                 is.na(DNA_vial) | is.na(indiv) ~ NA,
-  #                                 
-  #                                 TRUE ~ "FLAG"),
-  #        # `(R) STOCK ID` = case_when(prob.1 >= 75 ~ str_to_title(gsub(collection.1, pattern="_", replacement=" ")),
-  #        #                            grepl("RST", gear) & is.na(collection.1) ~ "San Juan River",
-  #        #                            grepl("HAT", usid) ~ "San Juan River",
-  #        #                            ID_Source=="Failed to amplify" ~ "Unknown",
-  #        #                            prob.1 < 75 & (repunit.1%in%c("SWVI", "NWVI") | repunit.1%in%c("SWVI", "NWVI") | repunit.1%in%c("SWVI", "NWVI")) ~ 
-  #        #                              "Uncertain WCVI origin",
-  #        #                            is.na(DNA_vial) | is.na(indiv) ~ NA,
-  #        #                            TRUE ~ "FLAG")) %>%
-  # unite(col=`(R) STOCK-ORIGIN`, c(`(R) ORIGIN`, `(R) STOCK ID`), sep=" ", remove=F, na.rm=T) %>% 
-  #mutate(yday = lubridate::yday(date_end)) %>%
-  print()
 
 
 
 
 # ================= EXPORT ================= 
-# To github ------------------------------------
-writexl::write_xlsx(juvi.bioMeta.GSI, 
-                    path = here::here("outputs", 
-                                      paste0("R_OUT - PFN_DFO_FTFjuvi_2023_verified_with-GSI-Results_",
-                                             Sys.Date(),
-                                             ".xlsx")))
+# Create empty workbook ---------------------------
+R_OUT_SJjuviDB <- openxlsx::createWorkbook()
+
+
+# Add empty tabs to the workbook ---------------------------
+openxlsx::addWorksheet(R_OUT_SJjuviDB, "sample_event_meta")
+openxlsx::addWorksheet(R_OUT_SJjuviDB, "enviro")
+openxlsx::addWorksheet(R_OUT_SJjuviDB, "set_totals")
+openxlsx::addWorksheet(R_OUT_SJjuviDB, "mark-release")
+openxlsx::addWorksheet(R_OUT_SJjuviDB, "biosampling-LINKED")
+
+
+# Write data to tabs (read in data and then re-save to tabs in new workbook) ---------------------------
+openxlsx::writeData(R_OUT_SJjuviDB, sheet="sample_event_meta", x = readxl::read_excel(path=here::here("data", "juvenile", "San Juan PSSI master database.xlsx"),
+                                                                                      sheet="sample_event_meta"))
+openxlsx::writeData(R_OUT_SJjuviDB, sheet="enviro", x = readxl::read_excel(path=here::here("data", "juvenile", "San Juan PSSI master database.xlsx"),
+                                                                           sheet="enviro"))
+openxlsx::writeData(R_OUT_SJjuviDB, sheet="set_totals", x = readxl::read_excel(path=here::here("data", "juvenile", "San Juan PSSI master database.xlsx"),
+                                                                               sheet="set_totals"))
+openxlsx::writeData(R_OUT_SJjuviDB, sheet="mark-release", x = readxl::read_excel(path=here::here("data", "juvenile", "San Juan PSSI master database.xlsx"),
+                                                                                 sheet="mark-release"))
+openxlsx::writeData(R_OUT_SJjuviDB, sheet="biosampling-LINKED", x = biosamp.linked)
+
+
+# Export to github ------------------------------------
+openxlsx::saveWorkbook(wb = R_OUT_SJjuviDB, 
+                       file = here::here("data", "juvenile", "R_OUT - San Juan PSSI master database LINKED.xlsx"),
+                       overwrite = T)
 
 
