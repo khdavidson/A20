@@ -156,16 +156,15 @@ sj.fence$stat_week <- factor(sj.fence$stat_week,
 
 # ====================== AGE data ======================   (all species, all years - not linked to individual fish)
 # Option 1: Re-dump source code for updates ------------------
- source(here::here("scripts", "functions", "pullSanJuanAgeData.R"))
+ #source(here::here("scripts", "functions", "pullSanJuanAgeData.R"))
   # saves as SJ_allAgesMaster
 
 
 # Option 2: Load pre-dumped age data ------------------
-# Load SJ specific data -- old
-SJ_allAgesMaster <- readxl::read_excel(path=list.files(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/",
-                                                  pattern = "^R_OUT - ALL South Coast Chinook Age results",
-                                                  full.names = T),
-                                       guess_max=20000) %>%
+# Load SJ specific data so I can get non-Chinook ages too
+SJ_allAgesMaster <- readxl::read_excel(path=list.files(path=here::here("outputs"), 
+                                                       pattern="R_OUT - SanJuan_Ages_allSpp-allYrs",
+                                                       full.names = T)) %>%
   mutate(`(R) RESOLVED TOTAL AGE` = case_when(PADS_GrAge == "0M" ~ "1",
                                               grepl("chinook", PADS_Species, ignore.case=T) & PADS_GrAge == "1M" ~ "2",
                                               grepl("chinook", PADS_Species, ignore.case=T) & PADS_GrAge == "2M" ~ "3",
@@ -185,21 +184,36 @@ SJ_allAgesMaster <- readxl::read_excel(path=list.files(path="//ENT.dfo-mpo.ca/DF
                              grepl("Coho", PADS_Species, ignore.case=T) ~ "Coho",
                              TRUE ~ "FLAG"))
 
-# SJ_allAgesMaster <- readxl::read_excel(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/CHINOOK/TERMINAL_RUN/Annual_data_summaries_for_RunRecons/")
-
-
 
 
 # ============================== LINKED BIODATA ==============================
-sj.biodata <- readxl::read_excel(path=paste0("//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/SC_BioData_Management/2-Escapement/",
-                                   list.files(path="//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/SC_BioData_Management/2-Escapement/",
-                                              pattern="^R_OUT - WCVI_Escapement-FSC_BioData_*.*xlsx")),
+# LM to use FL to predict for missing POH:
+POH.lm.M.b <-  coef(lm(data = sj.biodata%>%filter(Sex=="Male"),
+                        formula = as.numeric(`POH Length (mm)`) ~ as.numeric(`Fork Length (mm)`)))[1]
+POH.lm.M.m <-  coef(lm(data = sj.biodata%>%filter(Sex=="Male"),
+                        formula = as.numeric(`POH Length (mm)`) ~ as.numeric(`Fork Length (mm)`)))[2]
+ 
+POH.lm.F.b <-  coef(lm(data = sj.biodata%>%filter(Sex=="Female"),
+                        formula = as.numeric(`POH Length (mm)`) ~ as.numeric(`Fork Length (mm)`)))[1]
+POH.lm.F.m <-  coef(lm(data = sj.biodata%>%filter(Sex=="Female"),
+                        formula = as.numeric(`POH Length (mm)`) ~ as.numeric(`Fork Length (mm)`)))[2]
+
+
+
+sj.biodata <- readxl::read_excel(list.files(path="//ENT.DFO-MPO.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/",
+                                              pattern="^R_OUT - WCVI_Escapement-FSC_BioData_*.*xlsx",
+                                            full.names=T),
                                   sheet="Esc biodata w RESULTS", guess_max=20000) %>% 
   filter(`Fishery / River` == "San Juan River") %>%
   mutate(Sex = case_when(Sex=="J" ~ "Jack",
                          Sex=="M" ~ "Male",
                          Sex=="F" ~ "Female",
-                         TRUE ~ Sex))
+                         TRUE ~ Sex)) %>%
+  mutate(`POH Length (mm)` = case_when(is.na(`POH Length (mm)`) & Sex=="Male" ~ 
+                                         POH.lm.M.m*as.numeric(`Fork Length (mm)`) + POH.lm.M.b,
+                                       is.na(`POH Length (mm)`) & Sex=="Female" ~ 
+                                         POH.lm.F.m*as.numeric(`Fork Length (mm)`) + POH.lm.F.b,
+                                       TRUE ~ as.numeric(`POH Length (mm)`)))
 
 
 
@@ -633,8 +647,8 @@ SJ_allAgesMaster %>%
   rename(Age=`(R) RESOLVED TOTAL AGE`,
          `Proportion (avg)` = avg_propn,
          `+/- SD` = sd_propn) %>%
-  kbl(align="c", caption="Age structure of San Juan Chinook. Data from PADS (NuSEDS and MRPIS).") %>%
-  kable_paper("hover", full_width=T, position = "center") 
+  kableExtra::kbl(align="c", caption="Age structure of San Juan Chinook. Data from PADS (NuSEDS and MRPIS).") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") 
 ```
 
 <br>
@@ -700,7 +714,7 @@ age.fig.sex <- ggplot() +
               group_by(`(R) SAMPLE YEAR`, Sex) %>%
               summarize(total_n = n()), 
             aes(x=`(R) SAMPLE YEAR`, y=1.04, label=paste0("n=",total_n)), size=3) +
-  labs(x="Brood year", y="% of annual biosamples", fill="Age:", colour="Age:") +
+  labs(x="Brood year", y="% Hatchery biosamples by sex", fill="Age:", colour="Age:") +
   scale_y_continuous(labels=scales::label_percent()) +
   theme_bw() +
   theme(axis.title = element_text(face="bold"),
@@ -711,7 +725,7 @@ age.fig.sex <- ggplot() +
 age.fig.sex
 
 
-pdf(file = here("outputs", "figures", "San Juan chinook age composition 2012-present.pdf"),   
+pdf(file = here::here("outputs", "figures", "San Juan chinook age composition 2012-present.pdf"),   
     width = 11, # The width of the plot in inches
     height = 8.5) # The height of the plot in inches
 
@@ -721,6 +735,59 @@ dev.off()
 ```
 
 <br>
+
+#### Size-at-age of hatchery fish
+
+```{r size-at-age, fig.cap='Size at age by sex of San Juan Chinook broodstock. Note differing y axes for adults vs. jacks. For some years we used the linear relationship between FL and POH to infill for missing POH lengths.'}
+# ggplot() + 
+#   geom_point(data=sj.biodata %>% 
+#                filter(Sex!="Jill", !is.na(`(R) RESOLVED TOTAL AGE`)) %>%
+#                group_by(`(R) SAMPLE YEAR`, `(R) RESOLVED TOTAL AGE`, Sex) %>%
+#                mutate_at("POH Length (mm)", as.numeric) %>%
+#                mutate_at("Fork Length (mm)", as.numeric) %>%
+#                summarize(meanPOH = mean(`POH Length (mm)`, na.rm=T),
+#                          meanFL = mean(`Fork Length (mm)`, na.rm=T)), 
+#              aes(x=`(R) SAMPLE YEAR`, y=meanPOH, fill=as.factor(`(R) RESOLVED TOTAL AGE`), colour=as.factor(`(R) RESOLVED TOTAL AGE`)),
+#              shape=21) +
+#   facet_wrap(~Sex, nrow=3)
+
+size.age.fig <-
+ggplot() +
+  geom_boxplot(data=sj.biodata %>% 
+               filter(Sex!="Jill", !is.na(`(R) RESOLVED TOTAL AGE`), grepl("san juan", `(R) RESOLVED STOCK ID`, ignore.case=T)), 
+             aes(x=`(R) SAMPLE YEAR`, y=`POH Length (mm)`, 
+                 fill=as.factor(`(R) RESOLVED TOTAL AGE`), colour=as.factor(`(R) RESOLVED TOTAL AGE`)),
+             alpha=0.7, size=1, width=0.5) +
+  labs(fill="Age:  ", colour="Age:  ",  x="Brood year") +
+  theme_bw() +
+  theme(axis.text = element_text(colour="black", size=15),
+        axis.title = element_text(face="bold", size=17),
+        #axis.title.x = element_blank(),
+        strip.text = element_text(size=14),
+        legend.position = "bottom",
+        legend.direction = "horizontal",
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=14, face="bold"),
+        legend.key.spacing.x = unit(8, "mm")) +
+  facet_wrap(~Sex, nrow=3, scales="free_y")
+size.age.fig
+
+
+pdf(file = here::here("outputs", "figures", "San Juan chinook size-at-age 2012-present.pdf"),   
+    width = 11, # The width of the plot in inches
+    height = 8.5) # The height of the plot in inches
+
+size.age.fig
+
+dev.off()
+```
+
+
+
+
+
+
+
 
 ```{r}
 # STUDY DESIGN TABLE
@@ -756,32 +823,32 @@ SJ_allAgesMaster %>%
 
 ```{r age-fishery-fig, echo=F, warning=F, message=F, fig.cap='Annual age structure of San Juan Chinook (excludes tributaries). Numbers indicate the number of samples contributing age data each year. Data from PADS (NuSEDS and MRPIS).', eval=F}
 # FIGURE: AGE ~ FISHERY ----------------------- 
-ggplot() +
-  geom_bar(data=sj.FULL.age %>% 
-         filter(!is.na(`(R) RESOLVED TOTAL AGE`), `Sample Year` %in% c(2005, 2014, 2015)) %>%
-         group_by(`Sample Year`, Fishery, `(R) RESOLVED TOTAL AGE`) %>% 
-         summarize(n=n()) %>% 
-         group_by(`Sample Year`, Fishery) %>% 
-         mutate(sample_size = sum(n),
-                propn=n/sum(n)),
-       aes(x=Fishery, y=propn, fill=as.factor(`(R) RESOLVED TOTAL AGE`), colour=as.factor(`(R) RESOLVED TOTAL AGE`)), 
-       stat="identity", position="stack", width=0.5, alpha=0.8, size=1) +
-  geom_text(data=sj.FULL.age %>% 
-              filter(!is.na(`(R) RESOLVED TOTAL AGE`), `Sample Year` %in% c(2005, 2014, 2015)) %>% 
-              group_by(`Sample Year`, Fishery) %>% summarize(sample_size = n()), 
-            aes(x=Fishery, y=1, label=sample_size), hjust=0, vjust=0, angle=45) +
-  labs(y="Proportion of annual biosamples by fishery", fill="Age:", colour="Age:") +
-  scale_y_continuous(breaks=seq(0,1.1,by=0.25), limits=c(0,1.1), labels=scales::label_percent()) +
-  theme_bw() +
-  theme(axis.text = element_text(colour="black", size=11),
-        axis.text.x = element_text(angle=45, hjust=1),
-        axis.title = element_text(face="bold", size=13),
-        axis.title.x = element_blank(),
-        legend.position = "bottom",
-        legend.direction = "horizontal",
-        legend.title = element_text(face="bold"),
-        plot.caption = element_text(face="italic", hjust=0)) +
-  facet_wrap(~`Sample Year`)
+# ggplot() +
+#   geom_bar(data=sj.FULL.age %>% 
+#          filter(!is.na(`(R) RESOLVED TOTAL AGE`), `Sample Year` %in% c(2005, 2014, 2015)) %>%
+#          group_by(`Sample Year`, Fishery, `(R) RESOLVED TOTAL AGE`) %>% 
+#          summarize(n=n()) %>% 
+#          group_by(`Sample Year`, Fishery) %>% 
+#          mutate(sample_size = sum(n),
+#                 propn=n/sum(n)),
+#        aes(x=Fishery, y=propn, fill=as.factor(`(R) RESOLVED TOTAL AGE`), colour=as.factor(`(R) RESOLVED TOTAL AGE`)), 
+#        stat="identity", position="stack", width=0.5, alpha=0.8, size=1) +
+#   geom_text(data=sj.FULL.age %>% 
+#               filter(!is.na(`(R) RESOLVED TOTAL AGE`), `Sample Year` %in% c(2005, 2014, 2015)) %>% 
+#               group_by(`Sample Year`, Fishery) %>% summarize(sample_size = n()), 
+#             aes(x=Fishery, y=1, label=sample_size), hjust=0, vjust=0, angle=45) +
+#   labs(y="Proportion of annual biosamples by fishery", fill="Age:", colour="Age:") +
+#   scale_y_continuous(breaks=seq(0,1.1,by=0.25), limits=c(0,1.1), labels=scales::label_percent()) +
+#   theme_bw() +
+#   theme(axis.text = element_text(colour="black", size=11),
+#         axis.text.x = element_text(angle=45, hjust=1),
+#         axis.title = element_text(face="bold", size=13),
+#         axis.title.x = element_blank(),
+#         legend.position = "bottom",
+#         legend.direction = "horizontal",
+#         legend.title = element_text(face="bold"),
+#         plot.caption = element_text(face="italic", hjust=0)) +
+#   facet_wrap(~`Sample Year`)
 ```
 
 <br>
@@ -813,7 +880,7 @@ sj.fence %>%
   rename(`Total chinook counted`=n, `Female (%)`=F, `Male (%)`=M) %>% 
   kbl(align="c", caption="Sex ratio of chinook passing by the San Juan fence or handled in broodstock seines/tangle nets. Data from 4 Mile Hatchery.") %>%
   #collapse_rows(columns=c(1,2), valign="middle", target=1) %>%
-  kable_paper("hover", full_width=T, position = "center")
+  kableExtra::kable_paper("hover", full_width=T, position = "center")
 ```
 
 <br>
@@ -829,7 +896,7 @@ sj.fecund %>%
   rename(`Mean fecundity`=mean_fec, `# females in sample`=n_females) %>%
   kbl(align="c", caption="Fecundity of San Juan Chinook with variance and sample size where available. Data from 4 Mile Hatchery.") %>%
   #collapse_rows(columns=c(1,2), valign="middle", target=1) %>%
-  kable_paper("hover", full_width=T, position = "center")
+  kableExtra::kable_paper("hover", full_width=T, position = "center")
 ```
 
 <br>
