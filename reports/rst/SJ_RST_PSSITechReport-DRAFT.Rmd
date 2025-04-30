@@ -104,7 +104,7 @@ In 2023 the RST was operational 2 nights/week from March 24 - June 16, with a ga
 
 $\\$
 
-## Overall catch composition (all species and years)
+## Overall catch composition and timing 
 
 Coho were the dominant catch in all years, primarily peaking in early-mid April with a smaller bump in early May. Chinook were mostly present earlier in the season, primarily in late March - April. Chum outmigration is typically much earlier than Chinook and Coho, and we likely only caught the tail-end in early-mid March (Fig \@ref(fig:rstCatchFig)). Other by-catch included juvenile Rainbow and Cutthroat trout, amphibians (Western toadlets, roughskin newts), and other non-salmonid fish (sculpin, stickleback, lamprey). 
 
@@ -113,6 +113,13 @@ In 2023 the trap caused high mortality rates at times due to a combination of fl
 ```{r rstCatchFig, fig.cap='Uncorrected daily total RST catch from 2023-2025 including mortalities, but excluding recaptures. Early 2024 catch (prior to March 26) represents IPT catch.', fig.pos='H'}
 plot.rstCatchFig
 ```
+
+Outmigration timing was relatively similar in both years for Chinook despite the reduced program frequency and duration in 2023, although this likely explains the considerable difference in timing for Coho. 
+
+```{r rstcumlOutmigration, fig.cap = 'Outmigration timing of juvenile salmon from 2023-2025.'}
+plot.rstcumlOutmigration
+```
+
 
 $\\$
 
@@ -124,29 +131,29 @@ For the purposes of body size explorations we present size data without making i
 
 The majority of juvenile salmon encountered were < 50 mm. Chinook exhibited a more protracted distribution of larger sizes (mostly between 55 - 70 mm) compared to Coho which ranged from 50 - 110 mm in relatively consistent frequency (Fig \@ref(fig:lengthDensityTime)). Increasing size was positively related to time, with most larger juvenile salmon encountered later in the season.  
 
-```{r lengthDensityTime, fig.cap='Range of fork lengths recorded for Chinook, Chum and Coho from all years of the RST pooled.', fig.pos='H'}
+```{r lengthDensityTime, fig.cap='A) Probability density and B) temporal trends in fork length for Chinook, Chum and Coho from all RST years pooled.', fig.pos='H'}
 ggpubr::ggarrange(
   plot.lengthDensity,
   plot.lengthTime,
-  ncol=2)
+  ncol=2,
+  labels="AUTO")
 ```
 
-However, it is important to consider that identification of Chinook and Coho is often difficult, especially in freshwater larger size classes before smolt features have developed (i.e., the awkward teenage stage!). **Although sample size is limited, of 5 supposed "chinook smolt" genetic samples submitted, three returned as non-Chinook, and are presumably Coho.** 
+However, it is important to consider that identification of Chinook and Coho is often difficult, especially in freshwater larger size classes before smolt features have developed (i.e., the awkward teenage stage!). Of five genetic samples collected from smolts with uncertain Chinook/Coho IDs between `r min(misID$length)`-`r max(misID$length)` mm, all five turned out to be Coho. It is then possible that some of the larger sized Chinook noted later in the season (Figure \@ref(fig:lengthDensityTime)) could be Coho. 
 
 
-## Chinook specific abundance and timing relative
+## Natural and hatchery-origin Chinook abundance and timing
 
 - Timing relative to hatchery release in these years too 
 - Abundance estimates 2006, 2024, 2025
 - Implied survival – adult x sex ratio x fecundity  compared to estimate?  
   + Adult returns from outmigration? This could be hard to calculate as it needs age structure? 
   
-```{r fig.cap='Cumulative probability of chinook capture throughout the 2023 purse seine season. Due to exceptionally low catches of natural-origin Chinook, the figure combines both natural and hatchery-origin Chinook.'}
 
-```
+
 $\\$
 
-## Body size and condition factor  
+## Condition factor  
 - Length/weight/condition of natural vs hatchery fish
 - Changes in natural fish over the season / early smalls/late-larges
   + Otolith FL ? 
