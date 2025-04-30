@@ -1,12 +1,10 @@
 
-# Dump and combine age data 
+# Dump and combine age data for all SJ Species
 
 
 # Load libraries ------------------------
-#library(saaWeb)
 library(tidyverse)
-#library(writexl)
-#library(here)
+
 
 # Helper ------------------------
 "%notin%" <- Negate("%in%")
