@@ -136,7 +136,8 @@ biosamp.linked <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC
     readxl::read_excel(path=here::here("data", "juvenile", "San Juan PSSI master database.xlsx"),
                        sheet="biosampling"),
     gsi.master %>%
-      select(ID_Source:Vial,species:neg_sp_confirmed),
+      select(ID_Source:Vial,species:neg_sp_confirmed) %>%
+      rename(genetic_species = species),
     by=c("DNA_vial" = "Vial"),
     na_matches = "never")
 
@@ -176,3 +177,5 @@ openxlsx::saveWorkbook(wb = R_OUT_SJjuviDB,
                        overwrite = T)
 
 
+# Clear library for sake of running as source()
+remove(list = ls())
