@@ -1,6 +1,8 @@
 # San Juan 2024 RST 
-# 2024/2025
+# 2023-2025
 
+
+# ========================= SET UP =========================
 
 # Load libraries -------------------
 library(tidyverse)
@@ -8,16 +10,15 @@ library(tidyverse)
 # Load helpers -------------------
 "%notin%" <- Negate("%in%")
 
-
-# ========================= RUN GSI COMPILE FIRST?? IF NEW RESULTS =========================
+# Run source() if new genetic results -------------------
 source(here::here("scripts", "misc-helpers", "gsiCompile.R"))
 
 
 
 
-# ========================= LOAD AREA 20 JUVI "DATABASE" =========================
+# ========================= LOAD JUVENILE DATA =========================
 
-# Sample event metadata/environmentals ----------------- 
+# Sample events ----------------- 
 eventMeta <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/San Juan PSSI master database.xlsx",
   #                  sheet="sample_event_meta")
   readxl::read_excel(path=here::here("data", "juvenile", "R_OUT - San Juan PSSI master database LINKED.xlsx"),
@@ -25,7 +26,12 @@ eventMeta <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/
   filter(grepl("RST|IPT", gear))
 
 
-
+# Environmentals ----------------- 
+enviros <- readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/San Juan PSSI master database.xlsx",
+                    sheet="enviro") %>% 
+  filter(grepl("RST|IPT", usid, ignore.case=T))
+  
+  
 # Catch totals ----------------- 
 setTotals <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/San Juan PSSI master database.xlsx",
   #                    sheet="set_totals")
@@ -66,7 +72,7 @@ biosamp.LINKED <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC
 
 
 
-# ========================= LOAD ENVIRONMENTAL =========================
+# ========================= LOAD HYDROMET DATA =========================
 # Load hydromet data eventually  - can i call in existing code from the compendium?
 
 
@@ -74,80 +80,13 @@ biosamp.LINKED <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC
 # Load hatchery releases - can i call in existing code from the compendium?
 
 
-# ========================= LOAD 2024 EPICOLLECT DATA =========================  ***DELETE ALL OF THIS SOON! 
-# Form 1: Metadata/survey details -------------------
-# rst24.1 <- readxl::read_excel(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/Data management/Epicollect Data Downloads/2024/RST/form-1_RSTmaster - verified.xlsx",
-#                               guess_max=20000) %>% 
-#   mutate(R_date = lubridate::dmy(stringr::str_sub(title, start=1, end=10))#,
-#          #R_time = stringr::str_sub()
-#          ) %>% 
-#   rename(ec5_parent_uuid=ec5_uuid)
-# 
-# 
-# # Form 2: Enumeration -------------------
-# rst24.2 <- readxl::read_excel(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/Data management/Epicollect Data Downloads/2024/RST/form-2_RSTmaster - verified.xlsx",
-#                               guess_max=20000) 
-# 
-# rst24.releases <- rst24.2 %>% 
-#   select(X217_Are_you_marking_:Comments)
-# 
-# rst24.2 <- rst24.2 %>% 
-#   select(ec5_uuid:Species_etc)
-# 
-# 
-# # Form 3: Catch sampling -------------------
-# rst24.3 <- readxl::read_excel(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/Data management/Epicollect Data Downloads/2024/RST/form-3_RSTmaster - verified.xlsx",
-#                               guess_max=20000)
 
 
+# ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+# ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
 
-
-# ========================= JOIN 2024 EPICOLLECT DATA =========================
-# rst24.metaEnum <- left_join(rst24.1, rst24.2,
-#                             by="ec5_parent_uuid") %>% 
-#   mutate(DOY = lubridate::yday(R_date),
-#          across(c(CN_smlt_cl_nobis:Anchovy), ~case_when(.=="NA" ~ NA,
-#                                                         TRUE ~ as.numeric(.)))) %>% 
-#   pivot_longer(cols=c(CN_smlt_cl_nobis:Anchovy), names_to="spp_stage_condition", values_to="count") %>% 
-#   mutate(species = case_when(grepl("CO", spp_stage_condition) ~ "Coho",
-#                              grepl("CN", spp_stage_condition) ~ "Chinook",
-#                              grepl("SK", spp_stage_condition) ~ "Sockeye",
-#                              grepl("CM", spp_stage_condition) ~ "Chum",
-#                              grepl("Pk|PK", spp_stage_condition) ~ "Pink",
-#                              grepl("SH", spp_stage_condition) ~ "Steelhead",
-#                              grepl("other", spp_stage_condition) ~ "Other"),
-#          stage = case_when(grepl("fry", spp_stage_condition) ~ "Fry",
-#                            grepl("smlt|smolt", spp_stage_condition) ~ "Smolt",
-#                            TRUE ~ "FLAG"),
-#          condition = case_when(grepl("mort|mrt", spp_stage_condition) ~ "Mort",
-#                                TRUE ~ "Live"),
-#          tag_status = case_when(grepl("nobi", spp_stage_condition) ~ "Untagged",
-#                                 grepl("_bis", spp_stage_condition) ~ "Tag recovery",
-#                                 TRUE ~ "FLAG"),
-#          clip_status = case_when(grepl("_cl_", spp_stage_condition) ~ "Ad-clipped",
-#                                  TRUE ~ "Unclipped"),
-#          count = case_when(is.na(count) ~ 0,
-#                            TRUE ~ as.numeric(count)))
-
-
-# export for use later
-# writexl::write_xlsx(rst24.metaEnum, here::here("outputs", "R_OUT - RST 2024 metadata and catch totals.xlsx"))
-# 
-# 
-# 
-# writexl::write_xlsx(left_join(rst24.2, rst24.1,
-#                               by="ec5_parent_uuid"), here::here("outputs", "R_OUT - RST 2024 form 1+2.xlsx"))
-# writexl::write_xlsx(left_join(rst24.3, rst24.1,
-#                               by="ec5_parent_uuid"), here::here("outputs", "R_OUT - RST 2024 form 1+3.xlsx"))
-
-
-
-
-
-############################################################################################################################################################
-
-#                                                                         RST 
+# ========================= RST OPERATIONS =========================
 
 # RPMs ---------------------
 # eventMeta %>%
@@ -164,12 +103,13 @@ biosamp.LINKED <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC
 
 
          
-############################################################################################################################################################
+# ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+# ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
-#                                                                 CATCH SECTION (2023-2025)
+#                                                                 
 
 
-# ======================= ALL SPECIES, ALL YEARS =======================
+# ======================= CATCH: ALL SPECIES, ALL YEARS =======================
 
 # Species slightly simplified ---------------------
 plot.rstCatchFig <- 
@@ -216,7 +156,7 @@ ggplot() +
   facet_wrap(~year, ncol=1, scales="free_y")
   
 
-# Save as PDF ---------------------
+# Save as PDF 
 # pdf(file = here::here("outputs", "figures", "juvenile", "RST raw catch (bars).pdf"),   
 #     width = 14, # The width of the plot in inches
 #     height = 8.5) # The height of the plot in inches
@@ -280,7 +220,7 @@ misID <- biosamp.LINKED %>%
   select(species, life_stage, length, weight, genetic_species) %>% 
   print()
 
-
+# Maybe later when genetics return... 
 
 
 
@@ -336,6 +276,12 @@ ggplot() +
 
 # Smolts & fry & Hatchery releases? -----------------------
 
+ggplot() +
+  geom_line(data=setTotals %>% filter(species=="chinook"),
+            aes(x=as.Date(DOY, origin="2023-12-31"), y=total_caught_excl_recaps, group=as.factor(year), colour=as.factor(year)), size=1, na.rm = T) +
+  scale_x_date(date_labels = "%b %d", date_breaks="5 day") +
+  labs(y="Total caught", x="") +
+  theme_bw() 
 
 
 
