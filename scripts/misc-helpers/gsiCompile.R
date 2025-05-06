@@ -130,16 +130,16 @@ writexl::write_xlsx(gsi.master, path=paste0(here::here("data", "juvenile", "GSI"
 
 
 # Load Biosampling sheet of juvenile database, Join to MGL Master file ----------------- 
-biosamp.linked <- #readxl::read_excel(path = "//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/San Juan PSSI master database.xlsx",
-  #                  sheet="biosampling")
-  full_join(
-    readxl::read_excel(path=here::here("data", "juvenile", "San Juan PSSI master database.xlsx"),
-                       sheet="biosampling"),
-    gsi.master %>%
-      select(ID_Source:Vial,species:neg_sp_confirmed) %>%
-      rename(genetic_species = species),
-    by=c("DNA_vial" = "Vial"),
-    na_matches = "never")
+biosamp.linked <-  full_join(
+  readxl::read_excel(path=list.files(path="//ENT.DFO-MPO.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database",
+                                     pattern="^San Juan PSSI master database",
+                                     full.names=T),
+                     sheet="biosampling"),
+  gsi.master %>%
+    select(ID_Source:Vial,species:neg_sp_confirmed) %>%
+    rename(genetic_species = species),
+  by=c("DNA_vial" = "Vial"),
+  na_matches = "never")
 
 
 
@@ -173,8 +173,29 @@ openxlsx::writeData(R_OUT_SJjuviDB, sheet="biosampling-LINKED", x = biosamp.link
 
 # Export to github ------------------------------------
 openxlsx::saveWorkbook(wb = R_OUT_SJjuviDB, 
-                       file = here::here("data", "juvenile", "R_OUT - San Juan PSSI master database LINKED.xlsx"),
+                       file = paste0(here::here("data", "juvenile"),
+                                     "/R_OUT - San Juan PSSI master database ",
+                                     stringr::str_sub(string=list.files(path="//ENT.DFO-MPO.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database",
+                                                                        pattern="^San Juan PSSI master database"),
+                                                      start=31, 
+                                                      end=42),
+                                     " WITH RESULTS.xlsx"),
                        overwrite = T)
+
+# Export to Drive ------------------------------------
+openxlsx::saveWorkbook(wb = R_OUT_SJjuviDB, 
+                       file = paste0("//ENT.DFO-MPO.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database/",
+                                     "R_OUT - San Juan PSSI master database ",
+                                     stringr::str_sub(string=list.files(path="//ENT.DFO-MPO.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/JUVENILE_PROJECTS/Area 20-San Juan juveniles/# Juvi Database",
+                                                                        pattern="^San Juan PSSI master database"),
+                                                      start=31, 
+                                                      end=42),
+                                     " WITH RESULTS.xlsx"),
+                       overwrite = T)
+
+
+
+
 
 
 # Clear library for sake of running as source()
