@@ -195,12 +195,8 @@
   "Aggregates": [],
   "Filters": [
     {
-      "Column": "RL_SPECIES_MRP_CODE",
-      "Value": "124"
-    },
-    {
-      "Column": "RL_SITE_STOCK_CODE",
-      "Value": "0093,1083,1873"
+      "Column": "RL_SITE_RELEASE_CODE",
+      "Value": "'0093','0441','1083','2285','2579','5898','6324','6785'"
     }
   ],
   "Orders": []
