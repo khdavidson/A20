@@ -27,10 +27,10 @@ a20Releases <- saaWeb:::runCwtExtractorQuery(here::here("scripts", "json", "mrpE
 
 
 # Export to github ------------------------
-writexl::write_xlsx(a20Releases, here::here("outputs", paste0("R_OUT - Area 20 MRP Releases", 
-                                                       min(a20Releases$`(RC) Recovery Year`), 
+writexl::write_xlsx(a20Releases, here::here("outputs", paste0("R_OUT - Area 20 MRP Releases ", 
+                                                       min(a20Releases$`Brood Year`), 
                                                        "-", 
-                                                       max(a20Releases$`(RC) Recovery Year`), 
+                                                       max(a20Releases$`Brood Year`), 
                                                        ".xlsx")))
 
 
