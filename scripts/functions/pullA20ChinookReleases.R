@@ -15,7 +15,7 @@ library(tidyverse)
 # ============================ 1. DUMP CWT RECOVERIES (release JOIN recovery) ============================
 
 # Chinook release tagcodes ------------------------
-a20cwtRcvy <- saaWeb:::runCwtExtractorQuery(here::here("scripts", "json", "mrpExtractor_RelRcvy_SJ-gordon-lens-CN.json"), config_file=here("saaWeb.config"), 
+a20Releases <- saaWeb:::runCwtExtractorQuery(here::here("scripts", "json", "mrpExtractor_Releases_SJ-gordon-lens-CN.json"), config_file=here("saaWeb.config"), 
                                              user_name = NULL, password=NULL) %>%
   print()
 
@@ -27,10 +27,10 @@ a20cwtRcvy <- saaWeb:::runCwtExtractorQuery(here::here("scripts", "json", "mrpEx
 
 
 # Export to github ------------------------
-writexl::write_xlsx(a20cwtRcvy, here::here("outputs", paste0("R_OUT - Area 20 CWT Recoveries JOIN Releases - CHINOOK RY", 
-                                                       min(a20cwtRcvy$`(RC) Recovery Year`), 
+writexl::write_xlsx(a20Releases, here::here("outputs", paste0("R_OUT - Area 20 MRP Releases", 
+                                                       min(a20Releases$`(RC) Recovery Year`), 
                                                        "-", 
-                                                       max(a20cwtRcvy$`(RC) Recovery Year`), 
+                                                       max(a20Releases$`(RC) Recovery Year`), 
                                                        ".xlsx")))
 
 
