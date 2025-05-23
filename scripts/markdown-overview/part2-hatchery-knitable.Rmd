@@ -38,7 +38,7 @@ library(ggpubr)       # for ggarrange()
 options(scipen = 999999)
 analysis_year <- 2023
 
-#source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/functions/getExtractorData.R", local = knitr::knit_global())
+source(here::here("scripts", "functions", "getExtractorData.R"), local = knitr::knit_global())
 #source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/functions/getMrpPadsData.R", local = knitr::knit_global())
 #source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/functions/getNusedsData.R", local = knitr::knit_global())
 
@@ -73,10 +73,16 @@ SJRelSEP <- lapply(list.files(path=here("data", "enhancement-PNI"),
 
 
 # ============================== MARK HISTORIES ==============================
+# 0. Run source() if need to run new updates to oto reference specimens, PBT, or CWT. Otherwise, load directly below
+  source(here::here("scripts", "misc-helpers", "markHistoryCompile.R"), local = knitr::knit_global())
+  # Saves as 
+
+# 1. Load already compiled mark history output file:
+
 
 # PBT record ------------------------
-SJPBT <- read_excel(paste0(here("data", "enhancement-PNI"), "/4Mile_mark_history.xlsx"), sheet="PBT") %>%
-  print()
+# SJPBT <- read_excel(paste0(here("data", "enhancement-PNI"), "/4Mile_mark_history.xlsx"), sheet="PBT") %>%
+#   print()
 
 
 # Load otolith reference specimens output ------------------------
@@ -85,52 +91,52 @@ SJPBT <- read_excel(paste0(here("data", "enhancement-PNI"), "/4Mile_mark_history
   # remove(wcviOtos)
   # remove(OtosRef)
 
-SJotoRef <- full_join(
-  SJomRef <-
-    lapply(sort(list.files(path=
-                             "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/OtoCompile_base-files/ReferenceSpecimens/2-Export-from-R/",
-                           pattern = "^R_OUT - OtoManager_CN_REFERENCEspecimens.*\\.xlsx$",
-                           full.names = TRUE), 
-                decreasing=T)[1], 
-           readxl::read_excel, sheet="Sheet1") %>% 
-    do.call("cbind",.) %>%
-    filter(grepl("SAN JUAN", FACILITY)) %>% 
-    mutate(data_source = "reference specimen (Oto Manager)"),
-  
-  
-  SJnpafcRef <- readxl::read_excel(path=list.files(path = here("data", "biosamples"),
-                                                   pattern = "^All CN Marks",   
-                                                   full.names = TRUE), 
-                                   sheet=1) %>% 
-    filter(grepl("SAN JUAN", STOCK), BROOD_YEAR %notin% unique(SJomRef$`BROOD YEAR`)) %>% 
-    mutate(data_source = "NPAFC mark records") %>% 
-    rename(`BROOD YEAR` = BROOD_YEAR,
-           `RELEASE YEAR` = RELEASE_YEAR,
-           `INTEND HATCH CODE` = HATCH_CODE,
-           `USER COMMENT` = MARK_COMMENT) %>% 
-    group_by(`BROOD YEAR`, FACILITY, SPECIES, `RELEASE YEAR`, `INTEND HATCH CODE`, data_source, STAGE) %>% 
-    summarize(`USER COMMENT` = paste(`USER COMMENT`, collapse=" / ")) %>% 
-    mutate(`RF READ STATUS` = case_when(grepl("not thermally marked", `USER COMMENT`, ignore.case=T) ~ "Not Marked",
-                                        TRUE ~ "Marked"),
-           QUALITY = case_when(`RF READ STATUS`=="Not Marked" ~ NA,
-                               TRUE ~ "Unknown"))
-  ) %>% 
-  arrange(`BROOD YEAR`) %>%
-  mutate(TM_application_flag = case_when(`INTEND HATCH CODE`!=`ACT ASSIGN HATCH CODE` ~ "mark application issue: actual mark applied was not the intended mark applied",
-                                     is.na(`INTEND HATCH CODE`) | is.na(`ACT ASSIGN HATCH CODE`) ~ NA,
-                                     TRUE ~ "ok")) %>%
-  # left_join(.,
-  #           readxl::read_excel(
-  #             "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/Spec_Projects/Thermal_Mark_Project/Marks/All CN Marks from NPAFC Otolith Database to May 1, 2023.xlsx", 
-  #             sheet="AllNPAFC CNReleasestoJun8,2022") %>% 
-  #             filter(grepl("SAN JUAN", STOCK)) %>% 
-  #             rename(`BROOD YEAR` = BROOD_YEAR) %>% 
-  #             group_by(`BROOD YEAR`, STAGE) %>% 
-  #             summarize(released_NPAFC_marked = sum(NUMBER_RELEASED))
-  # )  %>% 
-  # mutate(STAGE = case_when(STAGE=="SMOLT" ~ "Smolt 0+",
-  #                          STAGE=="FED FRY" ~ "Fed Fry")) %>% 
-  print()
+# SJotoRef <- full_join(
+#   SJomRef <-
+#     lapply(sort(list.files(path=
+#                              "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/OtoCompile_base-files/ReferenceSpecimens/2-Export-from-R/",
+#                            pattern = "^R_OUT - OtoManager_CN_REFERENCEspecimens.*\\.xlsx$",
+#                            full.names = TRUE), 
+#                 decreasing=T)[1], 
+#            readxl::read_excel, sheet="Sheet1") %>% 
+#     do.call("cbind",.) %>%
+#     filter(grepl("SAN JUAN", FACILITY)) %>% 
+#     mutate(data_source = "reference specimen (Oto Manager)"),
+#   
+#   
+#   SJnpafcRef <- readxl::read_excel(path=list.files(path = here("data", "biosamples"),
+#                                                    pattern = "^All CN Marks",   
+#                                                    full.names = TRUE), 
+#                                    sheet=1) %>% 
+#     filter(grepl("SAN JUAN", STOCK), BROOD_YEAR %notin% unique(SJomRef$`BROOD YEAR`)) %>% 
+#     mutate(data_source = "NPAFC mark records") %>% 
+#     rename(`BROOD YEAR` = BROOD_YEAR,
+#            `RELEASE YEAR` = RELEASE_YEAR,
+#            `INTEND HATCH CODE` = HATCH_CODE,
+#            `USER COMMENT` = MARK_COMMENT) %>% 
+#     group_by(`BROOD YEAR`, FACILITY, SPECIES, `RELEASE YEAR`, `INTEND HATCH CODE`, data_source, STAGE) %>% 
+#     summarize(`USER COMMENT` = paste(`USER COMMENT`, collapse=" / ")) %>% 
+#     mutate(`RF READ STATUS` = case_when(grepl("not thermally marked", `USER COMMENT`, ignore.case=T) ~ "Not Marked",
+#                                         TRUE ~ "Marked"),
+#            QUALITY = case_when(`RF READ STATUS`=="Not Marked" ~ NA,
+#                                TRUE ~ "Unknown"))
+#   ) %>% 
+#   arrange(`BROOD YEAR`) %>%
+#   mutate(TM_application_flag = case_when(`INTEND HATCH CODE`!=`ACT ASSIGN HATCH CODE` ~ "mark application issue: actual mark applied was not the intended mark applied",
+#                                      is.na(`INTEND HATCH CODE`) | is.na(`ACT ASSIGN HATCH CODE`) ~ NA,
+#                                      TRUE ~ "ok")) %>%
+#   # left_join(.,
+#   #           readxl::read_excel(
+#   #             "//dcbcpbsna01a.ENT.dfo-mpo.ca/SCD_Stad/Spec_Projects/Thermal_Mark_Project/Marks/All CN Marks from NPAFC Otolith Database to May 1, 2023.xlsx", 
+#   #             sheet="AllNPAFC CNReleasestoJun8,2022") %>% 
+#   #             filter(grepl("SAN JUAN", STOCK)) %>% 
+#   #             rename(`BROOD YEAR` = BROOD_YEAR) %>% 
+#   #             group_by(`BROOD YEAR`, STAGE) %>% 
+#   #             summarize(released_NPAFC_marked = sum(NUMBER_RELEASED))
+#   # )  %>% 
+#   # mutate(STAGE = case_when(STAGE=="SMOLT" ~ "Smolt 0+",
+#   #                          STAGE=="FED FRY" ~ "Fed Fry")) %>% 
+#   print()
 
 
 
