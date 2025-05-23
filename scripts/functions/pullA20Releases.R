@@ -15,7 +15,7 @@ library(tidyverse)
 # ============================ 1. DUMP CWT RECOVERIES (release JOIN recovery) ============================
 
 # Chinook release tagcodes ------------------------
-a20Releases <- saaWeb:::runCwtExtractorQuery(here::here("scripts", "json", "mrpExtractor_Releases_A20.json"), config_file=here("saaWeb.config"), 
+a20Releases <- saaWeb:::runCwtExtractorQuery(here::here("scripts", "json", "mrpExtractor_Releases_A20.json"), config_file=here::here("saaWeb.config"), 
                                              user_name = NULL, password=NULL) %>%
   print()
 
