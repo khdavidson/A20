@@ -29,7 +29,7 @@ SJoto_OM <-
                     pattern="^R_OUT - OtoManager_CN_REFERENCEspecimens.*\\.xlsx$", 
                     full.names=T), 
          function(x) {
-           readxl::read_excel(path=x, sheet="Sheet1", guess_max=20000)
+           readxl::read_excel(path=x, sheet=1, guess_max=20000)
          })  %>% 
   do.call("cbind",.) %>%
   filter(grepl("SAN JUAN", FACILITY)) %>% 
@@ -135,31 +135,9 @@ SJ_mark_history_BYrollup <- full_join(
       ungroup(),
     
     # --- Otolith mark quality from OtoCompile.R
-     SJoto_OM.NPAFC #%>% 
-  #     filter(`RF READ STATUS`%notin%c("Destroyed")) %>%
-  #     group_by(`BROOD YEAR`, `RF READ STATUS`, QUALITY) %>% 
-  #     summarize(TM_intended_flag = unique(TM_intended_flag), 
-  #               n_submitted_refSpec_by_quality = n(),
-  #               TM_COMMENT = paste(na.omit(TM_COMMENT), collapse=" / ")) %>%
-  #     mutate(n_submitted_refSpec_by_quality = case_when(`BROOD YEAR`==2001 ~ 16,
-  #                                                       `BROOD YEAR` %notin% SJoto_OM$`BROOD YEAR` ~ 0,
-  #                                                       TRUE ~ n_submitted_refSpec_by_quality))  %>% 
-  #     group_by(`BROOD YEAR`) %>% 
-  #     mutate(total_refspecimens_BY = sum(n_submitted_refSpec_by_quality),
-  #            oto_propn_by_rfStatQuality = case_when(`BROOD YEAR` %notin% SJoto_OM$`BROOD YEAR` ~ 1.00,
-  #                                                   TRUE ~ round(n_submitted_refSpec_by_quality/total_refspecimens_BY,2))
-  #     ) %>%
-  #     select(-c(n_submitted_refSpec_by_quality)) %>%
-  #     pivot_wider(names_from = QUALITY, values_from = oto_propn_by_rfStatQuality, names_prefix = "TM Quality (%): ") %>%
-  #     group_by(`BROOD YEAR`) %>% 
-  #     summarise(across(`RF READ STATUS`, ~ max(., na.rm=T)),
-  #               across(TM_intended_flag:total_refspecimens_BY, ~ unique(., na.rm = T)),
-  #               across(`TM Quality (%): Unknown`:`TM Quality (%): Poor`, ~ sum(., na.rm = T))) %>% 
-  #     relocate(`TM Quality (%): NA`, .before = `TM Quality (%): Unknown`),
-  #   
-  #   by=c("BROOD_YEAR" = "BROOD YEAR",
-  #        "TM_COMMENT")
-  # 
+     SJoto_OM.NPAFC %>%
+      select(-c(TM_COMMENT)), 
+     by=c("BROOD_YEAR" = "BROOD YEAR")
   ),
   # --- CWT/AD release #s
   a20Releases %>% 
@@ -173,9 +151,9 @@ SJ_mark_history_BYrollup <- full_join(
               CWT_rate = round(sum(CWT, na.rm=T)/SEP_released,3),
               AD_rate = round(sum(`AD-clip`, na.rm=T)/SEP_released,3),
               #`mark rate` = round((sum(NoTagNum,na.rm=T)+sum(ShedTagNum,na.rm=T)+sum(TaggedNum,na.rm=T))/SEP_released,3),
-              unmark_untag = round(sum(unmark_untag, na.rm=T)/SEP_released,3)),
-  
-  by=c("BROOD_YEAR"="Brood Year")
+              unmark_untag = round(sum(unmark_untag, na.rm=T)/SEP_released,3))
+   ,
+   by=c("BROOD_YEAR"="Brood Year")
 ) %>% 
   mutate(total_rel_check = TM_release==SEP_released) %>%
   left_join(.,
