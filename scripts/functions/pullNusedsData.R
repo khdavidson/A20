@@ -47,5 +47,5 @@ a20_nuseds_escapement <- runNuSEDSQuery(query_doc=here::here("scripts", "json", 
 
 # Export to github repo ------------------------
 writexl::write_xlsx(a20_nuseds_escapement, here::here("outputs", 
-                                           paste0("R_OUT - Area20WCVI_Escapement_allSpp-allYrs ", min(a20_nuseds_escapement$year), "-", max(a20_nuseds_escapement$year), ".xlsx")))
+                                           paste0("R_OUT - Area20WCVI_Escapement_allSpp-allYrs.xlsx")))
 
