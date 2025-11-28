@@ -1,0 +1,425 @@
+---
+title: "San Juan Chinook PNI"
+author: "K. Davidson"
+date: "`r Sys.Date()`"
+output: 
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+    toc_collapsed: false 
+    toc_depth: 5
+    number_sections: true
+---
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=F, warning=F, message=F)
+
+# Set up ----------------
+library(tidyverse)
+current_year <- 2025
+
+
+# Read EPRO data ----------------
+sj.aab <- readxl::read_excel(path=list.files(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/EPROcompile_base-files/2-Export-from-R",
+                                             pattern="^R_OUT - All Adult Biosampling ALL FACILITIES WITH RESULTS",
+                                             full.names = T),
+                             sheet=2,
+                             guess_max=50000) %>%
+  # --> To update this file, have to run the WCVI Term Run Recon EPRO_join code.
+  
+  janitor::clean_names() %>%
+  filter(grepl("san juan", spawning_stock_name, ignore.case=T)) %>%
+  mutate(r_resolved_origin_roll = case_when(grepl("Hatchery", r_resolved_origin, ignore.case=T) ~ "Hatchery",
+                                            grepl("Natural", r_resolved_origin, ignore.case=T) ~ "Natural",
+                                            TRUE ~ r_resolved_origin),
+         r_resolved_stock_origin_roll = paste0(r_resolved_origin_roll, " ", r_resolved_stock_id)) %>%
+  mutate(across(everything(), as.character)) %>%
+  
+  left_join(.,
+            left_join(readxl::read_excel(path=list.files(path=here::here("data", "biosamples", "GSI"),
+                                                         pattern="San_Juan_DP\\(24)",
+                                                         full.names = T),
+                                         sheet="repunits_table_ids"),
+                      readxl::read_excel(path=list.files(path=here::here("data", "biosamples", "GSI"),
+                                                         pattern="San_Juan_DP\\(24)",
+                                                         full.names = T),
+                                         sheet="extraction_sheet") %>%
+                        select(indiv, Fish)
+            ) %>%
+              mutate(across(everything(), as.character)),
+            by=c("dna_sample_no"="Fish")
+  )
+
+
+# New Esc index ----------------
+sj.newesc <- readxl::read_excel(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/ESCAPEMENT/data/NEW ESCAPEMENT INDEX.xls",
+                                sheet="EscData", skip=4) %>%
+  janitor::clean_names() %>%
+  filter(system=="San Juan")
+
+
+# WCVI Esc file ----------------
+sj.escFSC <- readxl::read_excel(path=list.files(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons",
+                                             pattern="^R_OUT - WCVI_Escapement-FSC_BioData_2012-2024_WithResults",
+                                             full.names = T),
+                             sheet=2,
+                             guess_max=5000) %>%
+  janitor::clean_names() %>%
+  filter(grepl("san juan", fishery_river, ignore.case=T)) %>%
+  mutate(dna_y_n = case_when(!is.na(dna_container_type_1) | !is.na(specimen_reference_dna_number_1) | 
+                               !is.na(dna_container_type_2) | !is.na(specimen_reference_dna_number_2) ~ "Y",
+                             TRUE ~ dna_y_n))
+  # --> To update this file, have to run the WCVI Term Run Recon esc_join code. 
+
+
+
+# PBT results ----------------
+sj.pbt <- readxl::read_excel(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/SC_BioData_Management/15-DNA_Results/PBT/Chinook/results/Chinook_Master_SEP_formatted_crosses_2015-2023_v.2024-12-02 - SJ update 2025-10-09.xlsx",
+                             sheet=1,
+                             guess_max=10000) %>%
+  janitor::clean_names() %>%
+  filter(brood_collection=="SAN_JUAN_RIVER")
+
+
+
+```
+
+*The following bulletin summarizes the most up to date information on the status of San Juan Chinook PNI. However, as PBT assignments are improved and data are error checked, these results may change. New information is constantly incorporated to better improve our understanding of the status of Chinook in the San Juan watershed!*
+
+<br>
+
+# **San Juan Chinook PBT background**
+
+Return years 2022 and 2023 represent the first adult return years almost all age classes were successfully genotyped for Parental-Based Tagging (PBT). In other words, the parents responsible for creating most of the 4 Mile Hatchery fish that returned in 2022 and 2023 were sampled for DNA, and became part of the total PBT baseline for San Juan Chinook. Table \@ref(tab:sample-summary) outlines the sample rate of San Juan Chinook as of October 2025. Tag rates and results for BY 2025 are not yet available. **The PBT baseline for San Juan Chinook is considered reliable from about 2018/2019 onwards.**
+
+```{r sample-summary, tab.cap='Broodstock collections and the associated number of PBT samples collected for each return year. Natural spawning escapement estimates are given for reference.'}
+# Esc/brood/PBT inventory table ---------------- 
+left_join(sj.newesc %>% 
+            filter(year %in% c(2015:current_year)) %>%
+            select(year, ck_escape, brd_rem_ck) %>%
+            rename(`Chinook natural spawners` = ck_escape,
+                   `Broodstock collected` = brd_rem_ck) %>% 
+            mutate(across(everything(), as.character)),
+          
+          sj.escFSC %>%
+            filter(dna_y_n=="Y") %>%
+            group_by(r_sample_year) %>%
+            summarize(n=n()) %>%
+            rename(`PBT samples collected` = n) %>%
+            mutate(across(everything(), as.character)),
+          by=c("year"="r_sample_year")) %>%
+  
+  left_join(.,
+            sj.pbt %>%
+              group_by(o_year) %>%
+              summarize(n=n()) %>%
+              rename(`PBT successfully genotyped`=n) %>%
+              mutate(across(everything(), as.character)),
+            by=c("year"="o_year")
+  ) %>% 
+  rename(Year=year) %>%
+  mutate(`Percent of broodstock PBT'd` = round(as.numeric(`PBT successfully genotyped`)/as.numeric(`Broodstock collected`)*100),
+         `Percent of broodstock PBT'd` = replace_na(`Percent of broodstock PBT'd`, 0),
+         `Percent of broodstock PBT'd` = paste0(`Percent of broodstock PBT'd`, " %")) %>%
+  mutate(across(everything(), as.character)) %>%
+  mutate(across(c(`Broodstock collected`:`Percent of broodstock PBT'd`), ~replace_na(., "--"))) %>%
+  kableExtra::kbl(align="c", caption = "Broodstock collections and the associated number of PBT samples collected for each return year. Natural spawning escapement estimates are given for reference.") %>%
+  kableExtra::row_spec(0, bold=T) %>%
+  kableExtra::kable_classic(full_width=F, html_font="Calibri")
+
+
+#\*\* *Tag rates are calculated relative to the return year and are based on probability of seeing both parents, and requiring both parents to be present in the baseline (i.e., it is more than simply # of tags applied out of total produced). This is currently in review with the genetics lab and StAD to refine.* 
+```
+\* *Where percent of broodstock PBT'd is >100%, some morts were likely sampled and submitted. While this is not ideal, it should not impact PNI assessments as those are dead fish not contributing offspring to the population. This would be an issue if surplus fish were DNA sampled and then subsequently released alive to spawn in the river.*
+
+
+<br>
+
+Having a reliable PBT baseline is critical for San Juan Chinook assessment. Despite best efforts, 4 Mile Hatchery has struggled to apply otolith thermal marks due to the limitations of the hatchery infrastructure (water, power). For this reason, otolith thermal marking has been discontinued at 4 Mile hatchery as of fall 2025. Therefore, PBT provides the only form of stock-specific mass marking available to 4 Mile hatchery. CWTs are not applied to San Juan Chinook consistently and at an adequate tagging rate to infer returning composition. Adipose fin clipping is also underway, but the future of funding is uncertain. 
+
+<br>
+
+<br>
+
+# **San Juan biodata results**
+
+## Broodstock stock ID and age
+
+3- and 4-year old hatchery-origin fish make up most of the return each year (Table \@ref(tab:brood-stock-age)), while older fish tend to be natural-origin, a pattern that is consistent with other enhanced Chinook populations. A handful of strays from the nearby major-ops Nitinat Hatchery (which also enhances Sarita River) is relatively common each year. Note that Nitinat was also transplanting fish to the Sooke seapen (Jack Brooks Hatchery) until fall 2025. It is possible some of those Nitinat strays could be fish who strayed on the way back to the Sooke area. 
+
+Note that in a previous bulletin there was potentially a Russian stray; updated PBT results disproved this, instead identifying it as a Hatchery San Juan fish. This is likely due to a poorly applied and/or read otolith thermal mark.
+
+```{r brood-stock-age, tab.cap='Stock ID and age results of broodstock biosampling.'}
+# Stock ID by age table ------------
+sj.aab %>%
+  filter(parent_activity_type=="Adult Selection") %>%
+  group_by(spawning_year, r_resolved_stock_origin_roll, r_resolved_total_age) %>%
+  summarize(n=n()) %>%
+  arrange(spawning_year, r_resolved_total_age) %>%
+  pivot_wider(names_from = r_resolved_total_age, values_from = n, names_prefix = "age ") %>%
+  relocate(`age NA`, .after=`age 6`) %>%
+  rename(`age unk`=`age NA`,
+         Year=spawning_year,
+         `Stock ID` = r_resolved_stock_origin_roll) %>%
+  mutate(across(everything(), as.character)) %>%
+  mutate(across(c(`age 3`:`age unk`), ~replace_na(., "--"))) %>%
+  mutate(Year = case_when(Year==2021 ~ "2021*",
+                          TRUE ~ Year)) %>%
+  group_by(Year) %>%
+  mutate(Year = case_when(duplicated(Year) ~ " ",
+                          TRUE ~ as.character(Year))) %>%
+  kableExtra::kable(format="html") %>%
+  #kableExtra::kbl(align=c("c", "l", "c", "c", "c", "c", "c", "c")) %>%
+  kableExtra::row_spec(row=0, bold=T) %>%
+  kableExtra::row_spec(row=c(1,4), color="red") %>%
+  kableExtra::row_spec(row=6, extra_css = "border-top: 1px solid;") %>%
+  kableExtra::row_spec(row=11, extra_css = "border-bottom: 1px solid;") %>%
+  kableExtra::row_spec(row=16, extra_css = "border-bottom: 1px solid;") %>%
+  kableExtra::kable_classic(full_width=F, html_font="Calibri")  
+  # kableExtra::collapse_rows(columns=1, valign="middle")  
+```
+
+\* *The results in red highlight the issues around thermal marking at 4 Mile. The 2021 biodata indicated hardly any thermal marks (i.e., hatchery-origin fish), and at this point we only had ~2 years of reliable PBT which did not capture the main age cohorts. This year is considered unreliable for the purposes of PNI calculations.*
+
+<br>
+
+### Notable broodstock fish 
+
+A few fish are notable in the last several years of broodstock data collection (e.g., 6 year old fish, strays, etc.). A breakdown of extra information on these fish is given below (Table \@ref(tab:focalfish)). Despite collection of a perceived jacks, none were identified as 2-year-olds based on scale samples (one was 5 years old!). 
+
+```{r focalfish, tab.cap='Notable fish detected in broodstock and some extra details on origin, age, sex and length.'}
+sj.aab %>%
+  filter(r_resolved_total_age==6 | !grepl("san juan|unknown", r_resolved_stock_origin_roll, ignore.case=T) | sample_maturity_class=="Jack", spawning_year<current_year) %>%
+  select(spawning_year, sample_maturity_class, poh_length_mm, r_resolved_stock_origin_roll, r_resolved_total_age) %>%
+  rename(Year=spawning_year,
+         Sex=sample_maturity_class,
+         `POH length` = poh_length_mm,
+         `Stock ID` = r_resolved_stock_origin_roll,
+         `Total age` = r_resolved_total_age) %>%
+  arrange(Year) %>%
+  mutate(across(everything(), as.character)) %>%
+  mutate(Year = case_when(duplicated(Year) ~ " ",
+                          TRUE ~ as.character(Year))) %>%
+  kableExtra::kable(format="html") %>%
+  kableExtra::kable_classic(full_width=F, html_font="Calibri")  %>%
+  kableExtra::row_spec(row=14, extra_css = "border-top: 1px solid;") %>%
+  kableExtra::row_spec(row=24, extra_css = "border-bottom: 1px solid;") %>%
+  kableExtra::row_spec(row=27, extra_css = "border-bottom: 1px solid;") %>%
+  kableExtra::row_spec(row=0, bold=T)
+
+```
+
+<br>
+
+## Deadpitch stock ID and age
+
+In 2024 we also collected 42 samples from a natural spawner deadpitch pilot project, with more samples to be collected in 2025. The stock-by-age results are given in Table \@ref(tab:dp-stock-age). 
+
+```{r dp-stock-age, tab.cap='Stock ID and age results from San Juan mainstem deadpitch biosampling.'}
+sj.aab %>%
+  filter(parent_activity_type=="Waterbody Enumeration", !is.na(dna_sample_no)) %>%
+  group_by(spawning_year, r_resolved_total_age, r_resolved_stock_origin_roll) %>%
+  summarize(n = n()) %>%
+  pivot_wider(names_from = r_resolved_total_age, values_from = n, names_prefix = "age ") %>%
+  relocate(`age NA`, .after=`age 5`) %>%
+  rename(`age unk`=`age NA`,
+         Year=spawning_year,
+         `Stock ID` = r_resolved_stock_origin_roll) %>%
+  mutate(across(everything(), as.character)) %>%
+  mutate(across(c(`age 3`:`age unk`), ~replace_na(., "--"))) %>%
+  kableExtra::kable(format="html") %>%
+  #kableExtra::kbl(align=c("c", "l", "c", "c", "c", "c")) %>%
+  kableExtra::row_spec(row=0, bold=T) %>%
+  # kableExtra::row_spec(row=6, extra_css = "border-bottom: 1px solid;") %>%
+  # kableExtra::row_spec(row=13, extra_css = "border-bottom: 1px solid;") %>%
+  # kableExtra::row_spec(row=18, extra_css = "border-bottom: 1px solid;") %>%
+  kableExtra::kable_classic(full_width=F, html_font="Calibri") %>%
+  kableExtra::collapse_rows(columns=1)  
+```
+
+<br>
+
+<br>
+
+# **San Juan Chinook PNI**
+
+PNI, or the Proportion Natural Influence, is an indication as to how "wild" a salmon population is. It takes into account the proportion of hatchery- and natural-origin fish in both hatchery broodstock and the natural spawning population. As such, a truly representative PNI estimate requires biosampling from both broodstock and natural spawners, although the latter is often challenging to acquire.
+
+The proportion of natural-origin fish in broodstock, or pNOB, is often used as a proxy for Proportion Natural Influence, but a key component of the PNI equation also includes pHOS, the proportion of hatchery-origin fish on the spawning grounds (SEP 2024): 
+
+$$
+PNI = \frac{pNOB}{(pNOB + pHOS)}
+$$
+
+where:
+
+- pNOB is the proportion of natural-origin parents in the hatchery broodstock, and
+- pHOS is the proportion of hatchery-origin spawners in the natural habitat 
+
+<br>
+
+In 2022 and 2023 we have to rely on broodstock biosamples to calculate PNI. In this case, we assume the hatchery biosamples are representative of the natural spawning population, and we use pHOB as a proxy for pHOS. PNI can be calculated for just local San Juan returning adults and also including strays ("all"), although note strays are often biased towards being hatchery-origin due to the ease of identifying hatchery fish through clips, PBT, thermal marks, and/or CWTs (Table \@ref(tab:pni)), and also due to the fact that hatchery fish are generally more likely to stray than natural fish. 
+
+Hatchery-origin fish were approximately 55-70% of the returns in 2022 and 2023. Including or excluding strays does not change this estimate much. For these years, this puts the San Juan PNI around 0.3-0.4, also known as the “integrated-hatchery” zone, in which hatchery fish are the dominant source of gene flow in the population.
+
+However, in 2024 our preliminary deadpitch results indicated the majority of fish on the spawning grounds were natural origin (75%). This shifts the PNI estimate closer to 0.5 and places San Juan as an "integrated-transition" population where gene flow is dominated by the natural environment. 
+
+For both the overall WCVI Chinook and the San Juan Chinook Rebuilding Plans we aim for a PNI at or ideally above 0.5, where natural-origin salmon are the majority and gene flow is dictated by the natural environment, rather than hatchery conditions/practices. These preliminary results highlight the need for more hatchery-independent biosampling to refine the PNI estimate, and may suggest some changes to the broodstock collection process are needed to avoid additional in-breeding. 
+
+```{r pni, tab.cap='PNI estimates for San Juan Chinook for only the local population (San Juan origin), and including any strays ("all"). Sample sizes for each sample strata (broodstock, deadpitch) are given as totals including strays, and San Juan origin only in parentheses. '}
+# PNI table 
+left_join(
+  sj.aab %>%
+    filter(parent_activity_type=="Adult Selection", spawning_year>=2022, 
+           !grepl("Unknown", r_resolved_stock_origin_roll, ignore.case=T)) %>% 
+    group_by(spawning_year, r_resolved_origin_roll) %>%
+    summarize(n=n()) %>%
+    group_by(spawning_year) %>% 
+    mutate(broodstock_total_all = sum(n),
+           p = n/broodstock_total_all,
+           r_resolved_origin_roll = case_when(r_resolved_origin_roll=="Hatchery" ~ "pHOB_all",
+                                              r_resolved_origin_roll=="Natural" ~ "pNOB_all")) %>%
+    select(-c(n)) %>%
+    pivot_wider(names_from = r_resolved_origin_roll, values_from = p)
+  
+  ,
+  
+  sj.aab %>%
+    filter(parent_activity_type=="Adult Selection", spawning_year>=2022, 
+           !grepl("Unknown", r_resolved_stock_origin_roll, ignore.case=T),
+           grepl("san juan", r_resolved_stock_origin_roll, ignore.case=T)) %>% 
+    group_by(spawning_year, r_resolved_origin_roll) %>%
+    summarize(n=n()) %>%
+    group_by(spawning_year) %>% 
+    mutate(broodstock_total_local = sum(n),
+           p = n/broodstock_total_local,
+           r_resolved_origin_roll = case_when(r_resolved_origin_roll=="Hatchery" ~ "pHOB_local",
+                                              r_resolved_origin_roll=="Natural" ~ "pNOB_local")) %>%
+        select(-c(n)) %>%
+    pivot_wider(names_from = r_resolved_origin_roll, values_from = p)
+) %>% 
+  left_join(.,
+            left_join(
+              sj.aab %>%
+                filter(parent_activity_type=="Waterbody Enumeration", 
+                       !grepl("Unknown", r_resolved_stock_origin_roll, ignore.case=T)) %>%
+                group_by(spawning_year, r_resolved_origin_roll) %>%
+                summarize(n=n()) %>%
+                group_by(spawning_year) %>%
+                mutate(deadpitch_total_all = sum(n),
+                       p=n/deadpitch_total_all,
+                       r_resolved_origin_roll = case_when(r_resolved_origin_roll=="Hatchery" ~ "pHOS_all",
+                                              r_resolved_origin_roll=="Natural" ~ "pNOS_all")) %>%
+                select(-c(n)) %>%
+                pivot_wider(names_from = r_resolved_origin_roll, values_from = p),
+              
+              sj.aab %>%
+                filter(parent_activity_type=="Waterbody Enumeration", 
+                       !grepl("Unknown", r_resolved_stock_origin_roll, ignore.case=T),
+                       grepl("san juan", r_resolved_stock_origin_roll, ignore.case=T)) %>%
+                group_by(spawning_year, r_resolved_origin_roll) %>%
+                summarize(n=n()) %>%
+                group_by(spawning_year) %>%
+                mutate(deadpitch_total_local = sum(n),
+                       p=n/deadpitch_total_local,
+                       r_resolved_origin_roll = case_when(r_resolved_origin_roll=="Hatchery" ~ "pHOS_local",
+                                                          r_resolved_origin_roll=="Natural" ~ "pNOS_local")) %>%
+                select(-c(n)) %>%
+                pivot_wider(names_from = r_resolved_origin_roll, values_from = p)
+              
+              
+            )
+  ) %>%
+  relocate(c(pHOS_all, pNOS_all), .after=pNOB_all) %>%
+  mutate(PNI_all = case_when(is.na(pHOS_all) ~ pNOB_all/(pNOB_all + pHOB_all),
+                             TRUE ~ pNOB_all/(pNOB_all + pHOS_all)),
+         PNI_local = case_when(is.na(pHOS_local) ~ pNOB_local/(pNOB_local + pHOB_local),
+                               TRUE ~ pNOB_local/(pNOB_local + pHOS_local))) %>%
+  
+  mutate(across(c(pHOB_all:PNI_local), ~round(., 2))) %>%
+  mutate(across(everything(), as.character)) %>%
+  mutate(across(everything(), ~replace_na(., "--"))) %>%
+  mutate(`Broodstock sample size` = glue::glue("{broodstock_total_all} ({broodstock_total_local})"),
+         `Deadpitch sample size` = case_when(deadpitch_total_all=="--" ~ "--",
+                                             TRUE ~ glue::glue("{deadpitch_total_all} ({deadpitch_total_local})"))) %>%
+  select(-c(broodstock_total_all, broodstock_total_local, deadpitch_total_all, deadpitch_total_local)) %>%
+  relocate(c(`Broodstock sample size`, `Deadpitch sample size`), .after=spawning_year) %>%
+  relocate(PNI_all, .after=pNOS_all) %>%
+  rename(Year=spawning_year) %>%
+  rename_with(~ stringr::str_replace(.x, pattern="_all", replacement=" (all)")) %>%
+  rename_with(~ stringr::str_replace(.x, pattern="_local", replacement=" (local)")) %>%
+  kableExtra::kable(format="html") %>%
+  kableExtra::row_spec(row=0, bold=T) %>%
+  kableExtra::kable_classic(full_width=F, html_font="Calibri") %>%
+  kableExtra::column_spec(column=3, extra_css = "border-right: 1px solid black;")  %>%
+  kableExtra::column_spec(column=8, extra_css = "border-right: 1px solid black;") %>%
+  kableExtra::column_spec(column=c(8,13), background = "lightgray")  
+```
+
+
+
+
+<br>
+
+<br>
+
+<br>
+
+# **Data sources:** 
+
+- Biosample results: EPRO "93 - San Juan R Hatchery" > All Adult Biosampling
+- Escapement results: //ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/ESCAPEMENT/data/NEW ESCAPEMENT INDEX.xls (Note should be same as NuSEDS other than 2020 which needs updating in NuSEDS).
+- Historical DNA sample collection: //ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/CHINOOK/WCVI_TERMINAL_RUN/Annual_data_summaries_for_RunRecons/R_OUT - WCVI_Escapement-FSC_BioData_2012-2024_WithResults (note this can likely be replaced by AAB soon)
+- PBT successful genotypes: //ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/SC_BioData_Management/15-DNA_Results/PBT/Chinook/results/Chinook_Master_SEP_formatted_crosses_2015-2023_v.2024-12-02 - SJ update 2025-10-09.xlsx
+
+```{r}
+# Appendix: Metadata
+# 
+# **Table 1 PBT Tag Rates**
+# 
+# - Access the following file from MGL/Eric Rondeau (or most recent version): 
+# 
+# > "\\ENT.dfo-mpo.ca\DFO-MPO\GROUP\PAC\PBS\Operations\SCA\SCD_Stad\SC_BioData_Management\15-DNA_Results\PBT\Chinook\results\2024-12-05 Chinook_PBT Summary_2013-2023 - WCVI selection.xlsx"
+# 
+# - Use columns Brood_Recorded:Brood_Genotyped to approximate BY tag rate (Brood_Genotyped/Brood_Recorded). Note that Stock_Tag_Rate appears to refer to tag rates from identified stock IDs, not brood tag rates. 
+# 
+# **Table 2 Stock-age results**
+# 
+# - Access 
+# 
+# > \\ENT.dfo-mpo.ca\DFO-MPO\GROUP\PAC\PBS\Operations\SCA\SCD_Stad\WCVI\CHINOOK\WCVI_TERMINAL_RUN\Annual_data_summaries_for_RunRecons\EPROcompile_base-files\2-Export-from-R\R_OUT - All Adult Biosampling ALL FACILITIES WITH RESULTS 2017-2024.xlsx
+# 
+#   + File is updated with this code: https://github.com/SCA-stock-assess/WCVI_CN_TermRunRecon/blob/main/scripts/joins/2-EPRO_biodata_with_results.R 
+# 
+# - Facility.Name==”San Juan River H”, Parent.Activity.Type==”Adult Selection” 
+# 
+# - Pivot resolved stock origin ~ resolved total age (count of resolved stock origin) by Spawning.Year 
+# 
+# - Did not exclude Unknowns or blank ages for purposes of illustrating full sampling results here, but these would be excluded for run reconstruction. 
+# 
+# Hatchery Bol`Shaya ID from otolith thermal marks, from AG April 2025. Originally it was communicated that it could well be a Russian fish that showed up in San Juan: 
+# > Hey Katie, I checked my marks file as well as the NPAFC database, and for BY2019 San Juan ended up applying a 3,1,2H mark (intended H4). In 2020, San Juan wasn't able to apply a mark that was identifiable by our lab based on the reference samples that we received (also intended H4). I also found that Malkinsky Hatchery in Russia did indeed apply an H4 mark to their BY2019 Chinook (I'm not sure why this conflict wasn't resolved in the report that year), so based on the thermal mark it looks like this really is a Russian fish! Granted there's no mark image available for the Russian BY2019 H4 mark so I can't see if they actually marked as intended, but pretty crazy if true!
+# 
+# However, since then we have received revised PBT data that contradicts this, and shows the fish as Hatchery San Juan origin. Thus it is unlikely a Russian fish ever showed up. 
+# 
+# **Table 3 PNI**
+# 
+# - PNI equation SEP 2024: https://publications.gc.ca/collections/collection_2024/mpo-dfo/Fs144-76-2024-eng.pdf 
+# 
+# - Calculated from data in Table 2
+# 
+# **Overall age composition for San Juan Chinook**
+# 
+# - Data from: 
+# 
+# > \\ENT.dfo-mpo.ca\DFO-MPO\GROUP\PAC\PBS\Operations\SCA\SCD_Stad\WCVI\CHINOOK\WCVI_TERMINAL_RUN\Annual_data_summaries_for_RunRecons\R_OUT - WCVI_Escapement-FSC_BioData_2012-2024_WithResults_2025-02-07.xlsx 
+# 
+#   + Compiled with R code: https://github.com/SCA-stock-assess/WCVI_CN_TermRunRecon/blob/main/scripts/joins/3-esc_biodata_with_results.R
+# 
+# - Figures from: https://github.com/khdavidson/A20/blob/main/scripts/markdown-overview/part1-esc-knitable.Rmd  
+
+```
+
+
