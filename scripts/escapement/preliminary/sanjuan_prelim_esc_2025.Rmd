@@ -1,0 +1,1795 @@
+---
+title: "San Juan escapement 2025 (PRELIM)"
+author: "South Coast StA"
+date: "Last update: `r Sys.Date()`"
+output: 
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+    toc_collapsed: false 
+    toc_depth: 5
+    number_sections: true
+knit: (function(inputFile, encoding) { 
+  rmarkdown::render(inputFile, encoding=encoding, output_file=paste0(substr(inputFile,1,nchar(inputFile)-4), "_PRELIMINARY_", format(Sys.Date(), sep="_", "%Y-%m-%d"), '.html')) 
+  }
+  )
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=F, warning=F, message=F)
+
+# Load libraries ----------------------------
+library(tidyverse)
+
+
+# Helpers ----------------------------
+analysis_year <- 2025                                 # ********* UPDATE THIS ********* 
+"%notin%" <- Negate("%in%")
+options(scipen = 9999)
+
+
+
+
+# ============================= SIL EXCEL DATA ============================
+
+# SJ raw SIL entry (Excel) -----------------------
+sj.sil <- readxl::read_excel(path=list.files(path=
+                                        paste0("//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/ESCAPEMENT/Data/",
+                                                      analysis_year,
+                                                      "/SILs/Area 20/"),
+                                             pattern = "^A20_Port_Renfrew", 
+                                             full.names = T),
+                             sheet="Port Renfrew raw SIL entry") %>% 
+  #filter(system=="San Juan River") %>%
+  #mutate(`SIL page` = round(`SIL page`,0)) %>%
+  #arrange(desc(segment))  %>%
+  print()
+
+
+# SIL+AUC Export ---------------------
+AUC.SIL <- readxl::read_excel(path=list.files(path=paste0(here::here("data", "escapement", "prelim-inseason", analysis_year)),
+                                                  pattern="SILAUC_Export",
+                                                  full.names=T),
+                                  sheet=1) %>% 
+  mutate(SBJ_ID = case_match(SBJ_ID,
+                             1 ~ "Sockeye",
+                             2 ~ "Coho",
+                             3 ~ "Pink",
+                             4 ~ "Chum",
+                             5 ~ "Chinook",
+                             6 ~ "Rainbow Trout",
+                             515039223 ~ "Steelhead",
+                             8 ~ "Cutthroat Trout",
+                             TRUE ~ "FLAG"),
+         date = lubridate::ymd(stringr::str_sub(START_DTT, start=1, end=10))) %>%
+         # segment_category = case_when(SEGMENT_NAME %in% c("18-17", "17-16", "16-15", "15-14", "14-13", "13-12", 
+         #                                                  "12-11", "11-10", "10-9", "9-8", "8-7", "7-6", "6-5", 
+         #                                                  "5-4", "4-3", "3-2", "2-1", "1-0",
+         #                                                  "0-Lake", "7-0", "12-7", "17-12") ~ "Lower",
+         #                              TRUE ~ "Upper"),
+         # survey_type = case_when(STREAM_MTP_ID==6 & SEGMENT_NAME %in% c("35-34", "34-29", "29-23", "23-17", 
+         #                                                                "17-12", "12-7", "7-0", "0-Lake") ~ "Heli",
+         #                         STREAM_MTP_ID==3 ~ "Snorkel",
+         #                         TRUE ~ "FLAG")) %>%
+  filter(!grepl("nitinat|campus|parker|worthless|jasper|noname|doobah|caycuse|hobiton", NAME, ignore.case=T))
+
+
+
+ 
+
+# ============================= SIL+AUC DATABASE DATA ============================
+
+# AUC Data Analysis Table ----------------------- 
+AUCdataTable <- readxl::read_excel(path=list.files(path=paste0(here::here("data", "escapement", 
+                                                                          "prelim-inseason"), "/", analysis_year),
+                                                   pattern="^AUC_DataAnalysisTable_area20",
+                                                   full.names = T))
+                                                   
+
+
+# EscEstSppHeader table ----------------------- 
+escEstSpp <- readxl::read_excel(path=list.files(path=paste0(here::here("data", "escapement", "prelim-inseason"),
+                                                            "/", analysis_year),
+                                                pattern="^EscEstSppHeader_area20-22_",
+                                                full.names = T)) %>% 
+  left_join(.,
+            # Need Waterbody Vals table from Access, but only if there are changes to the waterbody codes which is unlikely
+            readxl::read_excel(path=here::here("data", "escapement", "prelim-inseason", "WaterbodiesValues.xlsx")) %>% 
+              mutate(AREA = case_when(NAME=="TUCK LAKE" ~ "22",
+                                      TRUE ~ AREA)) %>%
+              select(AREA, NAME, WATERSHED_CDE) %>% 
+              rename(WatershedCode = WATERSHED_CDE) %>% 
+              filter(!is.na(WatershedCode)) %>% 
+              group_by(AREA, NAME, WatershedCode) %>% 
+              filter(AREA %in% c(20,21,22)) %>% 
+              group_by(WatershedCode) %>% 
+              mutate(n=n(),
+                     system = case_when(n>1 ~ paste0("system", seq(1,length(n),by=1)),
+                                        n==1 ~ "system1")) %>% 
+              group_by(WatershedCode) %>% 
+              pivot_wider(names_from=system, values_from=NAME) %>% 
+              #select(-n) %>% 
+              unite("SystemName", system1:system3, sep=", ", remove=T, na.rm=T) %>% 
+              mutate(SystemName = str_to_title(SystemName)),
+            na_matches="never", relationship="many-to-one") %>%
+  mutate(AdultNaturalReco = case_when(AdultNaturalReco < 0 ~ 0,
+                                      TRUE ~ AdultNaturalReco)) 
+
+
+
+# ============================= HATCHERY DATA ============================
+
+# Fence counts ----------------------------
+mile4.fence <- readxl::read_excel(path=list.files(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/ESCAPEMENT/Data",
+                                                  pattern="^San_Juan_Fence_",
+                                                  full.names=T),
+                                  sheet="Sheet1", guess_max=20000) %>%
+  mutate(DOY = lubridate::yday(date)) %>%
+  print()
+
+
+
+
+
+# ============================= WATER DATA ============================
+# Download historical data from: https://wateroffice.ec.gc.ca/report/historical_e.html?stn=08HA010&dataType=Daily&parameterType=Flow&first_year=1959&last_year=2023&mode=Graph
+#   All years
+#   Date-Data Format (CSV with missing days)
+
+# Download real-time data from: https://wateroffice.ec.gc.ca/report/real_time_e.html?stn=08HA010
+#   Have to manually toggle dates to see where the real-time stuff starts and the historical ends
+#   Download Discharge (unit values) and water level (unit values)
+SJ.water <- full_join(
+  read.csv(file = here::here("data", "enviro", "SANJUAN_historical_daily.csv"),
+           skip=1) %>%
+    mutate(PARAM = case_when(PARAM==1 ~ "Discharge (cms)",
+                             PARAM==2 ~ "Level (m)"),
+           Date = lubridate::ymd(Date),
+           year = lubridate::year(Date),
+           month = lubridate::month(Date, label=T, abbr=T),
+           DOY = lubridate::yday(Date)),
+  
+  rbind(read.csv(file=here::here("data", "enviro", "SANJUAN_REALTIME_DISCHARGE_08HA010.csv"),     # discharge realtime
+                 skip=9) %>%
+          rename(Value = Value..m..s.,
+                 Date = Date..PST.,
+                 PARAM = Parameter),
+        
+        read.csv(file=here::here("data", "enviro", "SANJUAN_REALTIME_LEVEL_08HA010.csv"),         # water level realtime
+                 skip=9) %>%
+          rename(Value = Value..m.,
+                 Date = Date..PST.,
+                 PARAM = Parameter)
+  )
+  %>%
+    mutate(PARAM = case_when(PARAM==46 ~ "Level (m)",
+                                 PARAM=="47" ~ "Discharge (cms)"),
+           Date = lubridate::ymd(stringr::str_sub(string=Date, start=1, end=10)),
+           time = stringr::str_sub(string=Date, start=12, end=19),
+           year = lubridate::year(Date),
+           month = lubridate::month(Date, label=T, abbr=T),
+           DOY = lubridate::yday(Date)) 
+)
+
+
+
+# ============================= HISTORICAL DATA ============================
+
+# Run timing ----------------------------
+sj.rtStWk <- readxl::read_excel(path="//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/ESCAPEMENT/Data/run timing tables (updated).xlsx",
+                                sheet="San Juan", guess_max=10000, trim_ws=T, 
+                                range=cellranger::cell_limits(c(4, 1), c(NA, NA))) %>% 
+  select(-c(`...25`:`...33`, `...35`:`...44`)) %>%
+  rename(year=`...1`) %>% 
+  filter(!is.na(year), !grepl("Observed", year), year!="Year") %>% 
+  mutate(across(c(`81`:`124`), ~as.numeric(.)),
+         plot_group = case_when(year==analysis_year ~ year,
+                                year!=analysis_year ~ paste0(min(year), 
+                                                             sep="-", (analysis_year-1)))) %>%
+  pivot_longer(cols = c(`81`:`124`), names_to = "stat_week", values_to = "count") %>% 
+  print()
+
+sj.rtStWk$stat_week <- factor(sj.rtStWk$stat_week,
+                               levels=c("81","82","83","84",
+                                        "91","92","93","94",
+                                        "101","102","103","104","105",
+                                        "111","112","113","114","115",
+                                        "121","122","123","124", ordered=T)) 
+
+
+# Escapement time series ----------------------------
+# Option 1. Run outside of RMarkdown if need to refresh escapement each year: 
+  #source(here::here("scripts", "functions", "pullNusedsData.R")) 
+  # saves as a20_nuseds_escapement
+
+# Option 2. Source() above exports the file, read in the escapement data dump from the repo
+a20_nuseds_escapement <- readxl::read_excel(path=list.files(path=here::here("outputs"),
+                                                              pattern="R_OUT - Area20WCVI_Escapement_allSpp-allYrs",
+                                                              full.names=T),
+                                              sheet=1)
+
+
+# Escapement goals ----------------------------
+sj.esc.goal <- read.csv(here::here("data", "escapement", "wcviCK-BootstrappedRPs.csv")) %>% 
+  filter(Stock=="San Juan")
+```
+
+<br>
+
+<br>
+
+
+# **Sockeye** 
+
+Three complete surveys conducted over 2-3 days per survey were conducted for in 2023. They were likely too late for an accurate SK estimate and did not include Fairy Lake where there is the potential for some lake spawners. 
+
+<br>
+
+## Area 20 raw vs expanded counts
+
+Counts are expanded for % population estimated and/or observer efficiency, depending on survey conditions. 
+
+```{r}
+# ggplot() +
+#   geom_bar(data=ver23 %>% 
+#              filter(ShortSpecies=="SK") %>% 
+#              pivot_longer(LiveAdults:ExpDeadJacks, names_to="est_type", values_to="n") %>% 
+#              filter(est_type %in% c("LiveAdults", "ExpLiveAdults")), 
+#            aes(x=as.Date(Date), y=n, colour=est_type, fill=est_type), stat="identity", position="dodge", alpha=0.5) +
+#   labs(x="", y="Adult Chinook counts", fill="Expansion", colour="Expansion") +
+#   scale_x_date(date_breaks="7 day", date_labels = "%b %d") +
+#   theme_bw() +
+#   theme(axis.text.x = element_text(angle=45, hjust=1))
+
+ggplot() +
+  geom_bar(data=AUCdataTable %>% 
+             filter(ShortSpecies=="SK") %>% 
+             pivot_longer(c(LiveAdults:TotalJacks,ExpLiveAdults:ExpDeadJacks), names_to="est_type", values_to="n") %>% 
+             filter(est_type %in% c("LiveAdults", "ExpLiveAdults")), 
+           aes(x=as.Date(SDate), y=n, colour=est_type, fill=est_type), stat="identity", position="dodge", alpha=0.5) +
+  labs(x="", y="Adult Sockeye counts", fill="Expansion", colour="Expansion") +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d", expand = c(0, 0)) +
+  scale_y_continuous(limits=c(0, max(AUCdataTable[AUCdataTable$ShortSpecies=="SK",]$ExpLiveAdults,na.rm=T))) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        legend.position = c(0.8,0.2)) +
+  facet_wrap(~Section_AreaInspected, scales="free_y")
+```
+
+Figure: Raw live Adult Sockeye counts (blue) and expanded for OE (pink). 
+
+<br>
+
+## Counts & environmentals
+
+```{r}
+ggplot() +
+  geom_ribbon(data=SJ.water %>%
+                filter(PARAM=="Discharge (cms)", year==2024, month%in%c("Aug", "Sep", "Oct", "Nov")) %>%
+                group_by(Date) %>%
+                summarize(min=min(Value, na.rm=T), max=max(Value, na.rm=T)),
+              aes(x=as.Date(Date), ymin=min/10, ymax=max/10), fill="dodger blue", alpha=0.3) +
+  geom_line(data=SJ.water %>%
+                filter(PARAM=="Discharge (cms)", year==2024, month%in%c("Aug", "Sep", "Oct", "Nov")) %>%
+                group_by(Date) %>%
+                summarize(mean=mean(Value, na.rm=T)),
+              aes(x=as.Date(Date), y=mean/10), colour="dodger blue", alpha=0.9, size=1) +
+  geom_bar(data=sj.sil %>% filter(species=="Sockeye") %>% group_by(date, `upper/lower`) %>% 
+             summarize(n=sum(`adults live / habitat seen (# Est Live)`)), 
+           aes(x=as.Date(date), y=n, fill=`upper/lower`, colour=`upper/lower`), 
+           stat="identity", position="stack", alpha=0.7) +
+  labs(x="", y="Expanded adult sockeye", fill="Segment", colour="Segment") +
+  scale_y_continuous(sec.axis = sec_axis(~.*10, name="Discharge (cms)")) +
+  scale_x_date(date_breaks="7 day", date_labels="%b %d") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: Sockeye raw counts (live adults) and water levels (blue line) in the San Juan mainstem.
+
+<br>
+
+<br>
+
+## Behaviour & carcasses 
+
+```{r}
+ggplot() +
+  geom_bar(data=sj.sil %>% filter(species=="Sockeye") %>% group_by(date, `upper/lower`) %>% 
+             summarize(Spawning=sum(`adults # spawning`),
+                       Holding = sum(`adults # holding`)) %>% 
+             pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count"), 
+           aes(x=as.Date(date), y=count, fill=behaviour, colour=`upper/lower`), 
+           stat="identity", position="stack", alpha=0.7, size=1) +
+  geom_point(data=sj.sil %>% filter(species=="Sockeye") %>% group_by(date) %>% 
+               summarize(n=sum(`adults dead`)), 
+             aes(x=as.Date(date), y=n), size=2, alpha=0.5) +
+  geom_line(data=sj.sil %>% filter(species=="Sockeye") %>% group_by(date) %>% 
+              summarize(n=sum(`adults dead`)), 
+            aes(x=as.Date(date), y=n), 
+            stat="identity", position="stack") +
+  scale_y_continuous(sec.axis = sec_axis(~./1, name="Carcasses")) +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d")+
+  scale_fill_manual(breaks=waiver(), values=c("transparent", "gray")) +
+  labs(x="", y="Spawning adult Sockeye", fill="Behaviour", colour="Segment") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+<br>
+
+Figure: Raw live adult Sockeye (bars) and carcasses (black line) in the San Juan mainstem. Bar fill colour indicates behaviour (spawning=gray, holding=white) while bar outline colour indicates river segment (lower=pink, mid=green, upper=blue). Note Oct 3/4 "mid" section was covered within upper and lower segments.  
+
+<br>
+
+<br>
+
+## Swim & fence counts
+
+```{r}
+ggplot() +
+  geom_bar(data=sj.sil %>% 
+             filter(species=="sockeye") %>% 
+             group_by(date, `upper/lower`) %>% 
+             summarize(n=sum(`adults live / habitat seen (# Est Live)`)), 
+           aes(x=as.Date(date), y=n, fill=`upper/lower`, colour=`upper/lower`), 
+           stat="identity", position="stack", alpha=0.7) + 
+  geom_line(data=mile4.fence %>% 
+              filter(species=="sockeye") %>% 
+              group_by(date) %>% 
+              summarize(n=sum(count)) %>% 
+              mutate(ncum = cumsum(n)),
+            aes(x=as.Date(date), y=as.numeric(ncum)), alpha=0.7) +
+  geom_point(data=mile4.fence %>% 
+               filter(species=="sockeye") %>% 
+               group_by(date) %>% 
+               summarize(n=sum(count)) %>% 
+               mutate(ncum = cumsum(n)),
+             aes(x=as.Date(date), y=as.numeric(ncum)), alpha=0.7, size=2) +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d")+
+  labs(x="", y="Expanded adult Coho (swims)", fill="Segment", colour="Segment") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: Sockeye swim counts (raw adults) in the San Juan mainstem relative to cumulative fence counts (black line). If no black line, then no Sockeye were counted through the fence this year. 
+
+<br>
+
+<br>
+
+
+## Tributaries 
+
+Table: Sockeye counts (raw live and dead) for San Juan tributaries (Renfrew, Lens, Harris) and Gordon River in 2023.
+```{r}
+tribs.sil %>% 
+  filter(species=="Sockeye") %>% 
+  group_by(trib_status, system,date) %>% 
+  summarize(live_adults = round(sum(`adults live`),0),
+            dead_adults = sum(`adults dead`))%>% 
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:1), valign="middle", target=1) 
+```
+
+<br>
+
+```{r}
+ggplot() +
+  geom_bar(data=sj.sil %>% 
+             filter(species=="Sockeye") %>% 
+             group_by(date,system) %>% 
+             summarize(Spawning=sum(`adults # spawning`),
+                       Holding = sum(`adults # holding`)) %>% 
+             pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count"), #%>%
+             #mutate(date = case_when(surveyNum=="SJ-1" ~ as.Date("2023-10-04"),
+            #                         surveyNum=="SJ-2" ~ as.Date("2023-10-11"),
+             #                        surveyNum=="SJ-3" ~ as.Date("2023-10-28")),
+              #      system="mainstem"), 
+           aes(x=as.Date(date), y=count, fill=behaviour, colour=system), 
+           stat="identity", position="stack", alpha=0.7, size=1, width=1) +
+  geom_bar(data = tribs.sil %>% 
+             filter(species=="Sockeye", trib_status!="San Juan mainstem") %>% 
+             group_by(system,date) %>% 
+             summarize(Spawning=sum(`adults # spawning`),
+                       Holding = sum(`adults # holding`)) %>% 
+             pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count"),
+           aes(x=as.Date(date), y=count*1, colour=system, fill=behaviour), stat="identity",  alpha=0.8, size=1, width=1) +
+  scale_y_continuous(sec.axis = sec_axis(~./1, name="Trib count")) +
+  scale_fill_manual(breaks=waiver(), values=c("transparent", "gray")) +
+  labs(x="", y="mainstem count") +
+  theme_bw()
+```
+
+Figure: Mainstem and trib counts for Sockeye adults (raw). 
+
+<br>
+
+<br>
+
+## Area 20 preliminary escapement estimates (PL+D)
+
+<br>
+
+Table: San Juan raw swim data (raw and expanded live and dead) for Sockeye.  
+
+```{r}
+AUCdataTable %>% 
+  filter(ShortSpecies=="SK") %>% 
+  select(ShortSpecies,Section_AreaInspected, SDate, WaterTemperature, WaterClarity, LiveAdults, DeadAdults,LiveJacks,DeadJacks, ExpLiveAdults,
+         ExpDeadAdults, ExpLiveJacks, ExpDeadJacks, OverallReliability, EstPctSeen) %>% 
+  mutate(across(c(LiveAdults:ExpDeadJacks), ~round(., 0))) %>% 
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:4), valign="middle", target=1) 
+```
+
+<br>
+
+Table: Escapement estimates for each system. San Juan mainstem surveys were rolled up based on mid-point date for each of 3 complete survey events, and then the PL+D was selected based on the 3 survey events.  
+
+```{r}
+escEstSpp %>% 
+  filter(ShortSpecies=="SK", AREA=="20") %>% 
+  select(ShortSpecies, SystemName, contains("PLD"), contains("Reco"), -c(contains("Recommend"))) %>% 
+  rename(FinalAdultEstimate = AdultNaturalReco,
+         FinalJackEstimate = JackNaturalReco) %>% 
+  select(ShortSpecies, SystemName, contains("PLD"), AdultRemovalsReco, JackRemovalsReco, FinalAdultEstimate, FinalJackEstimate) %>% 
+  mutate(across(FinalJackEstimate:FinalAdultEstimate, ~case_when(.<0 ~ 0,
+                                                                 TRUE ~ .))) %>%
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:4), valign="middle", target=1) 
+```
+
+<br>
+
+### Estimate decision:   
+
+For 2024 estimates used PL+D. No SK counted through the fence. No accounting needed for tribs as none observed in Harris/Lens (and Renfrew d/s of SJ survey area).
+
+<br>
+
+<br>
+
+## `r analysis_year` compared to historical abundance
+
+```{r}
+ggplot() +
+  geom_bar(data=sj.escHistorical %>% 
+             filter(`Waterbody Name` %in% c("SAN JUAN RIVER", "HARRIS CREEK", "LENS CREEK", "RENFREW CREEK"), 
+                    `Species Qualified` %in% c("SER", "SEL")) %>% 
+             group_by(`Analysis Year`) %>% 
+             summarize(`Natural Adult Spawners`=sum(`Natural Adult Spawners`, na.rm=T)), 
+           aes(x=`Analysis Year`, y=`Natural Adult Spawners`), 
+           stat="identity", colour="dodger blue", fill="dodger blue", alpha=0.8) +
+  geom_bar(data=sj.escHistorical %>% 
+             filter(`Waterbody Name` %in% c("SAN JUAN RIVER", "HARRIS CREEK", "LENS CREEK", "RENFREW CREEK"), 
+                    `Species Qualified` %in% c("SER", "SEL")) %>% 
+             group_by(`Analysis Year`) %>% 
+             summarize(`Unspecified Return`=sum(`Unspecified Return`, na.rm=T)), 
+           aes(x=`Analysis Year`, y=`Unspecified Return`), 
+           stat="identity", colour="gray80", fill="gray80", alpha=0.8) +  
+  geom_bar(data=escEstSpp %>% 
+             filter(ShortSpecies=="SK", AREA=="20", SystemName!="Gordon River") %>% 
+             select(Year, SystemName, AdultNaturalReco) %>% 
+             summarize(n=sum(AdultNaturalReco)), 
+           aes(x=analysis_year, y=n), stat="identity", colour="red", fill="dodger blue", alpha=0.8) +   
+  scale_x_continuous(breaks=seq(min(sj.escHistorical$`Analysis Year`), analysis_year, by=2)) +
+  labs(x="Return Year", y="Sockeye spawners") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: 2024 preliminary adult Sockeye escapement estimate (red outline) for entire San Juan system (including tributaries) relative to historical adult (blue) and unspecified (gray) escapement estimates. Gaps indicate years without estimates. 
+
+<br>
+
+<br>
+
+------------------------------
+
+<br>
+
+<br>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# **Coho** 
+
+## Confirming if surveys can be added together over 2 days
+
+Often the PFN crew will split SJ surveys over two days (upper/lower). The graph below just shows the counts in the order they are recorded to see if there is a chance any fish were double counted (e.g., moved upstream after a lower survey).
+
+```{r}
+ggpubr::ggarrange(
+  ggplot() +
+    geom_point(data=sj.sil %>% 
+                 filter(system=="San Juan", `upper/lower`=="Upper", species=="coho") %>%
+                 mutate(axis_label = paste(row_num, segment, sep="-")) %>%
+                 group_by(date, surveyNum,  row_num) %>% 
+                 summarize(nlive=sum(`adults live`),
+                           nspawn = sum(`adults # spawning`)) ,
+               aes(y=row_num, x=date, size=nlive), 
+               fill="blue", colour="blue") +
+    scale_x_date(date_breaks="1 day",limits=c(as.Date("2025-10-06"), as.Date("2025-10-17"))) +
+    scale_y_reverse(breaks=seq(1,50,by=2)) +
+    labs(x="Coho count", y="River reach (SIL row)", size="Upper # live \n(Oct 4)") +
+    theme_bw() +
+    theme(strip.placement = "outside",                     
+          strip.background = element_rect(fill = "white", colour="white"),
+          strip.text.y.left = element_text(angle=0, colour="black", face="bold", size=17),
+          axis.text = element_text(size=16),
+          axis.text.x = element_blank(),
+          axis.title = element_text(size=18),
+          axis.title.x = element_blank(),
+          panel.margin.x=unit(0, "lines") , 
+          panel.margin.y=unit(0,"lines"),
+          legend.text = element_text(size=15),
+          legend.title = element_text(size=16)),
+  
+  ggplot() +
+    geom_point(data=sj.sil %>% 
+                 filter(system=="San Juan", `upper/lower`=="Lower", species=="coho") %>%
+                 mutate(axis_label = paste(row_num, segment, sep="-")) %>%
+                 group_by(date, surveyNum,  row_num) %>% 
+                 summarize(nlive=sum(`adults live`),
+                           nspawn = sum(`adults # spawning`)),
+               aes(y=row_num, x=date, size=nlive), fill="orange", colour="orange") +
+    scale_x_date(date_breaks="1 day",limits=c(as.Date("2025-10-06"), as.Date("2025-10-17"))) +
+    scale_y_reverse(breaks=seq(1,50,by=2)) +
+    scale_size_continuous(breaks=seq(1, 500, by=125), range=c(1,10)) +
+    labs(x="Coho count", y="River reach (SIL row)", size="Lower # live \n(Oct 3)") +
+    theme_bw() +
+    theme(strip.placement = "outside",                     
+          strip.background = element_rect(fill = "white", colour="white"),
+          strip.text.y.left = element_text(angle=0, colour="black", face="bold", size=17),
+          axis.text = element_text(size=16),
+          axis.title = element_text(size=18),
+          legend.text = element_text(size=15),
+          legend.title = element_text(size=16)),
+nrow=2, ncol=1)
+```
+
+<br>
+
+## Area 20 raw vs expanded counts
+
+Counts are expanded for % population estimated and/or observer efficiency, depending on survey conditions. 
+
+```{r}
+ggplot() +
+  geom_bar(data=AUCdataTable %>% 
+             filter(ShortSpecies=="CO") %>% 
+             pivot_longer(c(LiveAdults:TotalJacks,ExpLiveAdults:ExpDeadJacks), names_to="est_type", values_to="n") %>% 
+             filter(est_type %in% c("LiveAdults", "ExpLiveAdults")), 
+           aes(x=as.Date(SDate), y=n, colour=est_type, fill=est_type), stat="identity", position="dodge", alpha=0.5) +
+  labs(x="", y="Adult Coho counts", fill="Expansion", colour="Expansion") +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d", expand = c(0, 0)) +
+  scale_y_continuous(limits=c(0, max(AUCdataTable[AUCdataTable$ShortSpecies=="CO",]$ExpLiveAdults,na.rm=T))) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        legend.position = c(0.8,0.2)) +
+  facet_wrap(~Section_AreaInspected, scales="free_y")
+```
+
+Figure: Raw live Adult Coho counts (blue) and expanded for OE (pink). 
+
+<br>
+
+## Counts & environmentals
+
+```{r}
+ggplot() +
+  geom_ribbon(data=SJ.water %>%
+                filter(PARAM=="Discharge (cms)", year==2024, month%in%c("Aug", "Sep", "Oct", "Nov")) %>%
+                group_by(Date) %>%
+                summarize(min=min(Value, na.rm=T), max=max(Value, na.rm=T)),
+              aes(x=as.Date(Date), ymin=min*3, ymax=max*3), fill="dodger blue", alpha=0.3) +
+  geom_line(data=SJ.water %>%
+                filter(PARAM=="Discharge (cms)", year==2024, month%in%c("Aug", "Sep", "Oct", "Nov")) %>%
+                group_by(Date) %>%
+                summarize(mean=mean(Value, na.rm=T)),
+              aes(x=as.Date(Date), y=mean*3), colour="dodger blue", alpha=0.9, size=1) +
+  geom_bar(data=sj.sil %>% filter(species=="Coho") %>% group_by(date, `upper/lower`) %>% 
+             summarize(n=sum(`adults live / habitat seen (# Est Live)`)), 
+           aes(x=as.Date(date), y=n, fill=`upper/lower`, colour=`upper/lower`), 
+           stat="identity", position="stack", alpha=0.7) +
+  labs(x="", y="Expanded adult Coho", fill="Segment", colour="Segment") +
+  scale_y_continuous(sec.axis = sec_axis(~./3, name="Discharge (cms)")) +
+  scale_x_date(date_breaks="7 day", date_labels="%b %d") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: Coho counts (expanded live adults) and water levels (blue line) in the San Juan mainstem.
+
+<br>
+
+<br>
+
+## Behaviour & carcasses 
+
+```{r}
+ggplot() +
+  geom_bar(data=sj.sil %>% 
+             filter(species=="Coho") %>% 
+             group_by(date, `upper/lower`) %>% 
+             summarize(Spawning=sum(`adults # spawning`),
+                       Holding = sum(`adults # holding`)) %>% 
+             pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count"), 
+           aes(x=as.Date(date), y=count, fill=behaviour, colour=`upper/lower`), 
+           stat="identity", position="stack", alpha=0.7, size=1) +
+  geom_point(data=sj.sil %>% 
+               filter(species=="Coho") %>% 
+               group_by(date) %>% 
+               summarize(n=sum(`adults dead`)), 
+             aes(x=as.Date(date), y=n*10), size=2, alpha=0.5) +
+  geom_line(data=sj.sil %>% 
+              filter(species=="Coho") %>% 
+              group_by(date) %>% 
+              summarize(n=sum(`adults dead`)), 
+            aes(x=as.Date(date), y=n*10), 
+            stat="identity", position="stack") +
+  scale_y_continuous(sec.axis = sec_axis(~./10, name="Carcasses")) +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d")+
+  scale_fill_manual(breaks=waiver(), values=c("transparent", "gray")) +
+  labs(x="", y="Spawning adult Coho", fill="Behaviour", colour="Segment") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+<br>
+
+Figure: Expanded live adult Coho (bars) and carcasses (black line) in the San Juan mainstem. Bar fill colur indicates behaviour (spawning=gray, holding=white) while bar outline colour indicates river segment (lower=pink, mid=green, upper=blue). 
+
+<br>
+
+<br>
+
+## Swim & fence counts
+
+```{r}
+ggplot() +
+   geom_bar(data=sj.sil %>% 
+              filter(species=="Coho") %>% 
+              group_by(date, `upper/lower`) %>% 
+              summarize(n=sum(`adults live / habitat seen (# Est Live)`)), 
+            aes(x=as.Date(date), y=n, fill=`upper/lower`, colour=`upper/lower`), 
+            stat="identity", position="stack", alpha=0.7) + 
+    geom_line(data=mile4.fence %>% 
+                filter(species=="coho") %>% 
+                group_by(date) %>% 
+                summarize(n=sum(count)) %>% 
+                mutate(ncum = cumsum(n)),
+           aes(x=as.Date(date), y=as.numeric(ncum)), alpha=0.7) +
+      geom_point(data=mile4.fence %>% 
+                   filter(species=="coho") %>% 
+                   group_by(date) %>% 
+                   summarize(n=sum(count)) %>% 
+                   mutate(ncum = cumsum(n)),
+           aes(x=as.Date(date), y=as.numeric(ncum)), alpha=0.7, size=2) +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d")+
+  labs(x="", y="Expanded adult Coho (swims)", fill="Segment", colour="Segment") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: Coho swim counts (raw adults) in the San Juan mainstem relative to cumulative fence counts (black line). If no black line, then no coho were counted through the fence this year. 
+
+<br>
+
+<br>
+
+
+## Tributaries 
+
+Table: Coho counts (expanded live and dead) for San Juan tributaries (Renfrew, Lens, Harris) and Gordon River in 2023.
+```{r}
+tribs.sil %>% 
+  filter(species=="Coho") %>% 
+  group_by(trib_status, system,date) %>% 
+  summarize(live_adults = round(sum(`adults live`),0),
+            dead_adults = sum(`adults dead`))%>% 
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:1), valign="middle", target=1) 
+```
+
+<br>
+
+```{r}
+ggplot() +
+  geom_bar(data=sj.sil %>% 
+             filter(species=="Coho") %>% 
+             group_by(system, date) %>% 
+             summarize(Spawning=sum(`adults # spawning`),
+                       Holding = sum(`adults # holding`)) %>% 
+             pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count")  
+            # mutate(#date = case_when(surveyNum=="SJ-1" ~ as.Date("2023-10-04"),
+            #                         surveyNum=="SJ-2" ~ as.Date("2023-10-11"),
+            #                         surveyNum=="SJ-3" ~ as.Date("2023-10-28")),
+             #       system="mainstem")
+           , 
+           aes(x=as.Date(date), y=count, fill=behaviour, colour=system), 
+           stat="identity", position="stack", alpha=0.7, size=1, width=1) +
+  geom_bar(data=tribs.sil %>% 
+             filter(species=="Coho", trib_status!="San Juan mainstem") %>% 
+             group_by(system, date) %>% 
+             summarize(Spawning=sum(`adults # spawning`),
+                       Holding = sum(`adults # holding`)) %>% 
+             pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count"),
+           aes(x=as.Date(date), y=count, colour=system, fill=behaviour), 
+           stat="identity", position="stack", alpha=0.8, size=1, width=1) +
+  #scale_y_continuous(sec.axis = sec_axis(~./10, name="Trib count")) +
+  scale_fill_manual(breaks=waiver(), values=c("transparent", "gray")) +
+  labs(x="", y="mainstem count") +
+  theme_bw()
+```
+
+Figure: Mainstem and trib counts for Coho adults (unexpanded). 
+
+<br>
+
+<br>
+
+## Area 20 preliminary escapement estimates (PL+D)
+
+<br>
+
+Table: Area 20 raw swim data (raw and expanded live and dead) for Coho.   
+
+```{r}
+AUCdataTable %>% 
+  filter(ShortSpecies=="CO") %>% 
+  select(ShortSpecies,Section_AreaInspected, SDate, WaterTemperature, WaterClarity, LiveAdults, DeadAdults,LiveJacks,DeadJacks, ExpLiveAdults,
+         ExpDeadAdults, ExpLiveJacks, ExpDeadJacks, OverallReliability, EstPctSeen) %>% 
+  mutate(across(c(LiveAdults:ExpDeadJacks), ~round(., 0))) %>% 
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:4), valign="middle", target=1) 
+```
+
+<br>
+
+Table: Escapement estimates for each system. San Juan mainstem surveys were rolled up based on mid-point date for each of 3 complete survey events, and then the PL+D was selected based on the 3 survey events.  
+
+```{r}
+escEstSpp %>% 
+  filter(ShortSpecies=="CO", AREA=="20") %>% 
+  select(ShortSpecies, SystemName, contains("PLD"), contains("Reco"), -c(contains("Recommend"))) %>% 
+  rename(FinalAdultEstimate = AdultNaturalReco,
+         FinalJackEstimate = JackNaturalReco) %>% 
+  select(ShortSpecies, SystemName, contains("PLD"), AdultRemovalsReco, JackRemovalsReco, FinalAdultEstimate, FinalJackEstimate) %>% 
+  mutate(across(FinalJackEstimate:FinalAdultEstimate, ~case_when(.<0 ~ 0,
+                                                                 TRUE ~ .))) %>%
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:4), valign="middle", target=1) 
+```
+
+<br>
+
+### Estimate decision:   
+
+For 2024 used PL+D SJ mainstem without subtracting tribs initially as the peak count was after the trib surveys (i.e., no concern about double-counting this year). However, many of those mainstem fish probably moved into Harris/Lens later as the survey(s) were quite early (relatively, for Coho). Past tagging studies indicated ~66% of the Coho return goes into Harris. The aggregate total esc for the SJ+Harris+Lens system is 
+`r escEstSpp %>% filter(ShortSpecies=="CO", SystemName=="San Juan River") %>% pull(AdultExpPLD)`  + 
+`r escEstSpp %>% filter(ShortSpecies=="CO", SystemName=="Harris Creek") %>% pull(AdultExpPLD)` + 
+`r escEstSpp %>% filter(ShortSpecies=="CO", SystemName=="Lens Creek") %>% pull(AdultExpPLD)` 
+= `r escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(AdultExpPLD = sum(AdultExpPLD)) %>% pull(AdultExpPLD)` adults and 
+`r escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(JackExpPLD = sum(JackExpPLD)) %>% pull(JackExpPLD)` jacks; 
+Assume 66% of this aggregate is destined for Harris 
+= `r round(escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(AdultExpPLD = sum(AdultExpPLD)) %>% pull(AdultExpPLD)*0.66, 0)` adults 
+and `r round(escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(JackExpPLD = sum(JackExpPLD)) %>% pull(JackExpPLD)*0.66, 0)` jacks. 
+Assume the remainder is split about 60/40 San Juan/Lens. 
+This leaves `r round((escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(AdultExpPLD = sum(AdultExpPLD)) %>% pull(AdultExpPLD) - round(escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(AdultExpPLD = sum(AdultExpPLD)) %>% pull(AdultExpPLD)*0.66, 0))*0.6, 0)` adults and 
+`r round((escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(JackExpPLD = sum(JackExpPLD)) %>% pull(JackExpPLD) - round(escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(JackExpPLD = sum(JackExpPLD)) %>% pull(JackExpPLD)*0.66, 0))*0.6, 0)` jacks in San Juan and
+`r round((escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(AdultExpPLD = sum(AdultExpPLD)) %>% pull(AdultExpPLD) - round(escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(AdultExpPLD = sum(AdultExpPLD)) %>% pull(AdultExpPLD)*0.66, 0))*0.4, 0)` adults and 
+`r round((escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(JackExpPLD = sum(JackExpPLD)) %>% pull(JackExpPLD) - round(escEstSpp %>% filter(ShortSpecies=="CO", SystemName%in%c("San Juan River", "Harris Creek", "Lens Creek")) %>% summarize(JackExpPLD = sum(JackExpPLD)) %>% pull(JackExpPLD)*0.66, 0))*0.6, 0)` jacks
+in Lens Creek. 
+This is not a very rigorous approach, but the best possible. Also illustrates why San Juan escapement time series should always include mainstem and tribs - the aggregate is correct, but the allocation to each system is very difficult and variable year-to-year. Estimate reviewed by H. Jones, specifically noted: up to 70% can go into Harris, and advised slightly fewer to Lens than SJ mainstem. 
+*This is subject to change; see EscBatchHardCopy report for specific estimate abundance.*
+
+<br>
+
+<br>
+
+## `r analysis_year` compared to historical run timing and abundance
+
+```{r}
+ggplot() +
+  geom_point(data=sj.rtStWk %>% 
+               filter(species_R=="Coho") %>% 
+               group_by(year, stat_week, plot_group) %>% 
+               summarize(count=sum(count, na.rm=T)) %>%
+               filter(count>0),
+           aes(x=stat_week, y=count, colour=plot_group, fill=plot_group, size=plot_group),
+           shape=21, alpha=0.7) +
+  scale_fill_manual(breaks=waiver(), values=c("gray60", "dodger blue")) +
+  scale_colour_manual(breaks=waiver(), values=c("gray60", "dodger blue")) +
+  scale_size_manual(breaks=waiver(), values=c(1.5,3.5)) +
+  labs(x="Stat week", y="Live adult Coho", fill="Year:", colour="Year:", size="Year:") +
+  theme_bw() +
+  theme(legend.position = "bottom",
+        legend.box = "horizontal")
+```
+
+Figure: Raw swim counts (blue) from this year compared to historical raw swim counts. Stat weeks indicate the month (8=August, 12=December) and week of momth (1=first week, 2=2nd week, etc.), e.g., 81=First week of August, 91=First week of September, etc. Mainstem and tributary counts within a statweek are pooled to give run timing for the aggregate system (e.g., SJ + Harris + Lens).
+
+<br>
+
+```{r}
+ggplot()  +
+  geom_bar(data=sj.escHistorical %>% 
+             filter(`Waterbody Name` %in% c("SAN JUAN RIVER", "HARRIS CREEK", "LENS CREEK", "RENFREW CREEK"), 
+                    `Species Qualified`=="CO") %>% 
+             group_by(`Analysis Year`) %>% 
+             summarize(`Natural Adult Spawners`=sum(`Natural Adult Spawners`, na.rm=T)), 
+           aes(x=`Analysis Year`, y=`Natural Adult Spawners`), stat="identity", colour="dodger blue", fill="dodger blue", alpha=0.8) +
+  geom_bar(data=sj.escHistorical %>% 
+             filter(`Waterbody Name` %in% c("SAN JUAN RIVER", "HARRIS CREEK", "LENS CREEK", "RENFREW CREEK"), 
+                    `Species Qualified`=="CO") %>%
+             group_by(`Analysis Year`) %>% 
+             summarize(`Unspecified Return`=sum(`Unspecified Return`, na.rm=T)), 
+           aes(x=`Analysis Year`, y=`Unspecified Return`), stat="identity", colour="gray80", fill="gray80", alpha=0.8) +  
+  geom_bar(data=escEstSpp %>% 
+             filter(ShortSpecies=="CO", AREA=="20", 
+                    SystemName %in% c("San Juan River", "Renfrew Creek", "Harris Creek", "Lens Creek")) %>% 
+             select(Year, SystemName, AdultNaturalReco) %>% 
+             summarize(n=sum(AdultNaturalReco)), 
+             aes(x=analysis_year, y=n), stat="identity", colour="red", fill="dodger blue", alpha=0.8) +   
+  scale_x_continuous(breaks=seq(min(sj.escHistorical$`Analysis Year`), analysis_year, by=2)) +
+  labs(x="Return Year", y="Coho spawners") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: 2024 preliminary adult Coho escapement estimate (red outline) for entire San Juan system (including tributaries) relative to historical adult (blue) and unspecified (gray) escapement estimates. Gaps indicate years without estimates. 
+
+<br>
+
+<br>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# **Chum** 
+
+Three complete surveys conducted over 2-3 days per survey were conducted for in 2023. They were well timed for Chum.
+
+<br>
+
+## Area 20 raw vs expanded counts
+
+Counts are expanded for % population estimated and/or observer efficiency, depending on survey conditions. 
+
+```{r}
+ggplot() +
+  geom_bar(data=AUCdataTable %>% 
+             filter(ShortSpecies=="CM") %>% 
+             pivot_longer(c(LiveAdults:TotalJacks,ExpLiveAdults:ExpDeadJacks), names_to="est_type", values_to="n") %>% 
+             filter(est_type %in% c("LiveAdults", "ExpLiveAdults")), 
+           aes(x=as.Date(SDate), y=n, colour=est_type, fill=est_type), stat="identity", position="dodge", alpha=0.5) +
+  labs(x="", y="Adult Chum counts", fill="Expansion", colour="Expansion") +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d", expand = c(0, 0)) +
+  scale_y_continuous(limits=c(0, max(AUCdataTable[AUCdataTable$ShortSpecies=="CM",]$ExpLiveAdults,na.rm=T))) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        legend.position = c(0.8,0.2)) +
+  facet_wrap(~Section_AreaInspected, scales="free_y")
+```
+
+Figure: Raw live Adult Chum counts (blue) and expanded for OE (pink). 
+
+<br>
+
+## Counts & environmentals
+
+```{r}
+ggplot() +
+  geom_ribbon(data=SJ.water %>%
+                filter(PARAM=="Discharge (cms)", year==2024, month%in%c("Aug", "Sep", "Oct", "Nov")) %>%
+                group_by(Date) %>%
+                summarize(min=min(Value, na.rm=T), max=max(Value, na.rm=T)),
+              aes(x=as.Date(Date), ymin=min*1, ymax=max*1), fill="dodger blue", alpha=0.3) +
+  geom_line(data=SJ.water %>%
+                filter(PARAM=="Discharge (cms)", year==2024, month%in%c("Aug", "Sep", "Oct", "Nov")) %>%
+                group_by(Date) %>%
+                summarize(mean=mean(Value, na.rm=T)),
+              aes(x=as.Date(Date), y=mean*1), colour="dodger blue", alpha=0.9, size=1) +
+  geom_bar(data=sj.sil %>% filter(species=="Chum") %>% group_by(date, `upper/lower`) %>% 
+             summarize(n=sum(`adults live / habitat seen (# Est Live)`)), 
+           aes(x=as.Date(date), y=n, fill=`upper/lower`, colour=`upper/lower`), 
+           stat="identity", position="stack", alpha=0.7) +
+  labs(x="", y="Expanded adult Chum", fill="Segment", colour="Segment") +
+  scale_y_continuous(sec.axis = sec_axis(~./1, name="Discharge (cms)")) +
+  scale_x_date(date_breaks="7 day", date_labels="%b %d") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: Chum counts (raw live adults) and water levels (blue line) in the San Juan mainstem.
+
+<br>
+
+<br>
+
+## Behaviour & carcasses 
+
+```{r}
+ggplot() +
+  geom_bar(data=sj.sil %>% filter(species=="Chum") %>% group_by(date, `upper/lower`) %>% 
+             summarize(Spawning=sum(`adults # spawning`),
+                       Holding = sum(`adults # holding`)) %>% 
+             pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count"), 
+           aes(x=as.Date(date), y=count, fill=behaviour, colour=`upper/lower`), 
+           stat="identity", position="stack", alpha=0.7, size=1) +
+  geom_point(data=sj.sil %>% filter(species=="Chum") %>% group_by(date) %>% 
+               summarize(n=sum(`adults dead`)), 
+             aes(x=as.Date(date), y=n*10), size=2, alpha=0.5) +
+  geom_line(data=sj.sil %>% filter(species=="Chum") %>% group_by(date) %>% 
+              summarize(n=sum(`adults dead`)), 
+            aes(x=as.Date(date), y=n*10), 
+            stat="identity", position="stack") +
+  scale_y_continuous(sec.axis = sec_axis(~./10, name="Carcasses")) +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d")+
+  scale_fill_manual(breaks=waiver(), values=c("transparent", "gray")) +
+  labs(x="", y="Spawning adult Chum", fill="Behaviour", colour="Segment") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+<br>
+
+Figure: Raw live adult Chum (bars) and carcasses (black line) in the San Juan mainstem. Bar fill colour indicates behaviour (spawning=gray, holding=white) while bar outline colour indicates river segment (lower=pink, mid=green, upper=blue). 
+
+<br>
+
+<br>
+
+## Swim & fence counts
+
+No chum were passed through the fence in 2023. 
+
+<br>
+
+<br>
+
+## Tributaries 
+
+Table: Chum counts (raw live and dead) for San Juan tributaries (Renfrew, Lens, Harris) and Gordon River in 2023.
+```{r}
+tribs.sil %>% 
+  filter(species=="Chum") %>% 
+  group_by(trib_status, system,date) %>% 
+  summarize(live_adults = round(sum(`adults live`),0),
+            dead_adults = sum(`adults dead`))%>% 
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:1), valign="middle", target=1) 
+```
+
+<br>
+
+```{r}
+ggplot() +
+  geom_bar(data=sj.sil %>% 
+             filter(species=="Chum") %>% 
+             group_by(system, date) %>% 
+             summarize(Spawning=sum(`adults # spawning`),
+                       Holding = sum(`adults # holding`)) %>% 
+             pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count"),
+             #mutate(date = case_when(surveyNum=="SJ-1" ~ as.Date("2023-10-04"),
+            #                         surveyNum=="SJ-2" ~ as.Date("2023-10-11"),
+            #                         surveyNum=="SJ-3" ~ as.Date("2023-10-28")),
+            #        system="mainstem"), 
+           aes(x=as.Date(date), y=count, fill=behaviour, colour=system), 
+           stat="identity", position="stack", alpha=0.7, size=1, width=1) +
+  geom_bar(data = tribs.sil %>% 
+             filter(species=="Chum", trib_status!="San Juan mainstem") %>% 
+             group_by(system, date) %>% 
+             summarize(Spawning=sum(`adults # spawning`),
+                       Holding = sum(`adults # holding`)) %>% 
+             pivot_longer(cols=c(Spawning, Holding), names_to="behaviour", values_to="count"),
+           aes(x=as.Date(date), y=count*100, colour=system, fill=behaviour), stat="identity",  alpha=0.5, size=1, width=1) +
+  #scale_y_continuous(sec.axis = sec_axis(~./100, name="Trib count")) +
+  scale_fill_manual(breaks=waiver(), values=c("transparent", "gray")) +
+  labs(x="", y="mainstem count") +
+  theme_bw()
+```
+
+Figure: Mainstem and trib counts for Chum adults (unexpanded). 
+
+<br>
+
+<br>
+
+## Area 20 preliminary escapement estimate (PL+D)
+
+<br>
+
+Table: San Juan swim counts (expanded live and dead) and preliminary escapement estimates for three San Juan surveys in 2023. 
+
+```{r}
+AUCdataTable %>% 
+  filter(ShortSpecies=="CM") %>% 
+  select(ShortSpecies,Section_AreaInspected, SDate, WaterTemperature, WaterClarity, LiveAdults, DeadAdults,LiveJacks,DeadJacks, ExpLiveAdults,
+         ExpDeadAdults, ExpLiveJacks, ExpDeadJacks, OverallReliability, EstPctSeen) %>% 
+  mutate(across(c(LiveAdults:ExpDeadJacks), ~round(., 0))) %>% 
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:4), valign="middle", target=1) 
+```
+
+<br>
+
+Table: Escapement estimates for each system. San Juan mainstem surveys were rolled up based on mid-point date for each of 3 complete survey events, and then the PL+D was selected based on the 3 survey events.  
+
+```{r}
+escEstSpp %>% 
+  filter(ShortSpecies=="CM", AREA=="20") %>% 
+  select(ShortSpecies, SystemName, contains("PLD"), contains("Reco"), -c(contains("Recommend"))) %>% 
+  rename(FinalAdultEstimate = AdultNaturalReco,
+         FinalJackEstimate = JackNaturalReco) %>% 
+  select(ShortSpecies, SystemName, contains("PLD"), AdultRemovalsReco, JackRemovalsReco, FinalAdultEstimate, FinalJackEstimate) %>% 
+  mutate(across(FinalJackEstimate:FinalAdultEstimate, ~case_when(.<0 ~ 0,
+                                                                 TRUE ~ .))) %>%
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:4), valign="middle", target=1) 
+```
+
+<br>
+
+### Estimate decision:   
+
+For 2024 estimate used expanded PL+D of 411 adults. Did not end up adjusting the Oct 25 survey much even though it was lower-only because the 90% OE adjustment added more than enough - double-expanding added ~100 fish which seemed unlikely given timing and that these would all be in the upper section. Renfrew and Gordon also PL+D and separate from SJ. *This is subject to change; see EscBatchHardCopy report for specific estimate abundance.*
+
+<br>
+
+<br>
+
+## `r analysis_year` compared to historical run timing and abundance
+
+```{r}
+ggplot() +
+  geom_point(data=sj.rtStWk%>%filter(species_R=="Chum"),
+           aes(x=stat_week, y=count, colour=plot_group, fill=plot_group, size=plot_group),
+           shape=21, alpha=0.7) +
+  scale_fill_manual(breaks=waiver(), values=c("gray60", "dodger blue")) +
+  scale_colour_manual(breaks=waiver(), values=c("gray60", "dodger blue")) +
+  scale_size_manual(breaks=waiver(), values=c(1.5,3.5)) +
+  labs(x="Stat week", y="Live adult Chum", fill="Year:", colour="Year:", size="Year:") +
+  theme_bw() +
+  theme(legend.position = "bottom",
+        legend.box = "horizontal")
+```
+
+Figure: Raw swim counts (blue) from this year compared to historical raw swim counts. Stat weeks indicate the month (8=August, 12=December) and week of momth (1=first week, 2=2nd week, etc.), e.g., 81=First week of August, 91=First week of September, etc. 
+
+<br>
+
+```{r}
+ggplot()  +
+  geom_bar(data=sj.escHistorical %>% 
+             filter(`Waterbody Name` %in% c("SAN JUAN RIVER", "HARRIS CREEK", "LENS CREEK", "RENFREW CREEK"), 
+                    `Species Qualified`=="CM") %>% 
+             group_by(`Analysis Year`) %>% 
+             summarize(`Natural Adult Spawners`=sum(`Natural Adult Spawners`, na.rm=T)), 
+           aes(x=`Analysis Year`, y=`Natural Adult Spawners`), 
+           stat="identity", colour="dodger blue", fill="dodger blue", alpha=0.8) +
+  geom_bar(data=sj.escHistorical %>% 
+             filter(`Waterbody Name` %in% c("SAN JUAN RIVER", "HARRIS CREEK", "LENS CREEK", "RENFREW CREEK"), 
+                    `Species Qualified`=="CM") %>% 
+             group_by(`Analysis Year`) %>% 
+             summarize(`Unspecified Return`=sum(`Unspecified Return`, na.rm=T)), 
+           aes(x=`Analysis Year`, y=`Unspecified Return`), 
+           stat="identity", colour="gray80", fill="gray80", alpha=0.8) +  
+  geom_bar(data=escEstSpp %>% 
+             filter(ShortSpecies=="CM", AREA=="20", SystemName!="Gordon River") %>% 
+             select(Year, SystemName, AdultNaturalReco) %>% 
+             summarize(n=sum(AdultNaturalReco)), 
+             aes(x=analysis_year, y=n), stat="identity", colour="red", fill="dodger blue", alpha=0.8) +   
+  scale_x_continuous(breaks=seq(min(sj.escHistorical$`Analysis Year`), analysis_year, by=2)) +
+  labs(x="Return Year", y="Chum spawners") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: 2024 preliminary adult Chum escapement estimate (red outline) for entire San Juan system (including tributaries) relative to historical adult (blue) and unspecified (gray) escapement estimates. Gaps indicate years without estimates. 
+
+<br>
+
+<br>
+
+------------------------
+
+<br>
+
+<br>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# **Chinook** 
+
+## Confirming if surveys can be added together over 2 days
+
+Often the PFN crew will split SJ surveys over two days (upper/lower). The graph below just shows the counts in the order they are recorded to see if there is a chance any fish were double counted (e.g., moved upstream after a lower survey).
+
+```{r}
+ggpubr::ggarrange(
+  ggplot() +
+    geom_point(data=sj.sil %>% 
+                 filter(system=="San Juan", `upper/lower`=="Upper", species=="chinook") %>%
+                 mutate(axis_label = paste(row_num, segment, sep="-")) %>%
+                 group_by(date, surveyNum,  row_num) %>% 
+                 summarize(nlive=sum(`adults live`),
+                           nspawn = sum(`adults # spawning`)) ,
+               aes(y=row_num, x=date, size=nlive), 
+               fill="blue", colour="blue") +
+    scale_x_date(date_breaks="1 day",limits=c(as.Date("2025-10-06"), as.Date("2025-10-17"))) +
+    #scale_size_continuous(breaks=seq(1, 600, by=125), range=c(1,10)) +
+    labs(x="Chinook count", y="River reach (SIL page-row, Habitat, segment)", size="Upper # live \n(Oct 4)") +
+    #facet_grid(factor(`upper/lower`, levels=unique(sj.sil$`upper/lower`))~., scales="free", space="free", switch="y") +
+    theme_bw() +
+    theme(strip.placement = "outside",                     
+          strip.background = element_rect(fill = "white", colour="white"),
+          strip.text.y.left = element_text(angle=0, colour="black", face="bold", size=17),
+          axis.text = element_text(size=16),
+          axis.text.x = element_blank(),
+          axis.title = element_text(size=18),
+          axis.title.x = element_blank(),
+          panel.margin.x=unit(0, "lines") , 
+          panel.margin.y=unit(0,"lines"),
+          legend.text = element_text(size=15),
+          legend.title = element_text(size=16)),
+  
+  ggplot() +
+    geom_point(data=sj.sil %>% 
+                 filter(system=="San Juan", `upper/lower`=="Lower", species=="chinook") %>%
+                 mutate(axis_label = paste(row_num, segment, sep="-")) %>%
+                 group_by(date, surveyNum,  row_num) %>% 
+                 summarize(nlive=sum(`adults live`),
+                           nspawn = sum(`adults # spawning`)),
+               aes(y=row_num, x=date, size=nlive), fill="orange", colour="orange") +
+    #scale_y_discrete(limits=rev) +
+    scale_x_date(date_breaks="1 day",limits=c(as.Date("2025-10-06"), as.Date("2025-10-17"))) +
+    scale_size_continuous(breaks=seq(1, 500, by=125), range=c(1,10)) +
+    labs(x="Chinook count", y="River reach (SIL page-row, Habitat, segment)", size="Lower # live \n(Oct 3)") +
+    #facet_grid(factor(`upper/lower`, levels=unique(sj.sil$`upper/lower`))~., scales="free", space="free", switch="y") +
+    theme_bw() +
+    theme(strip.placement = "outside",                     
+          strip.background = element_rect(fill = "white", colour="white"),
+          strip.text.y.left = element_text(angle=0, colour="black", face="bold", size=17),
+          axis.text = element_text(size=16),
+          axis.title = element_text(size=18),
+          legend.text = element_text(size=15),
+          legend.title = element_text(size=16)),
+nrow=2, ncol=1)
+```
+
+<br>
+
+## Area 20 raw vs expanded counts
+
+Counts are expanded for % population estimated and/or observer efficiency, depending on survey conditions. 
+
+```{r}
+ggplot() +
+  geom_bar(data=AUCdataTable %>% 
+             filter(ShortSpecies=="CN") %>% 
+             pivot_longer(c(LiveAdults:TotalJacks,ExpLiveAdults:ExpDeadJacks), 
+                          names_to="est_type", values_to="n") %>% 
+             filter(est_type %in% c("LiveAdults", "ExpLiveAdults")), 
+           aes(x=as.Date(SDate), y=n, colour=est_type, fill=est_type), 
+           stat="identity", position="dodge", alpha=0.5) +
+  labs(x="", y="Adult Chinook counts", fill="Expansion", colour="Expansion") +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d", expand = c(0, 0)) +
+  scale_y_continuous(limits=c(0, max(AUCdataTable[AUCdataTable$ShortSpecies=="CN",]$ExpLiveAdults,na.rm=T))) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        legend.position = "right") +
+  facet_wrap(~Section_AreaInspected, scales="free")
+```
+
+Figure: Raw live Adult Chinook counts (blue) and expanded for OE (pink). 
+
+<br>
+
+## Counts & environmentals
+
+```{r }
+ggplot() +
+  geom_ribbon(data=SJ.water %>%
+                filter(PARAM=="Discharge (cms)", year==analysis_year, month%in%c("Aug", "Sep", "Oct", "Nov")) %>%
+                group_by(Date) %>%
+                summarize(min=min(Value, na.rm=T), max=max(Value, na.rm=T)),
+              aes(x=as.Date(Date), ymin=min*5, ymax=max*5), fill="dodger blue", alpha=0.3) +
+  geom_line(data=SJ.water %>%
+                filter(PARAM=="Discharge (cms)", year==analysis_year, month%in%c("Aug", "Sep", "Oct", "Nov")) %>%
+                group_by(Date) %>%
+                summarize(mean=mean(Value, na.rm=T)),
+              aes(x=as.Date(Date), y=mean*5), colour="dodger blue", alpha=0.9, size=1) +
+  geom_bar(data=sj.sil %>% 
+             filter(grepl("chinook", species, ignore.case=T), system=="San Juan") %>% 
+             group_by(date, `upper/lower`) %>% 
+             summarize(n=sum(`adults live`)), 
+           aes(x=as.Date(date), y=n, fill=`upper/lower`, colour=`upper/lower`), 
+           stat="identity", position="stack", alpha=0.7) +
+  labs(x="", y="Expanded adult Chinook") +
+  scale_y_continuous(sec.axis = sec_axis(~./5, name="Discharge (cms)")) +
+  scale_x_date(date_breaks="7 day", date_labels="%b %d", limits=c(as.Date("2025-10-01"), as.Date("2025-10-30"))) +
+  labs(x="", Y="Live chinook", fill="Segment", colour="Segment") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: Chinook counts (expanded live adults) and water levels (blue line) in the San Juan mainstem.
+
+<br>
+
+<br>
+
+## Behaviour & carcasses 
+
+```{r}
+ggplot() +
+  geom_bar(data=sj.sil %>% 
+             filter(grepl("chinook", species, ignore.case=T), grepl("san juan", system, ignore.case=T)) %>% 
+             group_by(date, `upper/lower`) %>% 
+             summarize(Spawning=sum(`adults # spawning`),
+                       Holding = sum(`adults # holding`)) %>% 
+             pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count"), 
+           aes(x=as.Date(date), y=count, fill=behaviour, colour=`upper/lower`), 
+           stat="identity", position="dodge", alpha=0.7, size=1, width=1) +
+  geom_point(data=sj.sil %>% 
+               filter(grepl("chinook", species, ignore.case=T), grepl("san juan", system, ignore.case=T)) %>% 
+               group_by(date) %>% 
+               summarize(n=sum(`adults dead`)), 
+             aes(x=as.Date(date), y=n), size=2, alpha=0.5) +
+  geom_line(data=sj.sil %>% 
+              filter(grepl("chinook", species, ignore.case=T), grepl("san juan", system, ignore.case=T)) %>% 
+              group_by(date) %>% 
+              summarize(n=sum(`adults dead`)), 
+            aes(x=as.Date(date), y=n)) +
+  scale_y_continuous(sec.axis = sec_axis(~./1, name="Carcasses")) +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d")+
+  scale_fill_manual(breaks=waiver(), values=c("transparent", "gray")) +
+  labs(x="", y="Spawning adult Chinook", fill="Behaviour", colour="Segment") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+<br>
+
+Figure: Expanded live adult Chinook (bars) and carcasses (black line) in the San Juan mainstem. Bar fill colour indicates behaviour (spawning=gray, holding=white) while bar outline colour indicates river segment (lower=pink, mid=green, upper=blue).  
+
+<br>
+
+### Jack to male ratio
+
+```{r include=F, eval=F}
+
+# For run reconstruction
+
+jack_propn <- list.files(path=paste0("//ENT.dfo-mpo.ca/DFO-MPO/GROUP/PAC/PBS/Operations/SCA/SCD_Stad/WCVI/ESCAPEMENT/Data/",
+                                         analysis_year,
+                                         "/SILs/Area 20/"),
+                     pattern = "^A20_Port_Renfrew*.*xlsx", 
+                     full.names = T) %>% 
+  map(~readxl::read_excel(path=.x, sheet="Port Renfrew raw SIL entry", guess_max=20000)) %>% 
+  list_rbind() %>%
+  filter(grepl("san juan", system, ignore.case=T), grepl("chinook", species, ignore.case=T)) %>%
+  group_by(date) %>% 
+  summarize(n_adults = sum(`adults live`, na.rm=T),
+            n_jacks = sum(`jacks live`, na.rm=T),
+            propn_jacks = n_jacks/(n_adults+n_jacks))  %>%
+  print()
+
+
+# The proportion of total chinook that were jacks observed on the swims ranged from `r min(jack_propn[jack_propn$propn_jacks>0,]$propn_jacks, na.rm=T)*100`% to `r max(jack_propn$propn_jacks, na.rm=T)*100`% (mean = `r mean(jack_propn[jack_propn$propn_jacks>0,]$propn_jacks, na.rm=T)*100`%). 
+```
+
+<br>
+
+<br>
+
+## Swim & fence counts
+
+```{r}
+ggplot() +
+  geom_bar(data=sj.sil %>% 
+             filter(grepl("san juan", system, ignore.case=T), grepl("chinook", species, ignore.case=T)) %>% 
+             group_by(date, `upper/lower`) %>% 
+             summarize(n=sum(`adults live`)), 
+           aes(x=as.Date(date), y=n, fill=`upper/lower`, colour=`upper/lower`), 
+           stat="identity", position="stack", alpha=0.7) + 
+  geom_line(data=mile4.fence %>% 
+              filter(grepl("san juan", river, ignore.case=T), grepl("chinook", species, ignore.case=T), year==analysis_year) %>% 
+              group_by(date) %>% 
+              summarize(n=sum(count)) %>% mutate(ncum = cumsum(n)),
+            aes(x=as.Date(date), y=as.numeric(ncum)), alpha=0.7) +
+  geom_point(data=mile4.fence %>% 
+               filter(grepl("san juan", river, ignore.case=T), grepl("chinook", species, ignore.case=T), year==analysis_year) %>% 
+               group_by(date) %>% 
+               summarize(n=sum(count)) %>% mutate(ncum = cumsum(n)),
+             aes(x=as.Date(date), y=as.numeric(ncum)), alpha=0.7, size=2) +
+  #scale_y_continuous(breaks=seq(0,1500,by=100), sec.axis = sec_axis(~./1, name="Cumulative fence count (Chinook)")) +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d")+
+  labs(x="", y="Observed adult Chinook\n(swims bar; fence line)", fill="Segment", colour="Segment") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: Chinook swim counts (observed adults) in the San Juan mainstem relative to cumulative fence counts (black line). 
+
+<br>
+
+```{r}
+ggplot(data = mile4.fence %>% 
+         filter(species=="chinook") %>%
+         group_by(year, DOY) %>%
+         summarize(n_chinook = sum(count, na.rm=T)) %>% 
+         group_by(year) %>%
+         mutate(cuml = cumsum(n_chinook))) +
+  geom_point(aes(x=as.Date(DOY, origin="2020-12-31"), y=cuml, 
+                 group=as.factor(year), colour=as.factor(year), fill=as.factor(year)), size=4, alpha=0.8) +
+  geom_line(aes(x=as.Date(DOY, origin="2020-12-31"), y=cuml, 
+                group=as.factor(year), colour=as.factor(year), fill=as.factor(year)), size=1, alpha=0.8) +
+  scale_x_date(date_breaks="5 day", date_labels = "%b %d") +
+  labs(y="Cumulative Chinook count through fence", x="") +
+  theme_bw() +
+  theme(axis.text = element_text(colour="black", size=12),
+        axis.title = element_text(face="bold", size=14),
+        legend.title = element_blank(),
+        legend.text = element_text(size=10),
+        legend.position = c(0.1,0.8),
+        legend.background = element_rect(colour="black"))
+```
+
+
+<br>
+
+<br>
+
+```{r fig.width=20, fig.height=20, eval=F}
+# NOT AN ISSUE FOR 2024 :)
+
+
+## Oct 3/4 surveys ------------------
+# ggarrange(
+#   ggplot() +
+#     geom_point(data=sj.sil %>% filter(species=="Chinook", date==as.Date("2023-10-04")) %>% 
+#                  group_by(date, segment, page_rowref, unique_ref) %>% 
+#                  summarize(nlive=sum(`adults live / habitat seen (# Est Live)`),
+#                            nspawn = sum(`adults # spawning`)) %>% filter(nlive>0),
+#                aes(y=reorder_within(x=unique_ref, by=page_rowref, within=segment, sep="",), x=nlive, size=nlive), fill="blue", colour="blue") +
+#     scale_y_discrete(limits=rev) +
+#     scale_size_continuous(breaks=seq(1, 600, by=125), range=c(1,10)) +
+#     labs(x="Chinook count", y="River reach (SIL page-row, Habitat, segment)", size="Upper # live \n(Oct 4)") +
+#     facet_grid(factor(segment, levels=unique(sj.sil$segment))~., scales="free", space="free", switch="y") +
+#     theme_bw() +
+#     theme(strip.placement = "outside",                     
+#           strip.background = element_rect(fill = "white", colour="white"),
+#           strip.text.y.left = element_text(angle=0, colour="black", face="bold", size=17),
+#           axis.text = element_text(size=16),
+#           axis.title = element_text(size=18),
+#           panel.margin.x=unit(0, "lines") , 
+#           panel.margin.y=unit(0,"lines"),
+#           legend.text = element_text(size=15),
+#           legend.title = element_text(size=16)),
+#   
+#   ggplot() +
+#     geom_point(data=sj.sil %>% filter(species=="Chinook", date==as.Date("2023-10-03")) %>% 
+#                  group_by(date, segment, page_rowref, page_habitat, unique_ref) %>% 
+#                  summarize(nlive=sum(`adults live / habitat seen (# Est Live)`),
+#                            nspawn = sum(`adults # spawning`)) %>% filter(nlive>0),
+#                aes(y=reorder_within(x=unique_ref, by=page_rowref, within=segment, sep="",), x=nlive, size=nlive), fill="orange", colour="orange") +
+#     scale_y_discrete(limits=rev) +
+#     scale_x_continuous(limits=c(1,600,by=100)) +
+#     scale_size_continuous(breaks=seq(1, 500, by=125), range=c(1,10)) +
+#     labs(x="Chinook count", y="River reach (SIL page-row, Habitat, segment)", size="Lower # live n(Oct 3)") +
+#     facet_grid(factor(segment, levels=unique(sj.sil$segment))~., scales="free", space="free", switch="y") +
+#     theme_bw() +
+#     theme(strip.placement = "outside",                     
+#           strip.background = element_rect(fill = "white", colour="white"),
+#           strip.text.y.left = element_text(angle=0, colour="black", face="bold", size=17),
+#           axis.text = element_text(size=16),
+#           axis.title = element_text(size=18),
+#           legend.text = element_text(size=15),
+#           legend.title = element_text(size=16)),
+# nrow=2, ncol=1)
+
+### Figure: October 3rd (lower) and 4th (upper) San Juan chinook counts (expanded adults) by segment or SIL row/habitat type. Orientation of y axis represents counts from upstream to downstream reaches. 
+```
+
+<br>
+
+<br>
+
+
+## Tributaries 
+
+Table: Chinook counts (raw live and dead) for San Juan tributaries (Renfrew, Lens, Harris) and Gordon River in 2023.
+
+```{r}
+sj.sil %>% 
+  filter(!grepl("san juan", system, ignore.case=T), grepl("chinook", species, ignore.case=T)) %>% 
+  group_by(trib_status, system, date) %>% 
+  summarize(expanded_live_adults = round(sum(`adults live / habitat seen (# Est Live)`),0),
+            dead_adults = sum(`adults dead`))%>% 
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:1), valign="middle", target=1) 
+```
+
+<br>
+
+```{r}
+ggplot() +
+  geom_bar(data=sj.sil %>% 
+             filter(grepl("san juan", system, ignore.case=T), grepl("chinook", species, ignore.case=T)) %>% 
+             group_by(system, date) %>% 
+             summarize(Spawning=sum(`adults # spawning`),
+                       Holding = sum(`adults # holding`)) %>% 
+             pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count")  
+            # mutate(#date = case_when(surveyNum=="SJ-1" ~ as.Date("2023-10-04"),
+            #                         surveyNum=="SJ-2" ~ as.Date("2023-10-11"),
+            #                         surveyNum=="SJ-3" ~ as.Date("2023-10-28")),
+             #       system="mainstem")
+           , 
+           aes(x=as.Date(date), y=count, fill=behaviour, colour=system), 
+           stat="identity", position="stack", alpha=0.7, width=1, linewidth=1) +
+  geom_bar(data=sj.sil %>% 
+             filter(!grepl("san juan", system, ignore.case=T), grepl("chinook", species, ignore.case=T)) %>% 
+             group_by(system, date) %>% 
+             summarize(Spawning=sum(`adults # spawning`),
+                       Holding = sum(`adults # holding`)) %>% 
+             pivot_longer(cols=c(Spawning,Holding), names_to="behaviour", values_to="count"),
+           aes(x=as.Date(date), y=count, colour=system, fill=behaviour), 
+           stat="identity", position="stack", alpha=0.8, width=1, linewidth=1) +
+  #scale_y_continuous(sec.axis = sec_axis(~./10, name="Trib count")) +
+  scale_fill_manual(breaks=waiver(), values=c("transparent", "gray")) +
+  labs(x="", y="mainstem count") +
+  theme_bw()
+```
+
+Figure: Mainstem and trib counts for Chinook adults (unexpanded). 
+
+<br>
+
+<br>
+
+## Area 20 preliminary escapement estimate (PL+D)
+
+<br>
+
+Table: San Juan swim counts (expanded live and dead) and preliminary escapement estimates for three San Juan surveys in 2023. 
+
+```{r}
+AUCdataTable %>% 
+  filter(ShortSpecies=="CN") %>% 
+  select(ShortSpecies,Section_AreaInspected, SDate, WaterTemperature, WaterClarity, LiveAdults, DeadAdults,LiveJacks,DeadJacks, ExpLiveAdults,
+         ExpDeadAdults, ExpLiveJacks, ExpDeadJacks, OverallReliability, EstPctSeen) %>% 
+  mutate(across(c(LiveAdults:ExpDeadJacks), ~round(., 0))) %>% 
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:4), valign="middle", target=1) 
+```
+
+<br>
+
+Table: Escapement estimates for each system. San Juan mainstem surveys were rolled up based on mid-point date for each of 3 complete survey events, and then the PL+D was selected based on the 3 survey events.  **NOTE FINAL SJ CN ESTIMATE DOES NOT YET ACCOUNT FOR REMOVAL OF TRIBUTARY SPAWNERS, THAT MUST BE DONE LATER IN NuSEDS -- should be 2642-24-21 = 2597**.
+
+```{r}
+escEstSpp %>% 
+  filter(ShortSpecies=="CN", AREA=="20") %>% 
+  select(ShortSpecies, SystemName, contains("PLD"), contains("Reco"), -c(contains("Recommend"))) %>% 
+  rename(FinalAdultEstimate = AdultNaturalReco,
+         FinalJackEstimate = JackNaturalReco) %>% 
+  select(ShortSpecies, SystemName, contains("PLD"), AdultRemovalsReco, JackRemovalsReco, FinalAdultEstimate, FinalJackEstimate) %>% 
+  mutate(across(FinalJackEstimate:FinalAdultEstimate, ~case_when(.<0 ~ 0,
+                                                                 TRUE ~ .))) %>%
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:4), valign="middle", target=1) 
+```
+
+<br>
+
+### Estimate decision:   
+
+For 2025 estimate, went with PL+D (expanded) estimate for SJ. Did not subtract any trib fish this year as most were spawning on the first peak swim and also spawning when seen in tribs, so it's very unlikely fish were double-counted on their way to Harris/Lens. Added in broodstock from seining/fence ops. 
+
+<br>
+
+<br>
+
+## `r analysis_year` compared to historical run timing and abundance
+
+```{r}
+ggplot() +
+  geom_point(data=sj.rtStWk %>% 
+               filter(species_R=="Chinook") %>% 
+               group_by(year, stat_week, plot_group) %>% 
+               summarize(count=sum(count, na.rm=T)) %>%
+               filter(count>0),
+           aes(x=stat_week, y=count, colour=plot_group, fill=plot_group, size=plot_group),
+           shape=21, alpha=0.7) +
+  scale_fill_manual(breaks=waiver(), values=c("gray60", "dodger blue")) +
+  scale_colour_manual(breaks=waiver(), values=c("gray60", "dodger blue")) +
+  scale_size_manual(breaks=waiver(), values=c(1.5, 3.5)) +
+  labs(x="Stat week", y="Live adult Chinook", fill="Year:", colour="Year:", size="Year:") +
+  theme_bw() +
+  theme(legend.position = "bottom",
+        legend.box = "horizontal")
+```
+
+Figure: Raw swim counts (blue) from this year compared to historical raw swim counts. Stat weeks indicate the month (8=August, 12=December) and week of momth (1=first week, 2=2nd week, etc.), e.g., 81=First week of August, 91=First week of September, etc. Mainstem and tributary counts within a statweek are pooled to give run timing for the aggregate system (e.g., SJ + Harris + Lens).
+
+<br>
+
+```{r}
+ggplot()  +
+  geom_bar(data=a20_nuseds_escapement %>% 
+             filter(waterbody_name %in% c("SAN JUAN RIVER", "HARRIS CREEK", "LENS CREEK", "RENFREW CREEK"), 
+                    `Species Qualified`=="CK", 
+                    est_type%in%c("Unspecified Return", "Natural Adult Spawners", "Adult Broodstock Removals")) %>% 
+             group_by(year, est_type) %>% 
+             summarize(n = sum(estimate, na.rm=T)), 
+           aes(x=year, y=n, fill=est_type, colour=est_type), stat="identity", position="stack", alpha=0.8) +
+  scale_fill_manual(values=c("Unspecified Return" = "gray80",
+                             "Natural Adult Spawners" = "dodger blue",
+                             "Adult Broodstock Removals" = "orange")) +
+  scale_colour_manual(values=c("Unspecified Return" = "gray80",
+                               "Natural Adult Spawners" = "dodger blue",
+                               "Adult Broodstock Removals" = "orange")) +
+  geom_bar(data=escEstSpp %>% 
+             filter(ShortSpecies=="CN", AREA=="20", SystemName!="Gordon River") %>% 
+             summarize(n = sum(AdultExpPLD)), 
+             aes(x=analysis_year, y=n), stat="identity", colour="red", fill="white", alpha=0.8, linewidth=1, linetype="solid") +   
+  scale_x_continuous(breaks = scales::breaks_width(3)) +
+  labs(x="Return Year", y="Chinook escapement") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        axis.text = element_text(size=12),
+        axis.title = element_text(size=14),
+        legend.text = element_text(size=10),
+        legend.title = element_blank())
+```
+
+Figure: 2024 preliminary adult Chinook escapement estimate (red outline) relative to historical adult (blue) and unspecified (gray) escapement estimates. Gaps indicate years without estimates. 
+
+<br>
+
+<br>
+
+------------------------
+
+<br>
+
+<br>
+
+
+
+
+
+
+
+
+
+
+
+
+
+# **Pink** 
+
+<br>
+
+## Area 20 raw vs expanded counts
+
+Counts are expanded for % population estimated and/or observer efficiency, depending on survey conditions. 
+
+```{r}
+ggplot() +
+  geom_bar(data=AUCdataTable %>% 
+             filter(ShortSpecies=="PK") %>% 
+             pivot_longer(c(LiveAdults:TotalJacks,ExpLiveAdults:ExpDeadJacks), names_to="est_type", values_to="n") %>% 
+             filter(est_type %in% c("LiveAdults", "ExpLiveAdults")), 
+           aes(x=as.Date(SDate), y=n, colour=est_type, fill=est_type), stat="identity", position="dodge", alpha=0.5) +
+  labs(x="", y="Adult Sockeye counts", fill="Expansion", colour="Expansion") +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d", expand = c(0, 0)) +
+  scale_y_continuous(limits=c(0, max(AUCdataTable[AUCdataTable$ShortSpecies=="PK",]$ExpLiveAdults,na.rm=T))) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        legend.position = c(0.8,0.2)) +
+  facet_wrap(~Section_AreaInspected, scales="free_y")
+```
+
+<br>
+
+<br>
+
+## Swim & fence counts
+
+```{r}
+ggplot() +
+  geom_bar(data=sj.sil %>% 
+             filter(species=="pink") %>% 
+             group_by(date, `upper/lower`) %>% 
+             summarize(n=sum(`adults live / habitat seen (# Est Live)`)), 
+           aes(x=as.Date(date), y=n, fill=`upper/lower`, colour=`upper/lower`), 
+           stat="identity", position="stack", alpha=0.7) + 
+  geom_line(data=mile4.fence %>% 
+              filter(species=="pink",  year==analysis_year) %>% 
+              group_by(date) %>% 
+              summarize(n=sum(count)) %>% 
+              mutate(ncum = cumsum(n)),
+            aes(x=as.Date(date), y=as.numeric(ncum)), alpha=0.7) +
+  geom_point(data=mile4.fence %>% 
+               filter(species=="pink",  year==analysis_year) %>% 
+               group_by(date) %>% 
+               summarize(n=sum(count)) %>% 
+               mutate(ncum = cumsum(n)),
+             aes(x=as.Date(date), y=as.numeric(ncum)), alpha=0.7, size=2) +
+  scale_x_date(date_breaks="7 day", date_labels = "%b %d")+
+  labs(x="", y="Observed pinks (swims)", fill="Segment", colour="Segment") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: Pink swim counts (raw adults) in the San Juan mainstem relative to cumulative fence counts (black line). If no black line, then no pink were counted through the fence this year. 
+
+<br>
+
+<br>
+
+## Area 20 preliminary escapement estimate (PL+D)
+
+<br>
+
+Table: San Juan swim counts (expanded live and dead) and preliminary escapement estimates for San Juan surveys. 
+
+```{r}
+AUCdataTable %>% 
+  filter(ShortSpecies=="PK") %>% 
+  select(ShortSpecies,Section_AreaInspected, SDate, WaterTemperature, WaterClarity, LiveAdults, DeadAdults,LiveJacks,DeadJacks, ExpLiveAdults,
+         ExpDeadAdults, ExpLiveJacks, ExpDeadJacks, OverallReliability, EstPctSeen) %>% 
+  mutate(across(c(LiveAdults:ExpDeadJacks), ~round(., 0))) %>% 
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:4), valign="middle", target=1) 
+```
+
+<br>
+
+Table: Escapement estimates for each system. San Juan mainstem surveys were rolled up based on mid-point date for each of 3 complete survey events, and then the PL+D was selected based on the 3 survey events.  
+
+```{r}
+escEstSpp %>% 
+  filter(ShortSpecies=="PK", AREA=="20") %>% 
+  select(ShortSpecies, SystemName, contains("PLD"), contains("Reco"), -c(contains("Recommend"))) %>% 
+  rename(FinalAdultEstimate = AdultNaturalReco,
+         FinalJackEstimate = JackNaturalReco) %>% 
+  select(ShortSpecies, SystemName, contains("PLD"), AdultRemovalsReco, JackRemovalsReco, FinalAdultEstimate, FinalJackEstimate) %>% 
+  mutate(across(FinalJackEstimate:FinalAdultEstimate, ~case_when(.<0 ~ 0,
+                                                                 TRUE ~ .))) %>%
+  kableExtra::kbl(align="c") %>%
+  kableExtra::kable_paper("hover", full_width=T, position = "center") %>%
+  kableExtra::collapse_rows(columns=c(1:4), valign="middle", target=1) 
+```
+
+<br>
+
+### Estimate decision:   
+
+For 2024 estimate used fence count for SJ mainstem and PL+D for Gordon. *This is subject to change; see EscBatchHardCopy report for specific estimate abundance.*
+
+<br>
+
+<br>
+
+## `r analysis_year` compared to historical abundance
+
+```{r}
+ggplot()  +
+  geom_bar(data=sj.escHistorical %>% 
+             filter(`Waterbody Name` %in% c("SAN JUAN RIVER", "HARRIS CREEK", "LENS CREEK", "RENFREW CREEK"), 
+                    `Species Qualified` == "PKE") %>% 
+             group_by(`Analysis Year`) %>% 
+             summarize(`Natural Adult Spawners`=sum(`Natural Adult Spawners`, na.rm=T)), 
+           aes(x=`Analysis Year`, y=`Natural Adult Spawners`), 
+           stat="identity", colour="dodger blue", fill="dodger blue", alpha=0.8) +
+  geom_bar(data=sj.escHistorical %>% 
+             filter(`Waterbody Name` %in% c("SAN JUAN RIVER", "HARRIS CREEK", "LENS CREEK", "RENFREW CREEK"), 
+                    `Species Qualified`=="PKE") %>% 
+             group_by(`Analysis Year`) %>% 
+             summarize(`Unspecified Return`=sum(`Unspecified Return`, na.rm=T)), 
+           aes(x=`Analysis Year`, y=`Unspecified Return`), 
+           stat="identity", colour="gray80", fill="gray80", alpha=0.8) +  
+  geom_bar(data=escEstSpp %>% 
+             filter(ShortSpecies=="PK", AREA=="20", SystemName!="Gordon River") %>% 
+             select(Year, SystemName, AdultNaturalReco) %>% 
+             summarize(n=sum(AdultNaturalReco)), 
+             aes(x=analysis_year, y=n), stat="identity", colour="red", fill="dodger blue", alpha=0.8) +   scale_x_continuous(breaks=seq(min(sj.escHistorical$`Analysis Year`), analysis_year, by=2)) +
+  labs(x="Return Year", y="Pink spawners") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+```
+
+Figure: 2024 preliminary adult Pink escapement estimate (red outline) relative to historical adult (blue) and unspecified (gray) escapement estimates. Gaps indicate years without estimates. 
+
+
+<br>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
