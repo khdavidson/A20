@@ -36,7 +36,7 @@ library(ggpubr)       # for ggarrange()
 # Helpers ------------------------
 "%notin%" <- Negate("%in%")
 options(scipen = 999999)
-analysis_year <- 2023
+analysis_year <- 2025
 
 source(here::here("scripts", "functions", "getExtractorData.R"), local = knitr::knit_global())
 #source("C:/Users/DAVIDSONKA/Documents/ANALYSIS/San_Juan/san_juan_CN/scripts/functions/getMrpPadsData.R", local = knitr::knit_global())
@@ -44,7 +44,7 @@ source(here::here("scripts", "functions", "getExtractorData.R"), local = knitr::
 
 
 # ============================== SEP RELEASES ==============================
-SJRelSEP <- lapply(list.files(path=here("data", "enhancement-PNI"),
+SJRelSEP <- lapply(list.files(path=here::here("data", "enhancement-PNI"),
                               pattern = "^SEP RELEASES_all-years-spp.*\\.xlsx$",
                               full.names = TRUE), 
                    readxl::read_excel, sheet="Actual Release") %>% 
